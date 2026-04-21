@@ -1,0 +1,257 @@
+<?php
+session_start();
+include 'db_connect.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$view_date = isset($_GET['view_date']) ? $_GET['view_date'] : date('Y-m-d');
+
+// --- 1. HANDLE NEW SCHEDULE (WITH PRIVACY LINK) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_sched'])) {
+    $i_id = $_POST['infant_id'];
+    $v_name = mysqli_real_escape_string($conn, $_POST['vaccine_name']);
+    $dose = mysqli_real_escape_string($conn, $_POST['dose_number']);
+    $v_date = $_POST['vaccination_date']; 
+    $v_time = $_POST['vaccination_time']; 
+
+    /** * STEP A: Kunin ang user_id na naka-link sa infant record
+     * para 'ma-send' natin ito sa account ng magulang.
+     */
+    $get_owner = $conn->prepare("SELECT user_id FROM infant_records WHERE id = ?");
+    $get_owner->bind_param("i", $i_id);
+    $get_owner->execute();
+    $owner_result = $get_owner->get_result();
+    $owner_data = $owner_result->fetch_assoc();
+    $linked_user_id = $owner_data['user_id'];
+
+    /** * STEP B: I-save sa infant_schedule kasama ang user_id.
+     * Siguraduhin na may 'user_id' column ang infant_schedule table mo.
+     */
+    $sql = "INSERT INTO infant_schedule (infant_id, user_id, vaccine_name, dose_number, vaccination_date, next_appointment, status) 
+            VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("iissss", $i_id, $linked_user_id, $v_name, $dose, $v_date, $v_time);
+    $stmt->execute();
+
+    header("Location: admin_sched_child.php?view_date=$v_date");
+    exit();
+}
+
+// --- 2. HANDLE RESCHEDULE ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['resched_action'])) {
+    $s_id = $_POST['sched_id'];
+    $new_date = $_POST['new_date'];
+    $new_time = $_POST['new_time'];
+
+    $sql = "UPDATE infant_schedule SET vaccination_date = ?, next_appointment = ?, status = 'Rescheduled' WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ssi", $new_date, $new_time, $s_id);
+    $stmt->execute();
+    header("Location: admin_sched_child.php?view_date=$new_date");
+    exit();
+}
+
+// --- 3. ACTIONS ---
+if (isset($_GET['delete_id'])) {
+    $id = (int)$_GET['delete_id'];
+    $conn->query("DELETE FROM infant_schedule WHERE id=$id");
+    header("Location: admin_sched_child.php?view_date=$view_date");
+    exit();
+}
+if (isset($_GET['done_id'])) {
+    $id = (int)$_GET['done_id'];
+    $conn->query("UPDATE infant_schedule SET status='Completed' WHERE id=$id");
+    header("Location: admin_sched_child.php?view_date=$view_date");
+    exit();
+}
+
+// --- 4. FETCH DATA ---
+$infants = $conn->query("SELECT id, baby_name FROM infant_records ORDER BY baby_name ASC");
+
+$pending_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
+    JOIN infant_records i ON s.infant_id = i.id 
+    WHERE s.vaccination_date = '$view_date' AND s.status = 'Pending' 
+    ORDER BY s.next_appointment ASC");
+
+$resched_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
+    JOIN infant_records i ON s.infant_id = i.id 
+    WHERE s.vaccination_date = '$view_date' AND s.status = 'Rescheduled' 
+    ORDER BY s.next_appointment ASC");
+
+$completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
+    JOIN infant_records i ON s.infant_id = i.id 
+    WHERE s.vaccination_date = '$view_date' AND s.status = 'Completed' 
+    ORDER BY s.next_appointment ASC");
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Child Vaccination | Alawihao Health</title>
+    <style>
+        :root { --sage: #718355; --bg: #adb59d; --white: #ffffff; --dark: #4a5d3f; --tan: #d4a373; }
+        body { background-color: var(--bg); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; }
+        #main { margin-left: 260px; padding: 40px; }
+        
+        .dashboard-container { display: grid; grid-template-columns: 1fr 360px; gap: 30px; }
+        .todo-section { background: rgba(255,255,255,0.7); padding: 30px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .patient-item { display: flex; justify-content: space-between; align-items: center; padding: 18px; background: white; border-radius: 15px; margin-bottom: 15px; }
+
+        .activity-pad { background: var(--dark); color: white; padding: 25px; border-radius: 25px; min-height: 500px; position: sticky; top: 40px; }
+        .pad-box { background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.3); padding: 15px; border-radius: 15px; margin-bottom: 20px; }
+        .pad-box h4 { margin: 0 0 10px 0; font-size: 0.75rem; color: rgba(255,255,255,0.5); text-transform: uppercase; }
+
+        .btn-add { background: var(--sage); color: white; padding: 12px 24px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; }
+        .btn-done { background: var(--sage); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; }
+        .btn-resched { background: var(--tan); color: white; padding: 8px 16px; border: none; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
+
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); }
+        .modal-content { background: white; margin: 5% auto; padding: 40px; width: 450px; border-radius: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
+        
+        input, select { 
+            width: 100%; 
+            height: 45px; 
+            margin-bottom: 20px; 
+            border: 1.5px solid #000; 
+            border-radius: 8px; 
+            padding: 0 15px; 
+            box-sizing: border-box; 
+            font-size: 1rem;
+        }
+        
+        label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: #555; font-weight: bold; }
+        .btn-save { width: 100%; background: var(--sage); color: white; border: none; height: 55px; border-radius: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<?php 
+    // SIDEBAR LOGIC
+    if (isset($_SESSION['role']) && $_SESSION['role'] == 'Super Admin') {
+        include 'super_admin_sidebar.php';
+    } else {
+        include 'admin_sidebar.php';
+    }
+?>
+
+<div id="main">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+        <h1 style="color: #2c3e50; font-weight: 800; font-size: 2.5rem; margin: 0;">Vaccination</h1>
+        <div style="background: white; padding: 10px 20px; border-radius: 15px;">
+            <input type="date" value="<?= $view_date ?>" onchange="location.href='admin_sched_child.php?view_date='+this.value" style="border:none; height:auto; margin:0; cursor:pointer;">
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="todo-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <h3 style="margin:0;">Waiting List</h3>
+                <button class="btn-add" onclick="openModal('schedModal')">New Vaccination</button>
+            </div>
+            
+            <?php if($pending_res && $pending_res->num_rows > 0): ?>
+                <?php while($row = $pending_res->fetch_assoc()): ?>
+                    <div class="patient-item">
+                        <div>
+                            <span style="font-weight: 700; font-size: 1.1rem;"><?= htmlspecialchars($row['baby_name']) ?></span><br>
+                            <small style="color:#7f8c8d;"><?= $row['vaccine_name'] ?> (<?= $row['dose_number'] ?>) • <?= $row['next_appointment'] ?></small>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="admin_sched_child.php?done_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-done">Done</a>
+                            <button class="btn-resched" onclick="openReschedModal('<?= $row['id'] ?>', '<?= addslashes($row['baby_name']) ?>')">Reschedule</button>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <p style="text-align:center; padding: 50px 0; color: #95a5a6;">No records found.</p>
+            <?php endif; ?>
+        </div>
+
+        <div class="activity-pad">
+            <h3>Activity Pad</h3>
+            <div class="pad-box">
+                <h4>🔄 RESCHEDULED</h4>
+                <?php while($row = $resched_res->fetch_assoc()): ?>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
+                        <span><?= htmlspecialchars($row['baby_name']) ?></span>
+                        <a href="admin_sched_child.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" style="color:#ffbaba; text-decoration:none;">×</a>
+                    </div>
+                <?php endwhile; ?>
+            </div>
+            <div class="pad-box">
+                <h4>✅ COMPLETED</h4>
+                <?php while($row = $completed_res->fetch_assoc()): ?>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
+                        <span><?= htmlspecialchars($row['baby_name']) ?></span>
+                        <a href="admin_sched_child.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" style="color:#ffbaba; text-decoration:none;">×</a>
+                    </div>
+                <?php endwhile; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="schedModal" class="modal">
+    <div class="modal-content">
+        <h2 style="margin-top:0; margin-bottom:25px;">New Vaccination</h2>
+        <form method="POST">
+            <input type="hidden" name="add_sched" value="1">
+            
+            <label>Select Baby</label>
+            <select name="infant_id" required>
+                <option value="">-- Choose Baby --</option>
+                <?php $infants->data_seek(0); while($i = $infants->fetch_assoc()): ?>
+                    <option value="<?= $i['id'] ?>"><?= htmlspecialchars($i['baby_name']) ?></option>
+                <?php endwhile; ?>
+            </select>
+
+            <label>Vaccine Name</label>
+            <input type="text" name="vaccine_name" placeholder="e.g. BCG" required>
+            
+            <label>Dose #</label>
+            <input type="text" name="dose_number" placeholder="e.g. 1st Dose" required>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div><label>Date</label><input type="date" name="vaccination_date" required></div>
+                <div><label>Time</label><input type="time" name="vaccination_time" required></div>
+            </div>
+
+            <button type="submit" class="btn-save">Save Schedule</button>
+            <div style="text-align:center; margin-top:15px;">
+                <button type="button" onclick="closeModal('schedModal')" style="background:none; border:none; color:#95a5a6; cursor:pointer;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="reschedModal" class="modal">
+    <div class="modal-content" style="border-top: 10px solid var(--tan);">
+        <h2 style="margin-top:0;">Reschedule</h2>
+        <p id="resName" style="color:var(--dark); font-weight:bold;"></p>
+        <form method="POST">
+            <input type="hidden" name="resched_action" value="1">
+            <input type="hidden" name="sched_id" id="resId">
+            <label>New Date</label><input type="date" name="new_date" required>
+            <label>New Time</label><input type="time" name="new_time" required>
+            <button type="submit" class="btn-save" style="background:var(--tan);">Confirm Change</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(id) { document.getElementById(id).style.display = "block"; }
+    function closeModal(id) { document.getElementById(id).style.display = "none"; }
+    function openReschedModal(id, name) {
+        document.getElementById('resId').value = id;
+        document.getElementById('resName').innerText = "Rescheduling: " + name;
+        openModal('reschedModal');
+    }
+    window.onclick = function(e) { if(e.target.className == 'modal') closeModal(e.target.id); }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,168 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+include 'db_connect.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$user_id = $_SESSION['user_id'];
+
+// SQL Query na may kasamang Age calculation para hindi na kailangan ng DateTime sa loop
+$sql = "SELECT *, 
+        TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) AS age_years, 
+        TIMESTAMPDIFF(MONTH, birth_date, CURDATE()) % 12 AS age_months 
+        FROM infant_records 
+        WHERE parent_id = '$user_id' 
+        ORDER BY created_at DESC";
+
+$result = $conn->query($sql);
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Child Records | Alawihao</title>
+    <style>
+        :root { 
+            --primary-green: #718355; 
+            --soft-green: #90a955;
+            --bg-color: #f5f5dc; 
+            --white: #ffffff;
+        }
+
+        body { 
+            font-family: 'Times New Roman', serif; 
+            background-color: var(--bg-color); 
+            margin: 0; 
+            display: flex; 
+        }
+        
+        #main { 
+            margin-left: 280px; 
+            width: calc(100% - 280px); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        
+        .header { 
+            width: 100%; 
+            background: var(--white); 
+            padding: 20px 40px; 
+            border-bottom: 4px solid var(--primary-green); 
+            box-sizing: border-box; 
+            margin-bottom: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .table-container { 
+            background: var(--white); 
+            width: 90%; 
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08); 
+            border-top: 8px solid var(--primary-green); 
+            box-sizing: border-box; 
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+        }
+
+        th { 
+            background: #f8f9fa; 
+            color: var(--primary-green); 
+            padding: 15px; 
+            text-align: left; 
+            border-bottom: 2px solid #dee2e6;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        td { 
+            padding: 15px; 
+            border-bottom: 1px solid #eee; 
+            color: #444; 
+            font-size: 0.95rem;
+        }
+
+        tr:hover { background-color: #fcfcfc; }
+        
+        .status-badge { 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 0.75rem; 
+            font-weight: bold; 
+            background: #e8f5e9; 
+            color: #2e7d32; 
+            border: 1px solid #c8e6c9;
+        }
+
+        .baby-name {
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+    </style>
+</head>
+<body>
+
+<?php include 'user_sidebar.php'; ?>
+
+<div id="main">
+    <div class="header">
+        <h3 style="margin:0; letter-spacing: 2px;">CHILD RECORDS SYSTEM</h3>
+    </div>
+
+    <div class="table-container">
+        <h2 style="color: var(--primary-green); margin-top: 0;">Official Health Information</h2>
+        <p style="color: #888; font-size: 0.9rem; margin-bottom: 25px;">The records below are verified and approved by the Alawihao Health Center.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Baby's Name</th>
+                    <th>Current Age</th>
+                    <th>Birthday</th>
+                    <th>Weight</th>
+                    <th>Address</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($result && $result->num_rows > 0): ?>
+                    <?php while($row = $result->fetch_assoc()): ?>
+                    <tr>
+                        <td class="baby-name"><?php echo htmlspecialchars($row['baby_name']); ?></td>
+                        <td>
+                            <?php 
+                                echo $row['age_years'] . "y " . $row['age_months'] . "m"; 
+                            ?>
+                        </td>
+                        <td><?php echo date('F d, Y', strtotime($row['birth_date'])); ?></td>
+                        <td><?php echo $row['weight_kg']; ?> kg</td>
+                        <td><?php echo htmlspecialchars($row['address']); ?></td>
+                        <td><span class="status-badge">✔ APPROVED</span></td>
+                    </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding: 50px; color: #999;">
+                            <img src="assets/img/empty-folder.png" alt="" style="width: 50px; opacity: 0.3;"><br>
+                            No official records found. Records will appear here once approved by Admin.
+                        </td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>
