@@ -188,7 +188,7 @@ if (isset($_POST['login'])) {
         </form>
 
         <div class="footer-text">
-            Don't have an account? <a href="register_user.php">Create Account</a>
+            Don't have an account? <a href="signup.php">Create Account</a>
         </div>
     </div>
 
