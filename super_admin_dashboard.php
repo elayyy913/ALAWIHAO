@@ -57,10 +57,10 @@ if (isset($_GET['approve_id'])) {
     }
 }
 
-// Maternal Registration Approval
+// Maternal Registration Approval (Updated Table Name)
 if (isset($_GET['approve_preg_id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_preg_id']);
-    $update_status = "UPDATE maternal_registrations SET status = 'Approved' WHERE id = '$id'";
+    $update_status = "UPDATE maternal_registration SET status = 'Approved' WHERE id = '$id'";
     
     if (mysqli_query($conn, $update_status)) {
         header("Location: super_admin_dashboard.php?msg=MaternalApproved"); 
@@ -84,7 +84,7 @@ if (isset($_GET['remove_id'])) {
 
 if (isset($_GET['remove_preg_id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['remove_preg_id']);
-    mysqli_query($conn, "DELETE FROM maternal_registrations WHERE id = '$id'");
+    mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = '$id'");
     header("Location: super_admin_dashboard.php?msg=Removed"); 
     exit();
 }
@@ -102,20 +102,20 @@ if (isset($_GET['remove_worker_id'])) {
     exit();
 }
 
-// --- FETCH COUNTS ---
+// --- FETCH COUNTS (Updated Queries) ---
 $total_newborns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM infant_records"))['t'] ?? 0;
-$total_pregnant = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registrations WHERE status='Approved'"))['t'] ?? 0;
+$total_pregnant = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Approved'"))['t'] ?? 0;
 $total_patients = $total_newborns + $total_pregnant;
 $total_workers = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Approved'"))['t'] ?? 0;
 
 $total_pending = (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM children WHERE status='Pending'"))['t'] ?? 0) + 
-                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registrations WHERE status='Pending'"))['t'] ?? 0) +
+                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Pending'"))['t'] ?? 0) +
                   (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0);
 
 // --- FETCH LISTS ---
 $pending_workers = mysqli_query($conn, "SELECT * FROM users WHERE role='Admin' AND status='Pending' ORDER BY created_at DESC");
 $pending_list = mysqli_query($conn, "SELECT * FROM children WHERE status='Pending' ORDER BY created_at DESC");
-$pending_preg_list = mysqli_query($conn, "SELECT * FROM maternal_registrations WHERE status='Pending' ORDER BY created_at DESC");
+$pending_preg_list = mysqli_query($conn, "SELECT * FROM maternal_registration WHERE status='Pending' ORDER BY created_at DESC");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -130,14 +130,10 @@ $pending_preg_list = mysqli_query($conn, "SELECT * FROM maternal_registrations W
         .page-header { border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 30px; }
         .page-header h1 { color: var(--dark-sage); font-size: 1.8rem; margin: 0; }
         
-        /* Stats Grid - Original Style */
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: var(--white); padding: 20px; border-radius: 4px; border-top: 5px solid var(--sage); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .stat-card h4 { font-size: 0.7rem; color: #7f8c8d; margin-bottom: 10px; text-transform: uppercase; }
         .stat-card h2 { margin: 0; font-size: 1.6rem; }
-        
-        /* Expanded Tables Layout */
-        .dashboard-flex { display: block; width: 100%; } /* Changed from flex to block for full width */
         
         .table-container { background: var(--white); padding: 25px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 25px; width: 100%; box-sizing: border-box; }
         .table-container h3 { font-size: 1rem; color: var(--dark-sage); border-left: 4px solid var(--sage); padding-left: 10px; margin-bottom: 20px; }
@@ -167,42 +163,41 @@ $pending_preg_list = mysqli_query($conn, "SELECT * FROM maternal_registrations W
         <div class="stat-card"><h4>STAFF WORKERS</h4><h2><?php echo $total_workers; ?></h2></div>
     </div>
 
-        <div class="table-container">
-            <h3>Newborn Registration Approval</h3>
-            <table>
-                <thead><tr><th>Infant Name</th><th>Mother's Name</th><th>Action</th></tr></thead>
-                <tbody>
-                    <?php if (mysqli_num_rows($pending_list) > 0): while($row = mysqli_fetch_assoc($pending_list)): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row['child_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
-                        <td>
-                            <a href="?approve_id=<?php echo $row['id']; ?>" class="btn-approve">CONFIRM</a>
-                            <a href="?remove_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
-                        </td>
-                    </tr>
-                    <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending newborn records.</td></tr>"; endif; ?>
-                </tbody>
-            </table>
-        </div>
+    <div class="table-container">
+        <h3>Newborn Registration Approval</h3>
+        <table>
+            <thead><tr><th>Infant Name</th><th>Mother's Name</th><th>Action</th></tr></thead>
+            <tbody>
+                <?php if (mysqli_num_rows($pending_list) > 0): while($row = mysqli_fetch_assoc($pending_list)): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($row['child_name']); ?></td>
+                    <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
+                    <td>
+                        <a href="?approve_id=<?php echo $row['id']; ?>" class="btn-approve">CONFIRM</a>
+                        <a href="?remove_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
+                    </td>
+                </tr>
+                <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending newborn records.</td></tr>"; endif; ?>
+            </tbody>
+        </table>
+    </div>
 
-        <div class="table-container">
-            <h3>Maternal Registration Approval</h3>
-            <table>
-                <thead><tr><th>Patient Name</th><th>Action</th></tr></thead>
-                <tbody>
-                    <?php if (mysqli_num_rows($pending_preg_list) > 0): while($row = mysqli_fetch_assoc($pending_preg_list)): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row['full_name']); ?></td>
-                        <td>
-                            <a href="?approve_preg_id=<?php echo $row['id']; ?>" class="btn-approve">APPROVE</a>
-                            <a href="?remove_preg_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this registration?')">REJECT</a>
-                        </td>
-                    </tr>
-                    <?php endwhile; else: echo "<tr><td colspan='2' align='center'>No pending maternal registration.</td></tr>"; endif; ?>
-                </tbody>
-            </table>
-        </div>
+    <div class="table-container">
+        <h3>Maternal Registration Approval</h3>
+        <table>
+            <thead><tr><th>Patient Name</th><th>Action</th></tr></thead>
+            <tbody>
+                <?php if (mysqli_num_rows($pending_preg_list) > 0): while($row = mysqli_fetch_assoc($pending_preg_list)): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($row['client_fname'] . " " . $row['client_lname']); ?></td>
+                    <td>
+                        <a href="?approve_preg_id=<?php echo $row['id']; ?>" class="btn-approve">APPROVE</a>
+                        <a href="?remove_preg_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this registration?')">REJECT</a>
+                    </td>
+                </tr>
+                <?php endwhile; else: echo "<tr><td colspan='2' align='center'>No pending maternal registration.</td></tr>"; endif; ?>
+            </tbody>
+        </table>
     </div>
 </div>
 

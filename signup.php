@@ -51,11 +51,15 @@ if (isset($_POST['signup'])) {
         input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); box-sizing: border-box; font-size: 15px; background: #FAFAFA; transition: all 0.2s; }
         input:focus { border-color: var(--sage); outline: none; background: #FFF; box-shadow: 0 0 0 3px rgba(149, 175, 126, 0.1); }
         
-        /* Password Guidelines Styling */
-        .password-policies { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .policy { font-size: 11px; color: var(--muted); display: flex; align-items: center; transition: color 0.3s; }
-        .policy i { margin-right: 5px; }
-        .policy.valid { color: var(--sage); font-weight: 600; }
+        /* Password Dynamic Feedback */
+        .password-policies { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; min-height: 20px; }
+        .policy { font-size: 11px; color: #E53E3E; background: #FFF5F5; padding: 4px 10px; border-radius: 20px; border: 1px solid #FEB2B2; display: flex; align-items: center; transition: all 0.3s ease; }
+        
+        /* Itatago natin yung policy kapag valid na */
+        .policy.valid { display: none; opacity: 0; transform: translateY(-5px); }
+
+        /* Style para sa "All Good" message */
+        #success-msg { display: none; color: var(--sage); font-size: 11px; font-weight: 600; }
 
         .btn { width: 100%; padding: 16px; background: var(--sage); color: #FFFFFF; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 30px; font-size: 16px; transition: 0.3s; }
         .btn:hover { background: var(--dark-sage); transform: translateY(-1px); }
@@ -83,8 +87,12 @@ if (isset($_POST['signup'])) {
             <label>Password</label>
             <input type="password" name="password" id="passInput" required placeholder="Create a strong password">
             
-            <div class="password-policies">
-                <div class="policy" id="len"><span class="dot">•</span> 8+ char,Uppercase,Number,Special char </div>
+            <div class="password-policies" id="policyContainer">
+                <div class="policy" id="len">8+ characters</div>
+                <div class="policy" id="up">Uppercase</div>
+                <div class="policy" id="num">Number</div>
+                <div class="policy" id="spec">Special char</div>
+                <div id="success-msg">✓ Password strength met</div>
             </div>
 
             <label style="margin-top: 20px;">Confirm Password</label>
@@ -100,6 +108,7 @@ if (isset($_POST['signup'])) {
 
     <script>
         const pass = document.getElementById('passInput');
+        const successMsg = document.getElementById('success-msg');
         
         const policies = {
             len: document.getElementById('len'),
@@ -111,14 +120,29 @@ if (isset($_POST['signup'])) {
         pass.addEventListener('input', () => {
             const val = pass.value;
             
-            // Validate Length
-            val.length >= 8 ? policies.len.classList.add('valid') : policies.len.classList.remove('valid');
-            // Validate Uppercase
-            /[A-Z]/.test(val) ? policies.up.classList.add('valid') : policies.up.classList.remove('valid');
-            // Validate Number
-            /[0-9]/.test(val) ? policies.num.classList.add('valid') : policies.num.classList.remove('valid');
-            // Validate Special Char
-            /[^A-Za-z0-9]/.test(val) ? policies.spec.classList.add('valid') : policies.spec.classList.remove('valid');
+            // Check validations
+            const checks = {
+                len: val.length >= 8,
+                up: /[A-Z]/.test(val),
+                num: /[0-9]/.test(val),
+                spec: /[^A-Za-z0-9]/.test(val)
+            };
+
+            // Toggle visibility of each tag
+            Object.keys(checks).forEach(key => {
+                if (checks[key]) {
+                    policies[key].classList.add('valid');
+                } else {
+                    policies[key].classList.remove('valid');
+                }
+            });
+
+            // Ipakita ang success message kapag empty na ang listahan ng kulang
+            if (checks.len && checks.up && checks.num && checks.spec) {
+                successMsg.style.display = 'block';
+            } else {
+                successMsg.style.display = 'none';
+            }
         });
 
         document.getElementById('regForm').onsubmit = function(e) {

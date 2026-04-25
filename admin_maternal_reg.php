@@ -2,45 +2,9 @@
 session_start();
 include 'db_connect.php';
 
-// Check if logged in
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
-}
-
-$message = "";
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // 1. Capture data from form with basic security
-    $name = mysqli_real_escape_string($conn, $_POST['patient_name']);
-    $age = $_POST['age'];
-    $address = mysqli_real_escape_string($conn, $_POST['address']);
-    $contact = mysqli_real_escape_string($conn, $_POST['contact_number']);
-    $height = $_POST['height'];
-    $weight = $_POST['weight'];
-    $blood_type = $_POST['blood_type'];
-    $allergies = mysqli_real_escape_string($conn, $_POST['allergies']);
-    $lmp = $_POST['lmp'];
-    $edc = $_POST['edd']; 
-    
-    // BINAGO: Ginawang "Pending" para lumabas sa Super Admin dashboard
-    $status = "Pending"; 
-
-    // 2. SQL Prepare
-    $sql = "INSERT INTO maternal_registrations (full_name, age, address, contact_number, height, weight, blood_type, allergies, lmp, edc, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    
-    $stmt = $conn->prepare($sql);
-    
-    // 3. Bind parameters
-    $stmt->bind_param("sisssddssss", $name, $age, $address, $contact, $height, $weight, $blood_type, $allergies, $lmp, $edc, $status);
-
-    if ($stmt->execute()) {
-        // BINAGO: Update message para alam ng user na for approval pa
-        $message = "Maternal record registered successfully! Pending for admin review.";
-    } else {
-        $message = "Error: " . $conn->error;
-    }
 }
 ?>
 
@@ -49,7 +13,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maternal Registration | Alawihao Health</title>
+    <title>Maternal Registration | Alawihao Health Center</title>
     <style>
         :root {
             --sage-green: #718355;
@@ -62,209 +26,312 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             background-color: var(--light-beige); 
             margin: 0; 
             font-family: 'Times New Roman', serif; 
-            overflow-x: hidden;
         }
         
         #main { 
             margin-left: 0; 
-            padding: 40px;
+            padding: 20px;
             transition: all 0.3s ease-in-out;
-            min-height: 100vh;
-            box-sizing: border-box;
         }
 
-        /* Sidebar dynamic margin fix */
         .main-content-active {
             margin-left: var(--sidebar-width) !important;
-            width: calc(100% - var(--sidebar-width));
-        }
-
-        .health-care-card {
-            background: white; 
-            padding: 20px 30px; 
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-            margin-bottom: 25px;
-            border-bottom: 4px solid var(--sage-green); 
-            color: var(--sage-green);
-            letter-spacing: 2px; 
-            text-transform: uppercase; 
-            font-size: 0.9rem;
         }
 
         .form-card {
             background: white; 
-            padding: 40px 50px; 
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            max-width: 900px;
+            padding: 30px; 
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            max-width: 1400px;
             margin: 0 auto;
         }
 
-        .form-card h2 { 
-            color: var(--sage-green); 
-            margin-bottom: 30px; 
-            font-size: 2rem; 
-            font-weight: normal;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 15px;
+        h2 { 
+            border-bottom: 1px solid #333; 
+            padding-bottom: 5px; 
+            font-size: 1rem;
+            margin-top: 0;
+            text-transform: uppercase;
         }
 
-        .form-grid {
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 20px;
-            margin-bottom: 20px;
+        .section-header {
+            background: transparent;
+            padding: 10px 0;
+            margin: 25px 0 15px 0;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            border-left: 4px solid var(--sage-green);
+            padding-left: 10px;
         }
 
-        .form-group label { 
-            display: block; 
-            color: #888; 
-            font-size: 0.8rem; 
-            text-transform: uppercase; 
-            margin-bottom: 8px; 
-            letter-spacing: 0.5px;
+        .row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
         }
-        
-        .form-group input, .form-group textarea, .form-group select {
-            width: 100%; 
-            padding: 14px; 
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .form-group label {
+            font-size: 0.65rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            padding: 8px;
             border: 1px solid var(--border-color);
-            border-radius: 8px; 
-            background: #fafaf9; 
-            box-sizing: border-box;
-            font-family: inherit;
-            color: #555;
-            outline: none;
-            transition: border 0.3s;
+            border-radius: 2px;
+            font-size: 0.8rem;
+            background: #fff;
         }
 
-        .form-group input:focus, .form-group textarea:focus { 
-            border-color: var(--sage-green); 
+        /* CUSTOM SELECT STYLE */
+        .table-select {
+            appearance: none;
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            background-color: #fafaf9;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23718355%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px top 50%;
+            background-size: 9px auto;
+        }
+
+        /* TABLE STYLING */
+        .history-container { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: center; }
+        th { background: #f8f9fa; font-weight: bold; }
+        .row-label { text-align: left; font-weight: bold; width: 280px; background: #fdfdfb; }
+        .tagalog-hint { display: block; font-size: 0.65rem; color: #b35a5a; font-style: italic; }
+
+        /* Multiple Child Number Input */
+        .multiple-count {
+            width: 40px !important;
+            margin-top: 5px;
+            padding: 4px !important;
+            text-align: center;
+            display: none; /* Hidden by default */
         }
 
         .reg-btn {
-            background-color: var(--sage-green); 
-            color: white; 
-            border: none;
-            padding: 18px; 
-            border-radius: 12px; 
-            cursor: pointer;
-            width: 100%; 
-            font-size: 1.1rem; 
-            font-weight: bold;
-            transition: background 0.3s;
-            margin-top: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .reg-btn:hover { background-color: #5a6b43; }
-        
-        .success-msg { 
-            color: #2d5a27; 
-            background: #e8f5e9;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 25px;
-            border-left: 5px solid var(--sage-green);
-        }
-
-        @media (max-width: 768px) {
-            .form-grid { grid-template-columns: 1fr; }
-            .main-content-active { margin-left: 0 !important; width: 100%; }
+            background-color: var(--sage-green); color: white; border: none;
+            padding: 15px; width: 100%; font-weight: bold; cursor: pointer;
+            margin-top: 25px; text-transform: uppercase; border-radius: 4px;
         }
     </style>
 </head>
 <body>
 
 <?php 
-    // DYNAMIC SIDEBAR LOADING
     if (isset($_SESSION['role'])) {
-        if ($_SESSION['role'] === 'Super Admin') {
-            include 'super_admin_sidebar.php'; 
-        } elseif ($_SESSION['role'] === 'Admin') {
-            include 'admin_sidebar.php'; 
-        } else {
-            include 'user_sidebar.php';
-        }
+        if ($_SESSION['role'] === 'Super Admin') include 'super_admin_sidebar.php'; 
+        elseif ($_SESSION['role'] === 'Admin') include 'admin_sidebar.php'; 
+        else include 'user_sidebar.php';
     }
 ?>
 
 <div id="main">
-    <div class="health-care-card">
-        <strong>Alawihao Health Center | Maternal Registration</strong>
-    </div>
-
     <div class="form-card">
-        <h2>Maternal Registration Form</h2>
-        
-        <?php if($message) echo "<div class='success-msg'>$message</div>"; ?>
+        <h2>MATERNAL REGISTRATION </h2>
 
-        <form method="POST">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Full Name of Mother</label>
-                    <input type="text" name="patient_name" placeholder="e.g. Maria Clara" required>
-                </div>
-                <div class="form-group">
-                    <label>Age</label>
-                    <input type="number" name="age" required>
-                </div>
+        <form method="POST" action="save_maternal.php">
+            <div class="form-group" style="width: 250px; margin-bottom: 20px;">
+                <label>FAMILY SERIAL NUMBER:</label>
+                <input type="text" name="family_serial">
             </div>
 
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label>Home Address</label>
-                <textarea name="address" rows="2" placeholder="Street, Barangay, City" required></textarea>
-            </div>
+            <div class="section-header">PATIENT PERSONAL INFORMATION</div>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Height (cm)</label>
-                    <input type="number" step="0.01" name="height" placeholder="e.g. 160" required>
+            <div class="row">
+                <div class="form-group" style="flex: 1.5;">
+                    <label>LAST NAME (Apelyido):</label>
+                    <input type="text" name="client_lname" required>
+                </div>
+                <div class="form-group" style="flex: 1.5;">
+                    <label>FIRST NAME (Pangalan):</label>
+                    <input type="text" name="client_fname" required>
+                </div>
+                <div class="form-group" style="flex: 0.8;">
+                    <label>MIDDLE INITIAL:</label>
+                    <input type="text" name="client_mi" maxlength="2">
+                </div>
+                <div class="form-group" style="flex: 0.5;">
+                    <label>EXT. (Jr/Sr):</label>
+                    <input type="text" name="client_ext">
                 </div>
                 <div class="form-group">
-                    <label>Weight (kg)</label>
-                    <input type="number" step="0.01" name="weight" placeholder="e.g. 60" required>
+                    <label>DATE OF BIRTH:</label>
+                    <input type="date" name="dob" id="dob">
                 </div>
-            </div>
-
-            <div class="form-grid">
+                <div class="form-group" style="flex: 0.3;">
+                    <label>AGE:</label>
+                    <input type="text" name="age" id="age" readonly>
+                </div>
                 <div class="form-group">
-                    <label>Blood Type</label>
-                    <select name="blood_type" required>
-                        <option value="">-- Select --</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
+                    <label>BLOOD TYPE:</label>
+                    <select name="blood_type" class="table-select">
+                        <option value="">--</option><option value="A+">A+</option><option value="A-">A-</option>
+                        <option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="row">
                 <div class="form-group">
-                    <label>Known Allergies</label>
-                    <input type="text" name="allergies" placeholder="e.g. None or specific medications">
+                    <label>LAST MENSTRUAL PERIOD:</label>
+                    <input type="date" name="lmp">
+                </div>
+                <div class="form-group">
+                    <label>HIGHEST EDUC:</label>
+                    <input type="text" name="highest_educ">
+                </div>
+                <div class="form-group">
+                    <label>OCCUPATION:</label>
+                    <input type="text" name="occupation">
                 </div>
             </div>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Contact Number</label>
-                    <input type="text" name="contact_number" placeholder="09xxxxxxxxx" required>
+            <div class="section-header">ADDRESS & SPOUSE INFORMATION</div>
+            
+            <div class="row">
+                <div class="form-group" style="flex: 1.5;">
+                    <label>SPOUSE LAST NAME:</label>
+                    <input type="text" name="spouse_lname">
+                </div>
+                <div class="form-group" style="flex: 1.5;">
+                    <label>SPOUSE FIRST NAME:</label>
+                    <input type="text" name="spouse_fname">
+                </div>
+                <div class="form-group" style="flex: 0.5;">
+                    <label>MIDDLE INITIAL:</label>
+                    <input type="text" name="spouse_mi" maxlength="2">
+                </div>
+                <div class="form-group" style="flex: 0.5;">
+                    <label>EXT. (Jr/Sr):</label>
+                    <input type="text" name="spouse_ext">
                 </div>
                 <div class="form-group">
-                    <label>Last Menstrual Period (LMP)</label>
-                    <input type="date" name="lmp" id="lmp" required>
+                    <label>DATE OF BIRTH:</label>
+                    <input type="date" name="spouse_dob">
+                </div>
+                <div class="form-group">
+                    <label>BLOOD TYPE:</label>
+                    <select name="blood_type" class="table-select">
+                        <option value="">--</option><option value="A+">A+</option><option value="A-">A-</option>
+                        <option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 25px;">
-                <label>Expected Date of Delivery (EDD)</label>
-                <input type="date" name="edd" id="edd" required>
+            <div class="row">
+                <div class="form-group" style="flex: 1.5;">
+                    <label>ADDRESS: (NUMBER, STREET, PUROK)</label>
+                    <input type="text" name="street">
+                </div>
+                <div class="form-group"><label>BARANGAY:</label><input type="text" name="barangay" value="Alawihao"></div>
+                <div class="form-group"><label>MUNICIPALITY:</label><input type="text" name="municipality" value="Daet"></div>
+                <div class="form-group"><label>PROVINCE:</label><input type="text" name="province" value="Camarines Norte"></div>
+            </div>
+
+            <div class="section-header">HEALTH & SOCIO-ECONOMIC DETAILS</div>
+
+            <div class="row">
+                <div class="form-group"><label>AVERAGE MONTHLY INCOME:</label><input type="text" name="income"></div>
+                <div class="form-group"><label>CONTACT NUMBER:</label><input type="text" name="contact"></div>
+                <div class="form-group"><label>PHIC CAT:</label><input type="text" name="phic_cat"></div>
+                <div class="form-group"><label>PHILHEALTH #:</label><input type="text" name="philhealth"></div>
+            </div>
+
+            <div class="row">
+                <div class="form-group"><label>NO. OF LIVING CHILDREN:</label><input type="number" name="living_children"></div>
+                <div class="form-group" style="flex: 2;">
+                    <label>BIRTH PLAN (FACILITY):</label>
+                    <div style="display: flex; gap: 20px; padding-top: 5px;">
+                        <label style="font-weight:normal; font-size:0.8rem;"><input type="radio" name="plan" value="Hospital"> HOSPITAL</label>
+                        <label style="font-weight:normal; font-size:0.8rem;"><input type="radio" name="plan" value="RHU"> RHU</label>
+                        <label style="font-weight:normal; font-size:0.8rem;"><input type="radio" name="plan" value="Lying-in"> LYING-IN CLINIC</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">KARANASAN SA MGA NAUNANG PAGBUBUNTIS AT PANGANGANAK</div>
+            <div class="form-group" style="width: 300px; margin-bottom: 15px;">
+                <label>ILANG BESES NA NANGANAK: (DROPDOWN)</label>
+                <select id="num_preg" name="num_preg" class="table-select">
+                    <option value="0">0</option>
+                    <?php for($i=1; $i<=6; $i++) echo "<option value='$i'>$i</option>"; ?>
+                </select>
+            </div>
+
+            <div class="history-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>FIELD</th>
+                            <?php for($i=1; $i<=6; $i++) echo "<th>$i</th>"; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="row-label">DATE OF DELIVERY:</td>
+                            <?php for($i=1; $i<=6; $i++) echo "<td><input type='date' name='h_date[]' class='col-$i' disabled style='width:90%; border:1px solid #eaddca;'></td>"; ?>
+                        </tr>
+                        <tr>
+                            <td class="row-label">TYPE OF DELIVERY: <span class="tagalog-hint">(Uri ng Panganganak)</span></td>
+                            <?php for($i=1; $i<=6; $i++): ?>
+                                <td>
+                                    <select name="h_type[]" class="table-select col-<?php echo $i; ?>" disabled>
+                                        <option value="">--</option>
+                                        <option value="Normal">Normal</option>
+                                        <option value="Cesarean">Cesarean</option>
+                                    </select>
+                                </td>
+                            <?php endfor; ?>
+                        </tr>
+                        <tr>
+                            <td class="row-label">BIRTH OUTCOME: <span class="tagalog-hint">(Kinalabasan ng Panganganak)</span></td>
+                            <?php for($i=1; $i<=6; $i++): ?>
+                                <td>
+                                    <select name="h_outcome[]" class="table-select col-<?php echo $i; ?>" disabled>
+                                        <option value="">--</option>
+                                        <option value="Alive">Alive (Buhay)</option>
+                                        <option value="Miscarriage">Miscarriage (Nakunan)</option>
+                                        <option value="Stillbirth">Stillbirth</option>
+                                    </select>
+                                </td>
+                            <?php endfor; ?>
+                        </tr>
+                        <tr>
+                            <td class="row-label">NO. OF CHILD DELIVERED: <span class="tagalog-hint">(Bilang ng naipanganak)</span></td>
+                            <?php for($i=1; $i<=6; $i++): ?>
+                                <td>
+                                    <select name="h_child_count[]" class="table-select col-<?php echo $i; ?> child-count-select" data-col="<?php echo $i; ?>" disabled>
+                                        <option value="">--</option>
+                                        <option value="Single">Single</option>
+                                        <option value="Twins">Twins</option>
+                                        <option value="Multiple">Multiple</option>
+                                    </select>
+                                    <input type="number" name="h_multiple_no[]" placeholder="Qty" class="multiple-count count-box-<?php echo $i; ?>" title="Ilan ang nailabas?">
+                                </td>
+                            <?php endfor; ?>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <button type="submit" class="reg-btn">Confirm Registration</button>
@@ -274,16 +341,52 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Detect sidebar visibility to adjust layout
         const sidebar = document.getElementById('mainSidebar') || document.querySelector('.sidebar');
-        const mainContent = document.getElementById('main');
-        
-        // Auto-apply margin for desktop view if sidebar is present
-        if (sidebar && window.innerWidth > 768) {
-            mainContent.classList.add('main-content-active');
-        }
+        if (sidebar && window.innerWidth > 768) document.getElementById('main').classList.add('main-content-active');
+
+        // Age Calculation
+        document.getElementById('dob').addEventListener('change', function() {
+            const birthDate = new Date(this.value);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age--;
+            document.getElementById('age').value = age;
+        });
+
+        // Dynamic Table Columns
+        document.getElementById('num_preg').addEventListener('change', function() {
+            let val = parseInt(this.value);
+            for(let i=1; i<=6; i++) {
+                let inputs = document.querySelectorAll('.col-' + i);
+                let countSelect = document.querySelector('.child-count-select[data-col="'+i+'"]');
+                let countBox = document.querySelector('.count-box-' + i);
+                
+                inputs.forEach(el => {
+                    el.disabled = (i > val);
+                    el.style.background = (i > val) ? "#f0f0f0" : "#fff";
+                });
+                
+                if (i > val) {
+                    countBox.style.display = 'none';
+                    countBox.value = '';
+                }
+            }
+        });
+
+        // Show/Hide Multiple Child Qty Box
+        document.querySelectorAll('.child-count-select').forEach(select => {
+            select.addEventListener('change', function() {
+                let colNum = this.getAttribute('data-col');
+                let countBox = document.querySelector('.count-box-' + colNum);
+                if (this.value === 'Multiple') {
+                    countBox.style.display = 'inline-block';
+                } else {
+                    countBox.style.display = 'none';
+                    countBox.value = '';
+                }
+            });
+        });
     });
 </script>
-
 </body>
 </html>

@@ -61,6 +61,7 @@ if (isset($_POST['login'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Alawihao Health Center</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --sage: #8DAE74;
@@ -99,8 +100,10 @@ if (isset($_POST['login'])) {
         .logo-area h2 { color: var(--text-main); font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
         .logo-area p { color: var(--text-muted); font-size: 0.95rem; margin-top: 8px; }
 
-        .form-group { text-align: left; margin-bottom: 20px; }
+        .form-group { text-align: left; margin-bottom: 20px; position: relative; }
         .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 8px; margin-left: 4px; }
+
+        .input-wrapper { position: relative; display: flex; align-items: center; }
 
         input {
             width: 100%;
@@ -112,12 +115,34 @@ if (isset($_POST['login'])) {
             transition: all 0.2s ease;
         }
 
+        .pass-input { padding-right: 50px; }
+
         input:focus {
             outline: none;
             border-color: var(--sage);
             background: var(--white);
             box-shadow: 0 0 0 4px rgba(141, 174, 116, 0.1);
         }
+
+        .toggle-pass {
+            position: absolute;
+            right: 14px;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            padding: 4px; /* Space para madaling mapindot */
+            transition: color 0.2s;
+            z-index: 10;
+        }
+
+        /* Prevent double icons sizing issues */
+        .toggle-pass svg { width: 20px; height: 20px; }
+
+        .toggle-pass:hover { color: var(--sage); }
 
         .forgot-pass {
             display: block;
@@ -169,17 +194,26 @@ if (isset($_POST['login'])) {
         </div>
 
         <form method="POST" autocomplete="off">
-            <input style="display:none" type="text" name="fake_user"/>
-            <input style="display:none" type="password" name="fake_pass"/>
+            <input style="display:none" type="text" name="fake_user_field"/>
+            <input style="display:none" type="password" name="fake_pass_field"/>
 
             <div class="form-group">
                 <label>Email or System ID</label>
-                <input type="text" name="field_user_id" required autocomplete="new-password">
+                <input type="text" name="field_user_id" required 
+                       placeholder="name@email.com or ALW-XXXX" 
+                       autocomplete="off">
             </div>
 
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" name="field_user_pass" placeholder="••••••••" required autocomplete="new-password">
+                <div class="input-wrapper">
+                    <input type="password" name="field_user_pass" id="loginPass" 
+                           class="pass-input" placeholder="••••••••" required 
+                           autocomplete="new-password">
+                    <button type="button" class="toggle-pass" id="toggleBtn" onclick="togglePassword()">
+                        <i data-lucide="eye"></i>
+                    </button>
+                </div>
             </div>
 
             <a href="forgot_password.php" class="forgot-pass">Forgot password?</a>
@@ -192,5 +226,27 @@ if (isset($_POST['login'])) {
         </div>
     </div>
 
+    <script>
+        // Initial render of icons
+        lucide.createIcons();
+
+        function togglePassword() {
+            const passInput = document.getElementById('loginPass');
+            const toggleBtn = document.getElementById('toggleBtn');
+            
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                // Clear the old icon content and replace it
+                toggleBtn.innerHTML = '<i data-lucide="eye-off"></i>';
+            } else {
+                passInput.type = 'password';
+                // Clear the old icon content and replace it
+                toggleBtn.innerHTML = '<i data-lucide="eye"></i>';
+            }
+            
+            // Re-initialize Lucide for the newly added HTML
+            lucide.createIcons();
+        }
+    </script>
 </body>
 </html>

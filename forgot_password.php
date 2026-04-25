@@ -111,7 +111,6 @@
 <body>
 
     <div class="card">
-        <div class="icon-box">✉️</div>
         <h2>Forgot Password?</h2>
         <p>Enter your email address and we'll send you a 6-digit code to reset your password.</p>
 
