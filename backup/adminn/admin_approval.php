@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 // Check if user is Admin (Optional: Add your admin session check here)
 

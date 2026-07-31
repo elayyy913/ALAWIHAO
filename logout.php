@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php'; // 1. Kailangan ang connection para ma-update ang status
+include 'admin/db_connect.php'; // 1. Kailangan ang connection para ma-update ang status
 
 // 2. REAL-TIME OFFLINE LOGIC
 if (isset($_SESSION['user_id'])) {

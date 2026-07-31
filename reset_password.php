@@ -2,7 +2,7 @@
 // 1. Timezone and Session
 date_default_timezone_set('Asia/Manila');
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 // 2. Security Check
 if (!isset($_SESSION['otp_verified']) || !isset($_SESSION['reset_email'])) {

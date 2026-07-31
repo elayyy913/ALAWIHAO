@@ -3,7 +3,7 @@
 date_default_timezone_set('Asia/Manila');
 
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;

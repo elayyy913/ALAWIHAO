@@ -2,20 +2,16 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-include 'db_connect.php'; 
+include 'db_connect.php';
 
 if (isset($_POST['login'])) {
-    // FIX: Kinukuha natin ang cloaked names para hindi mag-autofill ang browser
-    // Pero gagamitin pa rin ang variable names mo para sa logic sa ibaba
     $login_input = mysqli_real_escape_string($conn, trim($_POST['field_user_id']));
     $pass        = trim($_POST['field_user_pass']); 
 
-    // 2. SQL: Hahanapin natin ang input sa 'email' OR 'generated_id'
     $query = "SELECT * FROM users WHERE (email = '$login_input' OR generated_id = '$login_input') LIMIT 1";
     $result = mysqli_query($conn, $query);
 
     if ($row = mysqli_fetch_assoc($result)) {
-        // 3. I-check kung tama ang password
         if ($pass == $row['password']) {
             
             if ($row['role'] !== 'Super Admin' && strtolower($row['status']) !== 'approved') {
@@ -27,12 +23,13 @@ if (isset($_POST['login'])) {
             $_SESSION['role']    = $row['role']; 
             $_SESSION['name']    = $row['first_name'];
 
+            // FIX: Idinagdag ang 'admin/' path folder para hindi na mag-404 Not Found!
             if ($row['role'] == 'Super Admin') {
-                header("Location: super_admin_dashboard.php");
+                header("Location: admin/super_admin_dashboard.php");
                 exit();
             } 
             elseif ($row['role'] == 'Admin') {
-                header("Location: admin_dashboard.php");
+                header("Location: admin/admin_dashboard.php");
                 exit();
             } 
             elseif ($row['role'] == 'User') {

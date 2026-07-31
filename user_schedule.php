@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 // Check kung naka-login ang user
 if (!isset($_SESSION['user_id'])) {

@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 // 1. SECURITY CHECK: Dapat nakalogin ang user
 if (!isset($_SESSION['user_id'])) {

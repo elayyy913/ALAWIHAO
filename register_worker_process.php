@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Kunin ang data mula sa form

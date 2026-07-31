@@ -1,5 +1,5 @@
 <?php
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 if (isset($_POST['signup'])) {
     $fname = mysqli_real_escape_string($conn, $_POST['first_name']);

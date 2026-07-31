@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'admin/db_connect.php';
+include '../db_connect.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -132,7 +132,7 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
 <?php 
     // SIDEBAR LOGIC
     if (isset($_SESSION['role']) && $_SESSION['role'] == 'Super Admin') {
-        include 'super_admin_sidebar.php';
+        include 'super_admin_sidebar.phpp';
     } else {
         include 'admin_sidebar.php';
     }

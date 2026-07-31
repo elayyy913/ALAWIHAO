@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 // I-include ang PHPMailer files (Siguraduhin ang tamang path)
 use PHPMailer\PHPMailer\PHPMailer;

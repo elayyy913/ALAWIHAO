@@ -1,5 +1,6 @@
 <?php
 session_start();
+include '../db_connect.php';
 
 // 1. Database Connection - Siguraduhin na tama ang db name mo
 $servername = "localhost";

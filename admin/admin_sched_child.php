@@ -1,9 +1,6 @@
-admin sched infant 
-
-
 <?php
 session_start();
-include 'admin/db_connect.php';
+include '../db_connect.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -12,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $view_date = isset($_GET['view_date']) ? $_GET['view_date'] : date('Y-m-d');
 
-// --- 1. HANDLE NEW SCHEDULE ---
+// --- 1. HANDLE NEW SCHEDULE (WITH PRIVACY LINK) ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_sched'])) {
     $i_id = $_POST['infant_id'];
     $v_name = mysqli_real_escape_string($conn, $_POST['vaccine_name']);
@@ -20,12 +17,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_sched'])) {
     $v_date = $_POST['vaccination_date']; 
     $v_time = $_POST['vaccination_time']; 
 
-    // Saving time in next_appointment column to match your DB structure
-    $sql = "INSERT INTO infant_schedule (infant_id, vaccine_name, dose_number, vaccination_date, next_appointment, status) 
-            VALUES (?, ?, ?, ?, ?, 'Pending')";
+    /** * STEP A: Kunin ang user_id na naka-link sa infant record
+     * para 'ma-send' natin ito sa account ng magulang.
+     */
+    $get_owner = $conn->prepare("SELECT user_id FROM infant_records WHERE id = ?");
+    $get_owner->bind_param("i", $i_id);
+    $get_owner->execute();
+    $owner_result = $get_owner->get_result();
+    $owner_data = $owner_result->fetch_assoc();
+    $linked_user_id = $owner_data['user_id'];
+
+    /** * STEP B: I-save sa infant_schedule kasama ang user_id.
+     * Siguraduhin na may 'user_id' column ang infant_schedule table mo.
+     */
+    $sql = "INSERT INTO infant_schedule (infant_id, user_id, vaccine_name, dose_number, vaccination_date, next_appointment, status) 
+            VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issss", $i_id, $v_name, $dose, $v_date, $v_time);
+    $stmt->bind_param("iissss", $i_id, $linked_user_id, $v_name, $dose, $v_date, $v_time);
     $stmt->execute();
+
     header("Location: admin_sched_child.php?view_date=$v_date");
     exit();
 }
@@ -58,7 +68,7 @@ if (isset($_GET['done_id'])) {
     exit();
 }
 
-// --- 4. FETCH DATA (CRITICAL FIX: Pulling from infant_records to match FK) ---
+// --- 4. FETCH DATA ---
 $infants = $conn->query("SELECT id, baby_name FROM infant_records ORDER BY baby_name ASC");
 
 $pending_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
@@ -99,11 +109,9 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
         .btn-done { background: var(--sage); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; }
         .btn-resched { background: var(--tan); color: white; padding: 8px 16px; border: none; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
 
-        /* Modal Styles */
         .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); }
         .modal-content { background: white; margin: 5% auto; padding: 40px; width: 450px; border-radius: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
         
-        /* Input & Dropdown Formatting */
         input, select { 
             width: 100%; 
             height: 45px; 
@@ -121,7 +129,14 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
 </head>
 <body>
 
-<?php include 'admin_sidebar.php'; ?>
+<?php 
+    // SIDEBAR LOGIC
+    if (isset($_SESSION['role']) && $_SESSION['role'] == 'Super Admin') {
+        include 'super_admin_sidebar.phpp';
+    } else {
+        include 'admin_sidebar.php';
+    }
+?>
 
 <div id="main">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">

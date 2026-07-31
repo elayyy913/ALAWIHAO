@@ -1,5 +1,5 @@
 <?php
-include 'db_connect.php';
+include 'admin/db_connect.php';
 session_start();
 
 if (isset($_POST['submit_visit'])) {

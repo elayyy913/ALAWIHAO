@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include '../db_connect.php';
 
 // 1. SECURITY
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {
