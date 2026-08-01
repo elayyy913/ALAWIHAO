@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'admin/db_connect.php';
 
 // Security: Check if logged in and is Super Admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
