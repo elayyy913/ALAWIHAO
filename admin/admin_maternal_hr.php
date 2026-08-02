@@ -18,7 +18,8 @@ $sidebar_file = (in_array($current_role, ['super admin', 'superadmin'])) ? 'supe
 // 2. FETCH MOTHERS DATA
 $sql = "SELECT u.*, 
         (SELECT COUNT(*) FROM maternal_records WHERE mother_id = u.id) as checkup_count,
-        (SELECT MAX(checkup_date) FROM maternal_records WHERE mother_id = u.id) as last_visit
+        (SELECT MAX(checkup_date) FROM maternal_records WHERE mother_id = u.id) as last_visit,
+        (SELECT MAX(gestational_age_weeks) FROM maternal_records WHERE mother_id = u.id) as current_aog
         FROM users u WHERE u.role = 'user' ORDER BY u.first_name ASC";
 $result = mysqli_query($conn, $sql);
 ?>
@@ -47,22 +48,19 @@ $result = mysqli_query($conn, $sql);
             overflow-x: hidden;
         }
 
-        /* DYNAMIC WRAPPER - Eto ang mag-aadjust */
         #main-wrapper { 
             flex-grow: 1; 
             padding: 30px; 
-            margin-left: var(--sidebar-width); /* Default: Nakabukas ang sidebar */
+            margin-left: var(--sidebar-width); 
             transition: var(--transition); 
             width: 100%;
             box-sizing: border-box;
         }
 
-        /* Kapag may 'full-width' class, didikit sa kaliwa */
         #main-wrapper.full-width { 
             margin-left: 0 !important; 
         }
 
-        /* UI Styling */
         .page-header {
             display: flex; 
             justify-content: space-between; 
@@ -74,19 +72,6 @@ $result = mysqli_query($conn, $sql);
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             border: 1px solid #edf2f7;
         }
-
-        .hamburger-btn {
-            background: var(--soft-sage);
-            border: none;
-            padding: 10px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            color: var(--dark-sage);
-            font-size: 20px;
-            margin-right: 15px;
-            transition: 0.2s;
-        }
-        .hamburger-btn:hover { background: #e2eadb; }
 
         .table-container { 
             background: white; 
@@ -128,24 +113,34 @@ $result = mysqli_query($conn, $sql);
             font-weight: 600; 
             font-size: 0.8rem;
         }
+        .btn-update:hover { background: var(--dark-sage); }
 
         .role-badge { background: #FEFCBF; color: #744210; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; }
         
-        /* Modal */
-        .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
-        .modal-content { background:white; margin:5% auto; padding:30px; width:400px; border-radius:15px; border-top:8px solid var(--sage); box-shadow: 0 20px 25px rgba(0,0,0,0.1); }
+        /* Modal Styling */
+        .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter: blur(3px); overflow-y: auto; }
+        .modal-content { background:white; margin:3% auto; padding:30px; width:700px; border-radius:15px; border-top:8px solid var(--sage); box-shadow: 0 25px 30px rgba(0,0,0,0.15); max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; }
+        /* Form elements */
+        input[type="text"], input[type="number"], input[type="date"], select, textarea { 
+            width: 100%; padding: 10px 12px; margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem; 
+        }
+        textarea { resize: vertical; height: 75px; }
         label { font-size: 0.85rem; font-weight: 600; color: #4A5568; margin-bottom: 5px; display: block; }
+        
+        .section-box { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #edf2f7; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
+        .checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: 0.88rem; color: #2D3748; cursor: pointer; margin-bottom: 0; }
+        .checkbox-label input { width: auto; margin-bottom: 0; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <?php include (strtolower($_SESSION['role']) == 'super admin') ? 'super_admin_sidebar.php' : 'admin_sidebar.php'; ?>
+    <?php include ($sidebar_file); ?>
     <div id="main-wrapper">
         <div class="page-header">
             <div style="display: flex; align-items: center;">
-                <h2 style="color: var(--dark-sage); margin: 0;">Maternal Health History</h2>
+                <h2 style="color: var(--dark-sage); margin: 0;">Maternal Health History & ANC Records</h2>
             </div>
             <div class="role-badge">LOGGED AS: <?php echo strtoupper($current_role); ?></div>
         </div>
@@ -155,6 +150,7 @@ $result = mysqli_query($conn, $sql);
                 <thead>
                     <tr>
                         <th>Mother Name</th>
+                        <th>Current Gestational Age</th>
                         <th>Last Visit</th>
                         <th>Actions</th>
                     </tr>
@@ -162,11 +158,15 @@ $result = mysqli_query($conn, $sql);
                 <tbody>
                     <?php while($row = mysqli_fetch_assoc($result)): 
                         $full_name = htmlspecialchars(($row['first_name'] ?? 'Unknown') . ' ' . ($row['last_name'] ?? ''));
+                        $aog = $row['current_aog'] ?? 0;
                     ?>
                     <tr>
                         <td>
                             <span style="font-weight: 600; color: #2D3748;"><?php echo $full_name; ?></span><br>
-                            <small style="color: #A0AEC0;"><?php echo $row['checkup_count'] ?? 0; ?> total visits</small>
+                            <small style="color: #A0AEC0;"><?php echo $row['checkup_count'] ?? 0; ?> total check-ups</small>
+                        </td>
+                        <td>
+                            <span style="font-weight: 600; color: #2b6cb0;"><?php echo $aog ? $aog . ' Weeks' : 'Not specified'; ?></span>
                         </td>
                         <td style="color: #4A5568;">
                             <?php echo ($row['last_visit']) ? date("M d, Y", strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
@@ -184,19 +184,167 @@ $result = mysqli_query($conn, $sql);
         </div>
     </div>
 
+    <!-- MATERNAL RECORD FORM MODAL -->
     <div id="updateModal" class="modal">
         <div class="modal-content">
-            <h3 id="modalTitle" style="color:var(--dark-sage); margin-top:0;">Add Health Data</h3>
-            <form method="POST" action="admin_save_maternal_rec.php">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="modalTitle" style="color:var(--dark-sage); margin:0;">Add Maternal Record (Unang Trimester)</h3>
+                <button type="button" onclick="closeModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:#A0AEC0;">✕</button>
+            </div>
+
+            <form method="POST" action="admin_save_maternal_rec.php" style="overflow-y: auto; max-height: 65vh; padding-right: 5px;">
                 <input type="hidden" name="mother_id" id="modal_mother_id">
-                <label>Weight (kg)</label>
-                <input type="number" name="weight" step="0.1" required>
-                <label>Blood Pressure</label>
-                <input type="text" name="bp" placeholder="120/80" required>
-                <label>Temperature (°C)</label>
-                <input type="number" name="temp" step="0.1" required>
-                
-                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <input type="hidden" name="trimester" value="1">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>Petsa:</label>
+                        <input type="date" name="checkup_date" value="<?php echo date('Y-m-d'); ?>" required>
+                    </div>
+                    <div>
+                        <label>Age of Gestation (weeks):</label>
+                        <input type="number" name="gestational_age_weeks" min="1" max="42" placeholder="e.g. 10" required>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>Timbang: (kg)</label>
+                        <input type="number" name="weight_kg" step="0.1" required>
+                    </div>
+                    <div>
+                        <label>Taas: (cm)</label>
+                        <input type="number" name="height_cm" step="0.1">
+                    </div>
+                    <div>
+                        <label>Blood Pressure:</label>
+                        <input type="text" name="bp" placeholder="120/80" required>
+                    </div>
+                </div>
+
+                <!-- Nutritional Status (Checkbox/Radio) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Nutritional Status:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="radio" name="nutritional_status" value="Normal" required> Normal</label>
+                        <label class="checkbox-label"><input type="radio" name="nutritional_status" value="Underweight"> Underweight</label>
+                        <label class="checkbox-label"><input type="radio" name="nutritional_status" value="Overweight"> Overweight</label>
+                    </div>
+                </div>
+
+                <label>Pagsusuri ng kalagayan ng buntis: </label>
+                <textarea name="pagsusuri_kalagayan" placeholder="Ilagay ang mga natuklasan sa pagsusuri..."></textarea>
+
+                <label>Mga payong binigay: </label>
+                <textarea name="mga_payo" placeholder="Mga payong ibinigay sa pasyente..."></textarea>
+
+                <label>Mga pagbabago sa birthplan: </label>
+                <textarea name="birthplan_changes" placeholder="Mga update o pagbabago sa birth plan..."></textarea>
+
+                <label>Laboratory test done: </label>
+                <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
+
+                <label>Hemoglobin count: </label>
+                <input type="text" name="hemoglobin_count" placeholder="g/dL">
+
+                <!-- pagsusuri ng ngipin -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">pagsusuri ng ngipin: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="pagsusuri ng ngipin" value="1"> pagsusuri ng ngipin / Done</label>
+                    </div>
+                </div>
+                <!-- Urinalysis (Checkbox) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Urinalysis: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="urinalysis_done" value="1"> Urinalysis Done / Normal</label>
+                    </div>
+                </div>
+
+                <label>Complete Blood Count (CBC): </label>
+                <input type="text" name="cbc" placeholder="Resulta ng CBC">
+
+                <!-- STIs (Checkbox) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">STIs gamit ang syndromic approach: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="sti_syphilis" value="1"> Syphilis</label>
+                        <label class="checkbox-label"><input type="checkbox" name="sti_hiv" value="1"> HIV</label>
+                        <label class="checkbox-label"><input type="checkbox" name="sti_hbsg" value="1"> Hepatitis B (HBsAg)</label>
+                    </div>
+                </div>
+
+                <!-- Stool Examination (Checkbox) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Stool examination: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="stool_exam_done" value="1"> Stool Examination Done</label>
+                    </div>
+                </div>
+
+                <!-- Acetic Acid Wash (Checkbox) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Acetic acid wash: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="acetic_acid_wash_done" value="1"> Acetic Acid Wash Done (VIA)</label>
+                    </div>
+                </div>
+
+                <!-- Tetanus-containing vaccine (Checkbox + Date Given) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Tetanus-containing vaccine:</label>
+                    <div class="checkbox-group" style="margin-bottom: 10px;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tetanus_given_status" value="1" id="tetanusCheckbox" onchange="toggleTetanusDate(this)"> 
+                            Nabigyan ng Tetanus-containing vaccine
+                        </label>
+                    </div>
+                    
+                    <div id="tetanusDateContainer" style="display: none; margin-top: 8px;">
+                        <label>Date Given:</label>
+                        <input type="date" name="tetanus_vaccine_date" id="tetanusDateInput">
+                    </div>
+                </div>
+
+                <!-- Treatments (Checkbox) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Treatments: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="treat_syphilis" value="1"> Syphilis treatment</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_arv" value="1"> Antiretroviral (ARV)</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_anemia" value="1"> Anemia</label>
+                    </div>
+                </div>
+
+                <!-- Pinag-usapan / Serbisyong binigay (Checkbox) -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay: </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="srv_drugs" value="1"> Pag-iwas sa alcohol, tobacco, at illegal na droga</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_diet" value="1"> Pagpapayo tungkol sa tamang pagkain</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_safe_sex" value="1"> Pagpapayo sa safe sex</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_mosquito_net" value="1"> Paggamit ng mga insecticide-treated na kulambo</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_birthplan" value="1"> Birth plan</label>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>Petsa ng pagbalik:</label>
+                        <input type="date" name="next_visit_date">
+                    </div>
+                    <div>
+                        <label>Pangalan ng health service provider:</label>
+                        <input type="text" name="provider_name" placeholder="Pangalan ng Midwife">
+                    </div>
+                </div>
+
+                <label>Referral sa ospital: </label>
+                <input type="text" name="hospital_referral" placeholder="Pangalan ng ospital o dahilan ng referral">
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
                     <button type="button" onclick="closeModal()" style="background:none; border:none; color:#A0AEC0; cursor:pointer; font-weight:600;">Cancel</button>
                     <button type="submit" class="btn-update">Save Record</button>
                 </div>
@@ -205,46 +353,33 @@ $result = mysqli_query($conn, $sql);
     </div>
 
     <script>
-    // ETO ANG FUNCTION PARA MAG-SYNC ANG SIDEBAR AT DASHBOARD
-    function toggleInterface() {
-        const sidebar = document.getElementById('mainSidebar');
-        const wrapper = document.getElementById('main-wrapper');
-        
-        if(sidebar) {
-            // I-toggle ang 'is-hidden' sa sidebar
-            const isHidden = sidebar.classList.toggle('is-hidden');
-            
-            // I-toggle ang 'full-width' sa dashboard wrapper
-            if(isHidden) {
-                wrapper.classList.add('full-width');
-                localStorage.setItem('sidebarState', 'hidden');
-            } else {
-                wrapper.classList.remove('full-width');
-                localStorage.setItem('sidebarState', 'visible');
-            }
-        }
+// Function para lumabas/mawala ang date input kapag kinabit/tinanggal ang check
+function toggleTetanusDate(checkbox) {
+    const dateContainer = document.getElementById('tetanusDateContainer');
+    const dateInput = document.getElementById('tetanusDateInput');
+    
+    if (checkbox.checked) {
+        dateContainer.style.display = 'block';
+        dateInput.required = true; // Required kapag naka-check
+    } else {
+        dateContainer.style.display = 'none';
+        dateInput.required = false;
+        dateInput.value = ''; // I-clear ang date kapag in-uncheck
     }
-
-    // Pag-load ng page, i-check ang huling state
-    document.addEventListener('DOMContentLoaded', function() {
-        const sidebar = document.getElementById('mainSidebar');
-        const wrapper = document.getElementById('main-wrapper');
-        const savedState = localStorage.getItem('sidebarState');
-
-        if(savedState === 'hidden' && sidebar) {
-            sidebar.classList.add('is-hidden');
-            wrapper.classList.add('full-width');
-        }
-    });
-
+}
     function openUpdateModal(id, name) {
         document.getElementById('updateModal').style.display = 'block';
         document.getElementById('modal_mother_id').value = id;
-        document.getElementById('modalTitle').innerText = "Record for: " + name;
+        document.getElementById('modalTitle').innerText = "Add Maternal Record for: " + name;
     }
 
-    function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
-    window.onclick = function(event) { if (event.target == document.getElementById('updateModal')) closeModal(); }
+    function closeModal() { 
+        document.getElementById('updateModal').style.display = 'none'; 
+    }
+
+    window.onclick = function(event) { 
+        if (event.target == document.getElementById('updateModal')) closeModal(); 
+    }
     </script>
 </body>
 </html>

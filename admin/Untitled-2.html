@@ -1,0 +1,165 @@
+                <div class="form-group">
+                    <label>Past Health History</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="None"> None</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Allergies"> Allergies</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Drug intake (Anti-TB/Diabetic)"> Drug intake (Anti-TB, Anti-diabetic)</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Bleeding tendencies"> Bleeding tendencies (nose, gums)</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Anemia"> Anemia</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Diabetes"> Diabetes</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="itching or sore in/around vagina"> itching or sore in/around vagina</label>
+                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Pain or burning sensation on urination">Pain or burning sensation on urination</label>
+                    </div>
+                </div>
+
+
+
+i want you to add this as 7th section
+
+physical examination
+
+(vital signs)
+blood pressure____mm/Hg
+Weight in kgs
+pulse in bpm
+height in cmm
+MUAC:
+BMI:
+category
+
+(conjunctiva) 
+this is checkbox
+pale 
+yellowish
+
+(neck)
+this is checkbox
+enlarged thyroid 
+enlarged lymph node
+
+(breast)
+this is checkbox
+mass (i need here magkaroon ng type box for the size of both breast)____left____right
+nipple
+skin-orange or dimpling
+enlarged axillary lymph nodes
+
+(thorax)
+this is checkbox
+abnormal heart sound / cardiac rate
+abnormal breath sound/ respirtory rate
+
+(abdomen)
+this is checkbox
+enlarge liver 
+mass
+tenderness
+
+(extremities)
+this is checkbox
+edem
+varicosities
+pain on force dorsiflexion
+
+TT STATUS____
+
+
+
+           <!-- SECTION VII. PHYSICAL EXAMINATION -->
+            <div class="section-tag">SECTION VII. PHYSICAL EXAMINATION</div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Blood Pressure (mmHg)</label>
+                    <input type="text" name="bp" placeholder="e.g. 120/80">
+                </div>
+                <div class="form-group">
+                    <label>Weight (kgs)</label>
+                    <input type="text" name="weight" placeholder="Weight in kgs">
+                </div>
+                <div class="form-group">
+                    <label>Pulse (bpm)</label>
+                    <input type="text" name="pulse" placeholder="Pulse in bpm">
+                </div>
+                <div class="form-group">
+                    <label>Height (cm)</label>
+                    <input type="text" name="height" placeholder="Height in cm">
+                </div>
+                <div class="form-group">
+                    <label>MUAC</label>
+                    <input type="text" name="muac" placeholder="MUAC">
+                </div>
+                <div class="form-group">
+                    <label>BMI & Category</label>
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" name="bmi" placeholder="BMI" style="width:50%;">
+                        <input type="text" name="category" placeholder="Category" style="width:50%;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-grid-2" style="margin-top: 12px;">
+                <div class="form-group">
+                    <label>Conjunctiva</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="conjunctiva[]" value="Pale"> Pale</label>
+                        <label class="checkbox-label"><input type="checkbox" name="conjunctiva[]" value="Yellowish"> Yellowish</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Neck</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="neck[]" value="Enlarged thyroid"> Enlarged thyroid</label>
+                        <label class="checkbox-label"><input type="checkbox" name="neck[]" value="Enlarged lymph node"> Enlarged lymph node</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Breast</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                        <input type="checkbox" name="breast[]" value="Mass"> Mass 
+                        <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; margin-left:10px;">
+                            (Size: Left <input type="text" name="breast_mass_left" placeholder="size" style="width: 75px; padding: 4px 6px; display: inline-block;"> 
+                            Right <input type="text" name="breast_mass_right" placeholder="size" style="width: 75px; padding: 4px 6px; display: inline-block;">)
+                        </span>
+                    </label>
+                    <label class="checkbox-label"><input type="checkbox" name="breast[]" value="Nipple"> Nipple</label>
+                    <label class="checkbox-label"><input type="checkbox" name="breast[]" value="Skin-orange or dimpling"> Skin-orange or dimpling</label>
+                    <label class="checkbox-label"><input type="checkbox" name="breast[]" value="Enlarged axillary lymph nodes"> Enlarged axillary lymph nodes</label>
+                </div>
+            </div>
+
+            <div class="form-grid-2" style="margin-top: 12px;">
+                <div class="form-group">
+                    <label>Thorax</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="thorax[]" value="Abnormal heart sound / cardiac rate"> Abnormal heart sound / cardiac rate</label>
+                        <label class="checkbox-label"><input type="checkbox" name="thorax[]" value="Abnormal breath sound / respiratory rate"> Abnormal breath sound / respiratory rate</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Abdomen</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen[]" value="Enlarge liver"> Enlarge liver</label>
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen[]" value="Mass"> Mass</label>
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen[]" value="Tenderness"> Tenderness</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-grid-2" style="margin-top: 12px;">
+                <div class="form-group">
+                    <label>Extremities</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="extremities[]" value="Edema"> Edema</label>
+                        <label class="checkbox-label"><input type="checkbox" name="extremities[]" value="Varicosities"> Varicosities</label>
+                        <label class="checkbox-label"><input type="checkbox" name="extremities[]" value="Pain on force dorsiflexion"> Pain on force dorsiflexion</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>TT Status</label>
+                    <input type="text" name="tt_status" placeholder="TT STATUS">
+                </div>
+            </div>
