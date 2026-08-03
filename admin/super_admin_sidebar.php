@@ -240,7 +240,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
 
         <span class="nav-label">(others)</span>
-        <a href="admin_history.php" class="nav-link" id="link-history">History</a>
         <a href="admin_settings.php" class="nav-link" id="link-settings">Setting</a>
     </div>
 
@@ -300,7 +299,6 @@ document.addEventListener('DOMContentLoaded', function() {
         'admin_child_hr.php': 'id-child-health',
         'admin_sched_maternal.php': 'link-sched-maternal',
         'admin_sched_child.php': 'link-sched-child',
-        'admin_history.php': 'link-history',
         'admin_settings.php': 'link-settings'
     };
 
