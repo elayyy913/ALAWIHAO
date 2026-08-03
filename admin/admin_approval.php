@@ -11,12 +11,6 @@ $newborns = mysqli_query($conn, "SELECT i.*, CONCAT(m.first_name, ' ', m.last_na
 // 2. HANDLE MATERNAL CLINICAL VERIFICATION & APPROVAL
 if (isset($_POST['submit_maternal_approval'])) {
 
-    // TEMPORARY DEBUG - remove this after testing
-    echo "<pre style='background:#eee; padding:20px; font-size:13px;'>";
-    print_r($_POST);
-    echo "</pre>";
-    exit();
-
     $mother_id = mysqli_real_escape_string($conn, $_POST['mother_id']);
 
     if (empty($mother_id)) {
@@ -71,7 +65,7 @@ if (isset($_POST['submit_maternal_approval'])) {
     $breast_left_size = mysqli_real_escape_string($conn, $_POST['breast_left_size'] ?? '');
     $breast_right_size = mysqli_real_escape_string($conn, $_POST['breast_right_size'] ?? '');
 
-    // Check kung umiiral na sa pregnancy_history (FIXED: table only has patient_id, walang mother_id column)
+    // Check kung umiiral na sa pregnancy_history
     $check = mysqli_query($conn, "SELECT id FROM pregnancy_history WHERE patient_id = '$mother_id'");
 
     if (mysqli_num_rows($check) > 0) {
@@ -130,17 +124,16 @@ if (isset($_POST['submit_maternal_approval'])) {
     // Execute History Query
     $run_history = mysqli_query($conn, $history_sql);
 
-    // KUNG MAY ERROR SA QUERY, IPAPALABAS NIYA AGAD ANG DAHILAN:
     if (!$run_history) {
         die("<div style='padding:20px; background:#f8d7da; color:#721c24; font-family:sans-serif;'>
                 <h2>Database Query Failed!</h2>
                 <p><b>MySQL Error:</b> " . mysqli_error($conn) . "</p>
                 <p><b>SQL Query:</b> " . $history_sql . "</p>
                 <a href='javascript:history.back()'>Go Back</a>
-             </div>");
+               </div>");
     }
 
-    // Update status sa maternal_registration
+    // Update status sa maternal_registration patungong Approved
     mysqli_query($conn, "UPDATE maternal_registration SET status = 'Approved' WHERE id = '$mother_id'");
 
     // Alert at auto-refresh

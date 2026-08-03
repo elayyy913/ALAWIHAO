@@ -227,7 +227,7 @@ $result = mysqli_query($conn, $sql);
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <div>
                         <label>Age of Gestation (weeks):</label>
-                        <input type="number" name="gestational_age_weeks" min="1" max="42" placeholder="e.g. 20" required>
+                        <input type="number" name="gestational_age_weeks" min="1" max="42" placeholder="e.g. 32" required>
                     </div>
                     <div>
                         <label>Blood Pressure:</label>
@@ -271,32 +271,6 @@ $result = mysqli_query($conn, $sql);
                 <label>Complete Blood Count (CBC):</label>
                 <input type="text" name="cbc" placeholder="Resulta ng CBC">
 
-                <!-- Etiological tests para sa STIs -->
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Etiological tests para sa STIs (kung kinakailangan):</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="sti_syphilis" value="1"> Syphilis Test</label>
-                        <label class="checkbox-label"><input type="checkbox" name="sti_hiv" value="1"> HIV Test</label>
-                        <label class="checkbox-label"><input type="checkbox" name="sti_hbsg" value="1"> Hepatitis B (HBsAg)</label>
-                    </div>
-                </div>
-
-                <!-- Pap smear -->
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Pap smear (kung kinakailangan):</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="pap_smear_done" value="1"> Pap Smear Done</label>
-                    </div>
-                </div>
-
-                <!-- Gestational diabetes -->
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Gestational diabetes (Oral Glucose Challenge Test), (kung kinakailangan):</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="gestational_diabetes_test" value="1"> Oral Glucose Challenge Test Done</label>
-                    </div>
-                </div>
-
                 <!-- Bacteriuria -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
@@ -305,14 +279,21 @@ $result = mysqli_query($conn, $sql);
                     </div>
                 </div>
 
+                <!-- Blood/RH group -->
+                <div class="section-box">
+                    <label style="margin-bottom: 8px;">Blood/RH group (kung kinakailangan):</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="blood_rh_group_done" value="1"> Blood Type & RH Group Determined</label>
+                    </div>
+                </div>
+
                 <!-- Treatments -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Treatments:</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="treat_deworming" value="1"> Deworming</label>
                         <label class="checkbox-label"><input type="checkbox" name="treat_arv" value="1"> Antiretroviral (ARV)</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria treatment</label>
                         <label class="checkbox-label"><input type="checkbox" name="treat_anemia" value="1"> Anemia treatment</label>
-                        <label class="checkbox-label"><input type="checkbox" name="treat_Bacteriuria" value="1"> Bacteriuria</label>
                     </div>
                 </div>
 
@@ -321,9 +302,9 @@ $result = mysqli_query($conn, $sql);
                     <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay:</label>
                     <div class="checkbox-group">
                         <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_drugs" value="1"> Pag-iwas sa alcohol, tobacco, at illegal na droga</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_diet" value="1"> Pagpapayo tungkol sa tamang pagkain</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_safe_sex" value="1"> Pagpapayo sa safe sex</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_postpartum" value="1"> Pagpapayo sa postpartum at postnatal care</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_spacing" value="1"> Pagpapayo sa pag-agwat ng anak</label>
+                        <label class="checkbox-label"><input type="checkbox" name="srv_tetanus_followup" value="1"> Pag-follow up ng tetanus-containing vaccine</label>
                     </div>
                 </div>
 

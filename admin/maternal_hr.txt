@@ -114,3 +114,51 @@ pangalan ng health service provider:
 referral sa ospital:
 
 
+this is what i want to see naman sa third trimester
+
+petsa: 
+timbang: kg
+taas : cm
+age of gestation:
+blood pressure: 
+
+nutritional status:
+(checkbox)
+normal 
+underweight
+overweight
+
+(textbox)pagsusuri ng kalagayan ng buntis:
+
+(textbox)mga payong binigay:
+
+(textbox)mga pagbabago sa birthplan:
+
+(textbox)pagsusuri ng ngipin:
+
+(textbox)laboratory test done:
+
+(checkbox)urinalysis:
+
+(textbox)complete blood count(cbc):
+
+(checkbox)bacteriuria (kung kinakailangan):
+
+(checkbox)blood/RH group (kung kinakailangan):
+
+(checkbox)treatments
+antiretroviral(arv)
+bacteriuria
+anemia
+
+(checkbox)pinagusapan/serbisyong binigay:
+pagpapaalala ng nakaraang tinalakay
+pagpapayo sa postpartum at postnatal care
+pagpapayo sa pag agwat ng anak
+pag follow up ng tetanus-containing vaccine
+
+petsa ng pagbalik:
+
+pangalan ng health service provider:
+
+referral sa ospital:
