@@ -1,0 +1,64 @@
+maternal_hr
+
+this is the list of things i wanna see sa maternal_hr ko na to ffill up ng midwife 
+
+petsa: 
+timbang: kg
+taas : cm
+age of gestation:
+blood pressure: 
+
+nutritional status:
+(checkbox)
+normal 
+underweight
+overweight
+
+(textbox)pagsusuri ng kalagayan ng buntis:
+
+(textbox)mga payong binigay:
+
+(textbox)mga pagbabago sa birthplan:
+
+(textbox)pagsusuri ng ngipin:
+
+(textbox)laboratory test done:
+
+(textbox)hemoglobin count:
+
+(checkbox)urinalysis:
+
+(textbox)complete blood count(cbc):
+
+(checkbox)Stis gamit ang syndromic approach:
+syphilis
+hiv
+hepatitis b(hbsg)
+
+(checkbox)Stool examination:
+
+(checkbox)acetic acid wash:
+
+(checkbox)tetanus-containing vaccine:
+date given:
+
+(checkbox) treatments
+syphilis
+antiretroviral(arv)
+bacteriuria
+anemia
+
+(checkbox)pinagusapan/serbisyong binigay:
+pagiwas sa alcohol,tabacco, at illegal na droga
+pagpapayo tungol sa tamang pagkain
+pgpapasayo sa safe sex
+paggamit ng mga insecticide-treated na kulambo
+birthplan
+
+petsa ng pagbalik:
+
+pangalan ng health service provider:
+
+referral sa ospital:
+
+
