@@ -15,16 +15,15 @@ $current_role = strtolower(trim($user_info['role'] ?? ''));
 
 $sidebar_file = (in_array($current_role, ['super admin', 'superadmin'])) ? 'super_admin_sidebar.php' : 'admin_sidebar.php';
 
-// 2. FETCH MATERNAL PATIENTS SA PAMAMAGITAN NG JOIN SA REGISTRATION/RECORDS
-$sql = "SELECT m.id as mother_id, r.first_name, r.last_name, 
-        CONCAT(r.first_name, ' ', r.last_name) as full_name,
-        (SELECT COUNT(*) FROM maternal_records m2 WHERE m2.mother_id = m.mother_id) as checkup_count,
-        (SELECT MAX(checkup_date) FROM maternal_records m2 WHERE m2.mother_id = m.mother_id) as last_visit,
-        (SELECT MAX(gestational_age_weeks) FROM maternal_records m2 WHERE m2.mother_id = m.mother_id) as current_aog
-        FROM maternal_records m
-        JOIN maternal_registration r ON m.mother_id = r.id
-        GROUP BY m.mother_id
-        ORDER BY r.first_name ASC";
+// 2. FETCH MATERNAL PATIENTS GALING SA REGISTRATION AT RECORDS
+$sql = "SELECT r.id as mother_id, r.client_fname as first_name, r.client_lname as last_name, 
+        CONCAT(r.client_fname, ' ', r.client_lname) as full_name,
+        (SELECT COUNT(*) FROM maternal_records m2 WHERE m2.mother_id = r.id) as checkup_count,
+        (SELECT MAX(checkup_date) FROM maternal_records m2 WHERE m2.mother_id = r.id) as last_visit,
+        (SELECT MAX(gestational_age_weeks) FROM maternal_records m2 WHERE m2.mother_id = r.id) as current_aog
+        FROM maternal_registration r
+        WHERE r.status = 'Approved'
+        ORDER BY r.client_fname ASC";
 $result = mysqli_query($conn, $sql);
 ?>
 
@@ -33,7 +32,6 @@ $result = mysqli_query($conn, $sql);
 <head>
     <meta charset="UTF-8">
     <title>Maternal Health Records | Alawihao Center</title>
-    <link rel="stylesheet" href="">
     <style>
         :root { 
             --sage: #8DAE74; 
@@ -119,7 +117,7 @@ $result = mysqli_query($conn, $sql);
         
         /* Modal Styling */
         .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter: blur(3px); overflow-y: auto; }
-        .modal-content { background:white; margin:3% auto; padding:30px; width:700px; border-radius:15px; border-top:8px solid var(--sage); box-shadow: 0 25px 30px rgba(0,0,0,0.15); max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .modal-content { background:white; margin:3% auto; padding:30px; width:750px; border-radius:15px; border-top:8px solid var(--sage); box-shadow: 0 25px 30px rgba(0,0,0,0.15); max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
         .trimester-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tri-btn { flex: 1; padding: 10px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; color: #4A5568; text-align: center; transition: all 0.2s; }
@@ -134,6 +132,9 @@ $result = mysqli_query($conn, $sql);
         .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
         .checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: 0.88rem; color: #2D3748; cursor: pointer; margin-bottom: 0; }
         .checkbox-label input { width: auto; margin-bottom: 0; cursor: pointer; }
+        
+        .trimester-section { display: none; }
+        .trimester-section.active-section { display: block; }
     </style>
 </head>
 <body>
@@ -142,7 +143,6 @@ $result = mysqli_query($conn, $sql);
     <div id="main-wrapper">
         <div class="page-header">
             <h2 style="color: var(--dark-sage); margin: 0;">Maternal Health History & ANC Records</h2>
-            <div class="role-badge">LOGGED AS: <?php echo strtoupper($current_role); ?></div>
         </div>
 
         <div class="table-container">
@@ -228,7 +228,7 @@ $result = mysqli_query($conn, $sql);
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <div>
                         <label>Age of Gestation (weeks):</label>
-                        <input type="number" name="gestational_age_weeks" min="1" max="42" placeholder="e.g. 32" required>
+                        <input type="number" name="gestational_age_weeks" id="aog_input" min="1" max="42" placeholder="e.g. 12" required>
                     </div>
                     <div>
                         <label>Blood Pressure:</label>
@@ -260,57 +260,193 @@ $result = mysqli_query($conn, $sql);
                 <label>Laboratory test done:</label>
                 <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
 
+                <!-- ================= 1ST TRIMESTER SPECIFIC FIELDS ================= -->
+                <div id="section_tri1" class="trimester-section active-section">
+                    <label>Hemoglobin count:</label>
+                    <input type="text" name="hemoglobin_count" placeholder="Hemoglobin count">
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Urinalysis:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="urinalysis" value="Done"> Urinalysis Done</label>
+                        </div>
+                    </div>
+
+                    <label>Complete Blood Count (CBC):</label>
+                    <input type="text" name="cbc" placeholder="Resulta ng CBC">
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">STIs gamit ang syndromic approach:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="sti_syphilis" value="1"> Syphilis</label>
+                            <label class="checkbox-label"><input type="checkbox" name="sti_hiv" value="1"> HIV</label>
+                            <label class="checkbox-label"><input type="checkbox" name="sti_hepatitis_b" value="1"> Hepatitis B (HBsAg)</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Stool Examination:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="stool_exam" value="Done"> Stool Examination Done</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Acetic Acid Wash:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="acetic_acid_wash" value="Done"> Acetic Acid Wash Done</label>
+                        </div>
+                    </div>
+
                 <div class="section-box">
-                    <label style="margin-bottom: 8px;">Urinalysis:</label>
+                    <label style="margin-bottom: 8px;">Tetanus-containing vaccine:</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="urinalysis_done" value="1"> Urinalysis Done / Normal</label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tetanus_vaccine_done" id="tetanusCheckbox" value="1" onchange="toggleTetanusDate()"> Tetanus-containing vaccine given
+                        </label>
+                    </div>
+                    
+                    <div id="tetanusDateContainer" style="display: none; margin-top: 10px;">
+                        <label style="font-weight:normal; font-size:0.8rem;">Date given:</label>
+                        <input type="date" name="tetanus_vaccine_date">
                     </div>
                 </div>
 
-                <label>Complete Blood Count (CBC):</label>
-                <input type="text" name="cbc" placeholder="Resulta ng CBC">
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Treatments (1st Tri):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="treat_syphilis" value="1"> Syphilis</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_arv" value="1"> Antiretroviral (ARV)</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_anemia" value="1"> Anemia</label>
+                        </div>
+                    </div>
 
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria Test / Treatment</label>
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay (1st Tri):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="srv_alcohol_tobacco" value="1"> Pag-iwas sa alcohol, tabacco, at illegal na droga</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_diet" value="1"> Pagpapayo tungkol sa tamang pagkain</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_safesex" value="1"> Pagpapayo sa safe sex</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_mosquito_net" value="1"> Paggamit ng mga insecticide-treated na kulambo</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_birthplan" value="1"> Birthplan</label>
+                        </div>
                     </div>
                 </div>
 
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Blood/RH group (kung kinakailangan):</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="blood_rh_group_done" value="1"> Blood Type & RH Group Determined</label>
+                <!-- ================= 2ND TRIMESTER SPECIFIC FIELDS ================= -->
+                <div id="section_tri2" class="trimester-section">
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Urinalysis:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="urinalysis_tri2" value="Done"> Urinalysis Done</label>
+                        </div>
+                    </div>
+
+                    <label>Complete Blood Count (CBC):</label>
+                    <input type="text" name="cbc_tri2" placeholder="Resulta ng CBC">
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Etiological tests para sa STIs (kung kinakailangan):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="etiological_stis" value="1"> Etiological test done</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Pap smear (kung kinakailangan):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="pap_smear" value="1"> Pap Smear Done</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Gestational diabetes (oral glucose challenge test), (kung kinakailangan):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="gestational_diabetes" value="1"> Oral Glucose Challenge Test Done</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="bacteriuria_tri2" value="1"> Bacteriuria Test Done</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Treatments (2nd Tri):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="treat_deworming" value="1"> Deworming</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_arv_tri2" value="1"> Antiretroviral (ARV)</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria_tri2" value="1"> Bacteriuria</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_anemia_tri2" value="1"> Anemia</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay (2nd Tri):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion_tri2" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
+                        </div>
                     </div>
                 </div>
 
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Treatments:</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="treat_arv" value="1"> Antiretroviral (ARV)</label>
-                        <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria treatment</label>
-                        <label class="checkbox-label"><input type="checkbox" name="treat_anemia" value="1"> Anemia treatment</label>
+                <!-- ================= 3RD TRIMESTER SPECIFIC FIELDS ================= -->
+                <div id="section_tri3" class="trimester-section">
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Urinalysis:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="urinalysis_tri3" value="Done"> Urinalysis Done</label>
+                        </div>
+                    </div>
+
+                    <label>Complete Blood Count (CBC):</label>
+                    <input type="text" name="cbc_tri3" placeholder="Resulta ng CBC">
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="bacteriuria_tri3" value="1"> Bacteriuria Test Done</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Blood/RH group (kung kinakailangan):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="blood_rh_group" value="1"> Blood/RH group determined</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Treatments (3rd Tri):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="treat_arv_tri3" value="1"> Antiretroviral (ARV)</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria_tri3" value="1"> Bacteriuria</label>
+                            <label class="checkbox-label"><input type="checkbox" name="treat_anemia_tri3" value="1"> Anemia</label>
+                        </div>
+                    </div>
+
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay (3rd Tri):</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion_tri3" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_postpartum" value="1"> Pagpapayo sa postpartum at postnatal care</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_spacing" value="1"> Pagpapayo sa pag agwat ng anak</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_tetanus_followup" value="1"> Pag follow up ng tetanus-containing vaccine</label>
+                        </div>
                     </div>
                 </div>
 
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay:</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_postpartum" value="1"> Pagpapayo sa postpartum at postnatal care</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_spacing" value="1"> Pagpapayo sa pag-agwat ng anak</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_tetanus_followup" value="1"> Pag-follow up ng tetanus-containing vaccine</label>
-                    </div>
-                </div>
-
-                <div>
+                <!-- COMMON FIELDS FOR ALL TRIMESTERS -->
+                <div style="margin-top: 15px;">
                     <label>Petsa ng pagbalik:</label>
                     <input type="date" name="next_visit_date">
                 </div>
 
                 <div>
                     <label>Pangalan ng health service provider:</label>
-                    <input type="text" name="provider_name" placeholder="Pangalan ng Midwife">
+                    <input type="text" name="provider_name" placeholder="Pangalan ng Midwife / Doctor">
                 </div>
 
                 <label>Referral sa ospital:</label>
@@ -327,13 +463,22 @@ $result = mysqli_query($conn, $sql);
     <script>
     function setTrimester(trimesterNum) {
         document.getElementById('selected_trimester').value = trimesterNum;
+        
+        // Tab buttons UI
         document.getElementById('btnTri1').classList.remove('active');
         document.getElementById('btnTri2').classList.remove('active');
         document.getElementById('btnTri3').classList.remove('active');
         document.getElementById('btnTri' + trimesterNum).classList.add('active');
+
+        // Sections visibility
+        document.getElementById('section_tri1').classList.remove('active-section');
+        document.getElementById('section_tri2').classList.remove('active-section');
+        document.getElementById('section_tri3').classList.remove('active-section');
+        document.getElementById('section_tri' + trimesterNum).classList.add('active-section');
     }
 
-    document.querySelector('input[name="gestational_age_weeks"]').addEventListener('input', function() {
+    // Auto switch tab based on Age of Gestation weeks input
+    document.getElementById('aog_input').addEventListener('input', function() {
         let weeks = parseInt(this.value);
         if (!isNaN(weeks)) {
             if (weeks >= 1 && weeks <= 13) {
@@ -361,6 +506,16 @@ $result = mysqli_query($conn, $sql);
             closeModal(); 
         } 
     }
+    function toggleTetanusDate() {
+    let checkbox = document.getElementById('tetanusCheckbox');
+    let dateContainer = document.getElementById('tetanusDateContainer');
+    
+    if (checkbox.checked) {
+        dateContainer.style.display = 'block';
+    } else {
+        dateContainer.style.display = 'none';
+    }
+}
     </script>
 </body>
 </html>
