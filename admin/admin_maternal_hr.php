@@ -147,6 +147,7 @@ $result = mysqli_query($conn, $sql);
             <div style="display: flex; align-items: center;">
                 <h2 style="color: var(--dark-sage); margin: 0;">Maternal Health History & ANC Records</h2>
             </div>
+            <div class="role-badge">LOGGED AS: <?php echo strtoupper($current_role); ?></div>
         </div>
 
         <div class="table-container">
@@ -207,18 +208,12 @@ $result = mysqli_query($conn, $sql);
                 <input type="hidden" name="mother_id" id="modal_mother_id">
                 <input type="hidden" name="trimester" id="selected_trimester" value="1">
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div>
-                        <label>Petsa:</label>
-                        <input type="date" name="checkup_date" value="<?php echo date('Y-m-d'); ?>" required>
-                    </div>
-                    <div>
-                        <label>Age of Gestation (weeks):</label>
-                        <input type="number" name="gestational_age_weeks" min="1" max="42" placeholder="e.g. 10" required>
-                    </div>
+                <div>
+                    <label>Petsa:</label>
+                    <input type="date" name="checkup_date" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <div>
                         <label>Timbang: (kg)</label>
                         <input type="number" name="weight_kg" step="0.1" required>
@@ -227,13 +222,20 @@ $result = mysqli_query($conn, $sql);
                         <label>Taas: (cm)</label>
                         <input type="number" name="height_cm" step="0.1">
                     </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>Age of Gestation (weeks):</label>
+                        <input type="number" name="gestational_age_weeks" min="1" max="42" placeholder="e.g. 20" required>
+                    </div>
                     <div>
                         <label>Blood Pressure:</label>
                         <input type="text" name="bp" placeholder="120/80" required>
                     </div>
                 </div>
 
-                <!-- Nutritional Status (Radio) -->
+                <!-- Nutritional Status -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Nutritional Status:</label>
                     <div class="checkbox-group">
@@ -252,21 +254,13 @@ $result = mysqli_query($conn, $sql);
                 <label>Mga pagbabago sa birthplan:</label>
                 <textarea name="birthplan_changes" placeholder="Mga update o pagbabago sa birth plan..."></textarea>
 
+                <label>Pagsusuri ng ngipin:</label>
+                <textarea name="pagsusuri_ngipin" placeholder="Resulta o detalye ng pagsusuri ng ngipin..."></textarea>
+
                 <label>Laboratory test done:</label>
                 <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
 
-                <label>Hemoglobin count:</label>
-                <input type="text" name="hemoglobin_count" placeholder="g/dL">
-
-                <!-- Pagsusuri ng ngipin -->
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Pagsusuri ng ngipin:</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="pagsusuri_ngipin" value="1"> Pagsusuri ng ngipin / Done</label>
-                    </div>
-                </div>
-
-                <!-- Urinalysis (Checkbox) -->
+                <!-- Urinalysis -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Urinalysis:</label>
                     <div class="checkbox-group">
@@ -277,80 +271,70 @@ $result = mysqli_query($conn, $sql);
                 <label>Complete Blood Count (CBC):</label>
                 <input type="text" name="cbc" placeholder="Resulta ng CBC">
 
-                <!-- STIs (Checkbox) -->
+                <!-- Etiological tests para sa STIs -->
                 <div class="section-box">
-                    <label style="margin-bottom: 8px;">STIs gamit ang syndromic approach:</label>
+                    <label style="margin-bottom: 8px;">Etiological tests para sa STIs (kung kinakailangan):</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="sti_syphilis" value="1"> Syphilis</label>
-                        <label class="checkbox-label"><input type="checkbox" name="sti_hiv" value="1"> HIV</label>
+                        <label class="checkbox-label"><input type="checkbox" name="sti_syphilis" value="1"> Syphilis Test</label>
+                        <label class="checkbox-label"><input type="checkbox" name="sti_hiv" value="1"> HIV Test</label>
                         <label class="checkbox-label"><input type="checkbox" name="sti_hbsg" value="1"> Hepatitis B (HBsAg)</label>
                     </div>
                 </div>
 
-                <!-- Stool Examination (Checkbox) -->
+                <!-- Pap smear -->
                 <div class="section-box">
-                    <label style="margin-bottom: 8px;">Stool examination:</label>
+                    <label style="margin-bottom: 8px;">Pap smear (kung kinakailangan):</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="stool_exam_done" value="1"> Stool Examination Done</label>
+                        <label class="checkbox-label"><input type="checkbox" name="pap_smear_done" value="1"> Pap Smear Done</label>
                     </div>
                 </div>
 
-                <!-- Acetic Acid Wash (Checkbox) -->
+                <!-- Gestational diabetes -->
                 <div class="section-box">
-                    <label style="margin-bottom: 8px;">Acetic acid wash:</label>
+                    <label style="margin-bottom: 8px;">Gestational diabetes (Oral Glucose Challenge Test), (kung kinakailangan):</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="acetic_acid_wash_done" value="1"> Acetic Acid Wash Done (VIA)</label>
+                        <label class="checkbox-label"><input type="checkbox" name="gestational_diabetes_test" value="1"> Oral Glucose Challenge Test Done</label>
                     </div>
                 </div>
 
-                <!-- Tetanus-containing vaccine (Checkbox + Date Given) -->
+                <!-- Bacteriuria -->
                 <div class="section-box">
-                    <label style="margin-bottom: 8px;">Tetanus-containing vaccine:</label>
-                    <div class="checkbox-group" style="margin-bottom: 10px;">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tetanus_given_status" value="1" id="tetanusCheckbox" onchange="toggleTetanusDate(this)"> 
-                            Nabigyan ng Tetanus-containing vaccine
-                        </label>
-                    </div>
-                    
-                    <div id="tetanusDateContainer" style="display: none; margin-top: 8px;">
-                        <label>Date Given:</label>
-                        <input type="date" name="tetanus_vaccine_date" id="tetanusDateInput">
+                    <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria Test / Treatment</label>
                     </div>
                 </div>
 
-                <!-- Treatments (Checkbox) -->
+                <!-- Treatments -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Treatments:</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="treat_syphilis" value="1"> Syphilis treatment</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_deworming" value="1"> Deworming</label>
                         <label class="checkbox-label"><input type="checkbox" name="treat_arv" value="1"> Antiretroviral (ARV)</label>
-                        <label class="checkbox-label"><input type="checkbox" name="treat_bacteriuria" value="1"> Bacteriuria</label>
-                        <label class="checkbox-label"><input type="checkbox" name="treat_anemia" value="1"> Anemia</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_anemia" value="1"> Anemia treatment</label>
+                        <label class="checkbox-label"><input type="checkbox" name="treat_Bacteriuria" value="1"> Bacteriuria</label>
                     </div>
                 </div>
 
-                <!-- Pinag-usapan / Serbisyong binigay (Checkbox) -->
+                <!-- Pinag-usapan / Serbisyong binigay -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay:</label>
                     <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
                         <label class="checkbox-label"><input type="checkbox" name="srv_drugs" value="1"> Pag-iwas sa alcohol, tobacco, at illegal na droga</label>
                         <label class="checkbox-label"><input type="checkbox" name="srv_diet" value="1"> Pagpapayo tungkol sa tamang pagkain</label>
                         <label class="checkbox-label"><input type="checkbox" name="srv_safe_sex" value="1"> Pagpapayo sa safe sex</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_mosquito_net" value="1"> Paggamit ng mga insecticide-treated na kulambo</label>
-                        <label class="checkbox-label"><input type="checkbox" name="srv_birthplan" value="1"> Birth plan</label>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div>
-                        <label>Petsa ng pagbalik:</label>
-                        <input type="date" name="next_visit_date">
-                    </div>
-                    <div>
-                        <label>Pangalan ng health service provider:</label>
-                        <input type="text" name="provider_name" placeholder="Pangalan ng Midwife">
-                    </div>
+                <div>
+                    <label>Petsa ng pagbalik:</label>
+                    <input type="date" name="next_visit_date">
+                </div>
+
+                <div>
+                    <label>Pangalan ng health service provider:</label>
+                    <input type="text" name="provider_name" placeholder="Pangalan ng Midwife">
                 </div>
 
                 <label>Referral sa ospital:</label>
@@ -392,21 +376,6 @@ $result = mysqli_query($conn, $sql);
         }
     });
 
-    // Function para lumabas/mawala ang date input kapag kinabit/tinanggal ang check sa tetanus
-    function toggleTetanusDate(checkbox) {
-        const dateContainer = document.getElementById('tetanusDateContainer');
-        const dateInput = document.getElementById('tetanusDateInput');
-        
-        if (checkbox.checked) {
-            dateContainer.style.display = 'block';
-            dateInput.required = true;
-        } else {
-            dateContainer.style.display = 'none';
-            dateInput.required = false;
-            dateInput.value = '';
-        }
-    }
-
     function openUpdateModal(id, name) {
         document.getElementById('updateModal').style.display = 'block';
         document.getElementById('modal_mother_id').value = id;
@@ -418,7 +387,9 @@ $result = mysqli_query($conn, $sql);
     }
 
     window.onclick = function(event) { 
-        if (event.target == document.getElementById('updateModal')) closeModal(); 
+        if (event.target == document.getElementById('updateModal')) { 
+            closeModal(); 
+        } 
     }
     </script>
 </body>
