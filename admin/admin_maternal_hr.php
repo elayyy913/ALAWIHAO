@@ -15,12 +15,16 @@ $current_role = strtolower(trim($user_info['role'] ?? ''));
 
 $sidebar_file = (in_array($current_role, ['super admin', 'superadmin'])) ? 'super_admin_sidebar.php' : 'admin_sidebar.php';
 
-// 2. FETCH MOTHERS DATA
-$sql = "SELECT u.*, 
-        (SELECT COUNT(*) FROM maternal_records WHERE mother_id = u.id) as checkup_count,
-        (SELECT MAX(checkup_date) FROM maternal_records WHERE mother_id = u.id) as last_visit,
-        (SELECT MAX(gestational_age_weeks) FROM maternal_records WHERE mother_id = u.id) as current_aog
-        FROM users u WHERE u.role = 'user' ORDER BY u.first_name ASC";
+// 2. FETCH MATERNAL PATIENTS SA PAMAMAGITAN NG JOIN SA REGISTRATION/RECORDS
+$sql = "SELECT m.id as mother_id, r.first_name, r.last_name, 
+        CONCAT(r.first_name, ' ', r.last_name) as full_name,
+        (SELECT COUNT(*) FROM maternal_records m2 WHERE m2.mother_id = m.mother_id) as checkup_count,
+        (SELECT MAX(checkup_date) FROM maternal_records m2 WHERE m2.mother_id = m.mother_id) as last_visit,
+        (SELECT MAX(gestational_age_weeks) FROM maternal_records m2 WHERE m2.mother_id = m.mother_id) as current_aog
+        FROM maternal_records m
+        JOIN maternal_registration r ON m.mother_id = r.id
+        GROUP BY m.mother_id
+        ORDER BY r.first_name ASC";
 $result = mysqli_query($conn, $sql);
 ?>
 
@@ -55,10 +59,6 @@ $result = mysqli_query($conn, $sql);
             transition: var(--transition); 
             width: 100%;
             box-sizing: border-box;
-        }
-
-        #main-wrapper.full-width { 
-            margin-left: 0 !important; 
         }
 
         .page-header {
@@ -121,18 +121,15 @@ $result = mysqli_query($conn, $sql);
         .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter: blur(3px); overflow-y: auto; }
         .modal-content { background:white; margin:3% auto; padding:30px; width:700px; border-radius:15px; border-top:8px solid var(--sage); box-shadow: 0 25px 30px rgba(0,0,0,0.15); max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
-        /* Trimester Indicator Tabs */
         .trimester-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tri-btn { flex: 1; padding: 10px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; color: #4A5568; text-align: center; transition: all 0.2s; }
         .tri-btn.active { background: var(--sage); color: white; border-color: var(--dark-sage); box-shadow: 0 2px 6px rgba(141, 174, 116, 0.4); }
 
-        /* Form elements */
         input[type="text"], input[type="number"], input[type="date"], select, textarea { 
             width: 100%; padding: 10px 12px; margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem; 
         }
         textarea { resize: vertical; height: 75px; }
         label { font-size: 0.85rem; font-weight: 600; color: #4A5568; margin-bottom: 5px; display: block; }
-        
         .section-box { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #edf2f7; }
         .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
         .checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: 0.88rem; color: #2D3748; cursor: pointer; margin-bottom: 0; }
@@ -144,9 +141,7 @@ $result = mysqli_query($conn, $sql);
     <?php include ($sidebar_file); ?>
     <div id="main-wrapper">
         <div class="page-header">
-            <div style="display: flex; align-items: center;">
-                <h2 style="color: var(--dark-sage); margin: 0;">Maternal Health History & ANC Records</h2>
-            </div>
+            <h2 style="color: var(--dark-sage); margin: 0;">Maternal Health History & ANC Records</h2>
             <div class="role-badge">LOGGED AS: <?php echo strtoupper($current_role); ?></div>
         </div>
 
@@ -161,29 +156,36 @@ $result = mysqli_query($conn, $sql);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while($row = mysqli_fetch_assoc($result)): 
-                        $full_name = htmlspecialchars(($row['first_name'] ?? 'Unknown') . ' ' . ($row['last_name'] ?? ''));
-                        $aog = $row['current_aog'] ?? 0;
-                    ?>
-                    <tr>
-                        <td>
-                            <span style="font-weight: 600; color: #2D3748;"><?php echo $full_name; ?></span><br>
-                            <small style="color: #A0AEC0;"><?php echo $row['checkup_count'] ?? 0; ?> total check-ups</small>
-                        </td>
-                        <td>
-                            <span style="font-weight: 600; color: #2b6cb0;"><?php echo $aog ? $aog . ' Weeks' : 'Not specified'; ?></span>
-                        </td>
-                        <td style="color: #4A5568;">
-                            <?php echo ($row['last_visit']) ? date("M d, Y", strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <a href="admin_maternal_view.php?id=<?php echo $row['id']; ?>" class="btn-history">View History</a>
-                                <button class="btn-update" onclick="openUpdateModal('<?php echo $row['id']; ?>', '<?php echo addslashes($full_name); ?>')">Add Record</button>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endwhile; ?>
+                    <?php if($result && mysqli_num_rows($result) > 0): ?>
+                        <?php while($row = mysqli_fetch_assoc($result)): 
+                            $full_name = htmlspecialchars($row['full_name']);
+                            $patient_id = $row['mother_id'];
+                            $aog = $row['current_aog'] ?? 0;
+                        ?>
+                        <tr>
+                            <td>
+                                <span style="font-weight: 600; color: #2D3748;"><?php echo $full_name; ?></span><br>
+                                <small style="color: #A0AEC0;"><?php echo $row['checkup_count'] ?? 0; ?> total check-ups</small>
+                            </td>
+                            <td>
+                                <span style="font-weight: 600; color: #2b6cb0;"><?php echo $aog ? $aog . ' Weeks' : 'Not specified'; ?></span>
+                            </td>
+                            <td style="color: #4A5568;">
+                                <?php echo ($row['last_visit']) ? date("M d, Y", strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="admin_maternal_view.php?id=<?php echo $patient_id; ?>" class="btn-history">View History</a>
+                                    <button type="button" class="btn-update" onclick="openUpdateModal('<?php echo $patient_id; ?>', '<?php echo addslashes($row['full_name']); ?>')">Add Record</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #A0AEC0; padding: 30px;">No verified maternal records found.</td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -197,7 +199,6 @@ $result = mysqli_query($conn, $sql);
                 <button type="button" onclick="closeModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:#A0AEC0;">✕</button>
             </div>
 
-            <!-- Trimester Indicator / Selector Tabs -->
             <div class="trimester-tabs">
                 <button type="button" class="tri-btn active" id="btnTri1" onclick="setTrimester(1)">1st Trimester</button>
                 <button type="button" class="tri-btn" id="btnTri2" onclick="setTrimester(2)">2nd Trimester</button>
@@ -235,7 +236,6 @@ $result = mysqli_query($conn, $sql);
                     </div>
                 </div>
 
-                <!-- Nutritional Status -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Nutritional Status:</label>
                     <div class="checkbox-group">
@@ -260,7 +260,6 @@ $result = mysqli_query($conn, $sql);
                 <label>Laboratory test done:</label>
                 <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
 
-                <!-- Urinalysis -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Urinalysis:</label>
                     <div class="checkbox-group">
@@ -271,7 +270,6 @@ $result = mysqli_query($conn, $sql);
                 <label>Complete Blood Count (CBC):</label>
                 <input type="text" name="cbc" placeholder="Resulta ng CBC">
 
-                <!-- Bacteriuria -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
                     <div class="checkbox-group">
@@ -279,7 +277,6 @@ $result = mysqli_query($conn, $sql);
                     </div>
                 </div>
 
-                <!-- Blood/RH group -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Blood/RH group (kung kinakailangan):</label>
                     <div class="checkbox-group">
@@ -287,7 +284,6 @@ $result = mysqli_query($conn, $sql);
                     </div>
                 </div>
 
-                <!-- Treatments -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Treatments:</label>
                     <div class="checkbox-group">
@@ -297,7 +293,6 @@ $result = mysqli_query($conn, $sql);
                     </div>
                 </div>
 
-                <!-- Pinag-usapan / Serbisyong binigay -->
                 <div class="section-box">
                     <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay:</label>
                     <div class="checkbox-group">
@@ -330,29 +325,23 @@ $result = mysqli_query($conn, $sql);
     </div>
 
     <script>
-    // Function para sa Trimester tab switching at pagbabago ng hidden value
     function setTrimester(trimesterNum) {
         document.getElementById('selected_trimester').value = trimesterNum;
-        
-        // Alisin ang active class sa lahat
         document.getElementById('btnTri1').classList.remove('active');
         document.getElementById('btnTri2').classList.remove('active');
         document.getElementById('btnTri3').classList.remove('active');
-        
-        // I-activate ang napindot
         document.getElementById('btnTri' + trimesterNum).classList.add('active');
     }
 
-    // AUTOMATIC TRIMESTER DETECTOR BASE SA WEEKS
     document.querySelector('input[name="gestational_age_weeks"]').addEventListener('input', function() {
         let weeks = parseInt(this.value);
         if (!isNaN(weeks)) {
             if (weeks >= 1 && weeks <= 13) {
-                setTrimester(1); // 1st Trimester (1-13 weeks)
+                setTrimester(1);
             } else if (weeks >= 14 && weeks <= 27) {
-                setTrimester(2); // 2nd Trimester (14-27 weeks)
+                setTrimester(2);
             } else if (weeks >= 28) {
-                setTrimester(3); // 3rd Trimester (28+ weeks)
+                setTrimester(3);
             }
         }
     });
