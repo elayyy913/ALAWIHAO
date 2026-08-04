@@ -1,107 +1,194 @@
 <?php
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// LOGIC: Kung Dashboard, '0' ang width. Kung hindi, '280px' para laging bukas.
-$sidebar_width = ($current_page == 'admin_dashboard.php') ? '0' : '280px';
-$main_margin = ($current_page == 'admin_dashboard.php') ? '0' : '280px';
-$ham_display = ($current_page == 'admin_dashboard.php') ? 'block' : 'none';
+// Active states para sa mga dropdown
+$is_reg_active = in_array($current_page, ['admin_maternal_reg.php', 'admin_child_reg.php']);
+$is_rec_active = in_array($current_page, ['admin_maternal_rec.php', 'admin_child_rec.php']);
+$is_sched_active = in_array($current_page, ['admin_sched_maternal.php', 'admin_sched_child.php']);
 ?>
 
-<div id="mySidenav" class="side-nav" style="width: <?php echo $sidebar_width; ?>;">
-    <?php if($current_page == 'admin_dashboard.php'): ?>
-        <span class="closebtn" onclick="closeNav()">&times;</span>
-    <?php endif; ?>
+<div id="mySidenav" class="side-nav-new">
+    <span class="closebtn-new" onclick="closeNav()">&times;</span>
     
-    <div class="sidebar-header">
-        <div class="brand">ALAWIHAO <span class="highlight">CENTER</span></div>
-        <div class="sub-brand">ADMINISTRATIVE CONTROL</div>
+    <div class="sidebar-header-new">
+        <div class="brand-new">ALAWIHAO <span class="highlight-new">CENTER</span></div>
+        <div class="sub-brand-new">ADMINISTRATIVE CONTROL</div>
     </div>
     
-    <div class="menu-items">
-        <div class="menu-label">(OVERVIEW)</div>
-        <a href="admin_dashboard.php" class="nav-item">Home</a>
-        <a href="admin_profile.php" class="nav-item">Profile</a>
+    <div class="menu-items-new">
+        <div class="menu-label-new">Overview</div>
+        <a href="admin_dashboard.php" class="nav-item-new <?php echo ($current_page == 'admin_dashboard.php') ? 'active' : ''; ?>">Home</a>
+        <a href="admin_profile.php" class="nav-item-new <?php echo ($current_page == 'admin_profile.php') ? 'active' : ''; ?>">Profile</a>
 
-        <div class="menu-label">(MANAGEMENT)</div>
-        <button class="dropdown-btn" onclick="toggleDrop('dropReg')">Register <span class="caret">▼</span></button>
-        <div id="dropReg" class="dropdown-container">
-            <a href="admin_maternal_reg.php" class="nav-item-sub">Maternal Registration</a>
-            <a href="admin_child_reg.php" class="nav-item-sub">Child Registration</a>
+        <div class="menu-label-new">Management</div>
+        
+        <!-- Register Dropdown -->
+        <button class="dropdown-btn-new <?php echo $is_reg_active ? 'active-parent' : ''; ?>" onclick="toggleDrop('dropReg')">
+            <span>Register</span> <span class="caret-new <?php echo $is_reg_active ? 'rotate' : ''; ?>">▼</span>
+        </button>
+        <div id="dropReg" class="dropdown-container-new <?php echo $is_reg_active ? 'show' : ''; ?>">
+            <a href="admin_maternal_reg.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_maternal_reg.php') ? 'active-sub' : ''; ?>">Maternal Registration</a>
+            <a href="admin_child_reg.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_child_reg.php') ? 'active-sub' : ''; ?>">Child Registration</a>
         </div>
 
-        <button class="dropdown-btn" onclick="toggleDrop('dropRec')">Records <span class="caret">▼</span></button>
-        <div id="dropRec" class="dropdown-container">
-            <a href="admin_maternal_rec.php" class="nav-item-sub">Maternal Records</a>
-            <a href="admin_child_rec.php" class="nav-item-sub">Child Records</a>
+        <!-- Records Dropdown -->
+        <button class="dropdown-btn-new <?php echo $is_rec_active ? 'active-parent' : ''; ?>" onclick="toggleDrop('dropRec')">
+            <span>Records</span> <span class="caret-new <?php echo $is_rec_active ? 'rotate' : ''; ?>">▼</span>
+        </button>
+        <div id="dropRec" class="dropdown-container-new <?php echo $is_rec_active ? 'show' : ''; ?>">
+            <a href="admin_maternal_rec.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_maternal_rec.php') ? 'active-sub' : ''; ?>">Maternal Records</a>
+            <a href="admin_child_rec.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_child_rec.php') ? 'active-sub' : ''; ?>">Child Records</a>
         </div>
 
-        <button class="dropdown-btn" onclick="toggleDrop('dropSched')">Schedule <span class="caret">▼</span></button>
-        <div id="dropSched" class="dropdown-container">
-            <a href="admin_sched_maternal.php" class="nav-item-sub">Maternal Schedule</a>
-            <a href="admin_sched_child.php" class="nav-item-sub">Child Schedule</a>
+        <!-- Schedule Dropdown -->
+        <button class="dropdown-btn-new <?php echo $is_sched_active ? 'active-parent' : ''; ?>" onclick="toggleDrop('dropSched')">
+            <span>Schedule</span> <span class="caret-new <?php echo $is_sched_active ? 'rotate' : ''; ?>">▼</span>
+        </button>
+        <div id="dropSched" class="dropdown-container-new <?php echo $is_sched_active ? 'show' : ''; ?>">
+            <a href="admin_sched_maternal.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_sched_maternal.php') ? 'active-sub' : ''; ?>">Maternal Schedule</a>
+            <a href="admin_sched_child.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_sched_child.php') ? 'active-sub' : ''; ?>">Child Schedule</a>
         </div>
 
-        <div class="menu-label">(OTHERS)</div>
-        <a href="admin_history.php" class="nav-item">History</a>
+        <div class="menu-label-new">Others</div>
+        <a href="admin_history.php" class="nav-item-new <?php echo ($current_page == 'admin_history.php') ? 'active' : ''; ?>">History</a>
     </div>
-    <a href="/FINAL_CAPSTONE/logout.php" class="logout-link">Log out</a>
+    <a href="/FINAL_CAPSTONE/logout.php" class="logout-link-new">Log out</a>
 </div>
 
-<button class="open-btn" id="hamBtn" onclick="openNav()" style="display: <?php echo $ham_display; ?>;">&#9776;</button>
+<!-- Hamburger Button para muling buksan ang sidebar kapag na-close -->
+<button class="open-btn-new" id="hamBtn" onclick="openNav()">&#9776;</button>
 
 <style>
-    .side-nav {
-        height: 100%; position: fixed; z-index: 3000;
-        top: 0; left: 0; background-color: #FFFFFF;
-        overflow-x: hidden; transition: 0.5s; 
-        box-shadow: 2px 0 15px rgba(0,0,0,0.05);
-        display: flex; flex-direction: column;
+    .side-nav-new {
+        height: 100% !important; 
+        position: fixed !important; 
+        z-index: 3000 !important;
+        top: 0 !important; 
+        left: 0 !important; 
+        width: 280px !important;
+        background-color: #FFFFFF !important;
+        overflow-x: hidden !important; 
+        transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 2px 0 20px rgba(0,0,0,0.03) !important;
+        display: flex !important; 
+        flex-direction: column !important;
+        border-right: 1px solid #F1F5F9 !important;
     }
 
-    .open-btn {
-        font-size: 18px; cursor: pointer; background-color: #95AF7E; 
-        color: white; padding: 8px 12px; border: none; border-radius: 8px;
-        position: fixed; top: 25px; left: 25px; z-index: 2000;
-        transition: 0.3s; box-shadow: 0 4px 10px rgba(149, 175, 126, 0.2);
+    /* Awtomatikong nag-aadjust ang margin ng main container batay sa pagbukas/pagsara */
+    #main, .main-content, #main-wrapper {
+        transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        margin-left: 280px !important;
+        box-sizing: border-box !important;
     }
 
-    #main { 
-        margin-left: <?php echo $main_margin; ?>; 
-        transition: margin-left .5s; 
-        padding: 40px;
+    .open-btn-new {
+        font-size: 16px !important; 
+        cursor: pointer !important; 
+        background-color: #8DAE74 !important; 
+        color: white !important; 
+        padding: 10px 14px !important; 
+        border: none !important; 
+        border-radius: 8px !important;
+        position: fixed !important; 
+        top: 20px !important; 
+        left: 20px !important; 
+        z-index: 2000 !important;
+        box-shadow: 0 4px 12px rgba(141, 174, 116, 0.25) !important;
+        visibility: hidden; /* Naka-hide muna habang nakabukas ang sidebar */
     }
+    .open-btn-new:hover { background-color: #6B8E55 !important; }
 
-    /* Rest of your styling (brand, nav-item, etc.) */
-    .sidebar-header { padding: 35px 25px; border-bottom: 1px solid #F1F5F9; }
-    .brand { font-size: 1.3rem; font-weight: 800; color: #2D3748; }
-    .highlight { color: #95AF7E; }
-    .sub-brand { font-size: 0.7rem; color: #A0AEC0; font-weight: 700; margin-top: 5px; }
-    .menu-label { font-size: 0.7rem; font-weight: 800; color: #CBD5E0; padding: 20px 25px 5px 25px; text-transform: uppercase; }
-    .nav-item, .dropdown-btn { padding: 14px 25px; text-decoration: none; font-size: 16px; color: #4A5568; display: block; transition: 0.3s; width: calc(100% - 30px); margin: 4px 15px; text-align: left; background: none; border: none; cursor: pointer; border-radius: 10px; font-weight: 600; }
-    .nav-item:hover, .dropdown-btn:hover { background-color: #95AF7E; color: #FFFFFF; }
-    .dropdown-container { display: none; background-color: #F8FAF5; margin: 0 15px 10px 15px; border-radius: 10px; }
-    .nav-item-sub { display: block; padding: 12px 25px; color: #8DAE74;  text-decoration: none; font-size: 0.9rem; font-weight: 600; }
-    .closebtn { position: absolute; top: 15px; right: 20px; font-size: 25px; color: #CBD5E0; cursor: pointer; }
-    .logout-link { margin-top: auto; padding: 25px; color: #E53E3E; text-decoration: none; font-weight: 700; border-top: 1px solid #F1F5F9; }
+    .sidebar-header-new { padding: 30px 25px 20px 25px !important; }
+    .brand-new { font-size: 1.15rem !important; font-weight: 800 !important; color: #1E293B !important; letter-spacing: -0.5px !important; }
+    .highlight-new { color: #8DAE74 !important; }
+    .sub-brand-new { font-size: 0.65rem !important; color: #94A3B8 !important; font-weight: 700 !important; margin-top: 4px !important; letter-spacing: 0.5px !important; }
+    
+    .menu-items-new { padding: 0 12px !important; flex-grow: 1 !important; overflow-y: auto !important; }
+    .menu-label-new { font-size: 0.68rem !important; font-weight: 700 !important; color: #94A3B8 !important; padding: 18px 15px 8px 15px !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; }
+    
+    .nav-item-new, .dropdown-btn-new { 
+        padding: 12px 16px !important; text-decoration: none !important; font-size: 0.9rem !important; color: #475569 !important; 
+        display: flex !important; justify-content: space-between !important; align-items: center !important; 
+        width: 100% !important; margin: 2px 0 !important; text-align: left !important; background: none !important; border: none !important; 
+        cursor: pointer !important; border-radius: 8px !important; font-weight: 600 !important; box-sizing: border-box !important;
+    }
+    .nav-item-new:hover, .dropdown-btn-new:hover { background-color: #F8FAFC !important; color: #1E293B !important; }
+    
+    .nav-item-new.active { background-color: #F1F5ED !important; color: #6B8E55 !important; font-weight: 700 !important; }
+    .dropdown-btn-new.active-parent { color: #6B8E55 !important; background-color: #F8FAFC !important; font-weight: 700 !important; }
+    
+    .dropdown-container-new { 
+        display: none !important; 
+        background-color: #FAFAF9 !important; 
+        margin: 4px 0 8px 0 !important; 
+        border-radius: 8px !important; 
+        padding: 4px 0 !important; 
+        border: 1px solid #F1F5F9 !important; 
+    }
+    .dropdown-container-new.show { 
+        display: block !important; 
+    }
+    
+    .nav-item-sub-new { 
+        display: block !important; padding: 10px 16px 10px 24px !important; color: #64748B !important;  
+        text-decoration: none !important; font-size: 0.85rem !important; font-weight: 500 !important;
+        border-radius: 6px !important; margin: 2px 6px !important;
+    }
+    .nav-item-sub-new:hover { color: #1E293B !important; background-color: #F1F5ED !important; }
+    .nav-item-sub-new.active-sub { color: #6B8E55 !important; font-weight: 700 !important; background-color: #F1F5ED !important; }
+
+    .caret-new { 
+        font-size: 0.7rem !important; 
+        color: #94A3B8 !important; 
+        transition: transform 0.2s ease !important;
+    }
+    .caret-new.rotate { 
+        transform: rotate(180deg) !important; 
+    }
+    
+    .closebtn-new { 
+        position: absolute !important; 
+        top: 15px !important; 
+        right: 20px !important; 
+        font-size: 22px !important; 
+        color: #94A3B8 !important; 
+        cursor: pointer !important; 
+    }
+    .closebtn-new:hover { color: #1E293B !important; }
+    
+    .logout-link-new { 
+        margin-top: auto !important; padding: 20px 25px !important; color: #EF4444 !important; text-decoration: none !important; 
+        font-weight: 700 !important; font-size: 0.9rem !important; border-top: 1px solid #F1F5F9 !important; display: block !important;
+    }
+    .logout-link-new:hover { background-color: #FEF2F2 !important; }
 </style>
 
 <script>
     function openNav() {
-        document.getElementById("mySidenav").style.width = "280px";
-        document.getElementById("main").style.marginLeft = "280px";
+        document.getElementById("mySidenav").style.setProperty("width", "280px", "important");
+        var mainEl = document.getElementById("main") || document.getElementById("main-wrapper") || document.querySelector(".main-content");
+        if(mainEl) mainEl.style.setProperty("margin-left", "280px", "important");
         var ham = document.getElementById("hamBtn");
         if(ham) ham.style.visibility = "hidden";
     }
 
     function closeNav() {
-        document.getElementById("mySidenav").style.width = "0";
-        document.getElementById("main").style.marginLeft = "0";
+        document.getElementById("mySidenav").style.setProperty("width", "0", "important");
+        var mainEl = document.getElementById("main") || document.getElementById("main-wrapper") || document.querySelector(".main-content");
+        if(mainEl) mainEl.style.setProperty("margin-left", "0", "important");
         var ham = document.getElementById("hamBtn");
         if(ham) ham.style.visibility = "visible";
     }
 
     function toggleDrop(id) {
         var dropdown = document.getElementById(id);
-        dropdown.style.display = (dropdown.style.display === "block") ? "none" : "block";
+        var button = dropdown.previousElementSibling;
+        var caret = button.querySelector('.caret-new');
+
+        dropdown.classList.toggle('show');
+        if (caret) {
+            caret.classList.toggle('rotate');
+        }
     }
 </script>

@@ -8,31 +8,75 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {
     exit();
 }
 
-$worker_id = $_SESSION['user_id'];
 $message = "";
 
 // 2. HANDLE APPROVALS
 if (isset($_GET['approve_infant'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_infant']);
     mysqli_query($conn, "UPDATE infant_registrations SET status='Approved' WHERE id='$id'");
-    $message = "Infant approved!";
+    $message = "Infant approved successfully!";
 }
 
 if (isset($_GET['approve_maternal'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_maternal']);
     mysqli_query($conn, "UPDATE maternal_registrations SET status='Approved' WHERE id='$id'");
-    $message = "Maternal record approved!";
+    $message = "Maternal record approved successfully!";
 }
 
-// 3. FETCH DATA (Safely)
+// 3. HANDLE SCHEDULE ACTIONS (DONE / RESCHEDULE)
+if (isset($_POST['action_type']) && isset($_POST['sched_id']) && isset($_POST['sched_table'])) {
+    $s_id = mysqli_real_escape_string($conn, $_POST['sched_id']);
+    $s_table = ($_POST['sched_table'] === 'Maternal') ? 'maternal_schedules' : 'infant_schedule';
+    $date_col = ($_POST['sched_table'] === 'Maternal') ? 'appointment_date' : 'next_appointment';
+
+    if ($_POST['action_type'] === 'done') {
+        mysqli_query($conn, "UPDATE $s_table SET status='Completed' WHERE id='$s_id'");
+        $message = "Schedule marked as Done!";
+    } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
+        $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+        mysqli_query($conn, "UPDATE $s_table SET $date_col='$new_date' WHERE id='$s_id'");
+        $message = "Schedule successfully rescheduled!";
+    }
+}
+
+// 4. FETCH METRICS / COUNTS
+$total_maternal_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM maternal_registration");
+$total_maternal = $total_maternal_q ? mysqli_fetch_assoc($total_maternal_q)['count'] : 0;
+
+$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM infant_registration");
+$total_infant = $total_infant_q ? mysqli_fetch_assoc($total_infant_q)['count'] : 0;
+
 $infant_pending = mysqli_query($conn, "SELECT * FROM infant_registration WHERE status='Pending'");
 $maternal_pending = mysqli_query($conn, "SELECT * FROM maternal_registration WHERE status='Pending'");
 
-// 4. FETCH UPCOMING SCHEDULE (Checks if column exists first to prevent crash)
-$upcoming_schedules = false;
-$check_col = mysqli_query($conn, "SHOW COLUMNS FROM vaccination_records LIKE 'next_appointment'");
-if(mysqli_num_rows($check_col) > 0) {
-    $upcoming_schedules = mysqli_query($conn, "SELECT * FROM vaccination_records WHERE next_appointment >= CURDATE() ORDER BY next_appointment ASC LIMIT 5");
+$pending_total = (mysqli_num_rows($infant_pending) + mysqli_num_rows($maternal_pending));
+
+// 5. FETCH SCHEDULES USING EXACT DATABASE COLUMNS
+$today_sched_count = 0;
+$upcoming_schedules = [];
+
+$union_query = "
+    SELECT id, appointment_date as sched_date, appointment_type as details, 'Maternal' as type 
+    FROM maternal_schedules 
+    WHERE status = 'Pending'
+    UNION ALL
+    SELECT id, COALESCE(next_appointment, vaccination_date) as sched_date, vaccine_name as details, 'Infant' as type 
+    FROM infant_schedule 
+    WHERE status = 'Pending'
+";
+
+// Bilang ng iskedyul ngayong araw
+$today_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM ($union_query) as combined WHERE sched_date = CURDATE()");
+if ($today_q) {
+    $today_sched_count = mysqli_fetch_assoc($today_q)['count'];
+}
+
+// Mga susunod na iskedyul (Upcoming)
+$upcoming_q = mysqli_query($conn, "SELECT * FROM ($union_query) as combined WHERE sched_date >= CURDATE() ORDER BY sched_date ASC LIMIT 5");
+if ($upcoming_q) {
+    while ($row = mysqli_fetch_assoc($upcoming_q)) {
+        $upcoming_schedules[] = $row;
+    }
 }
 ?>
 
@@ -40,120 +84,334 @@ if(mysqli_num_rows($check_col) > 0) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Panel | Health Worker</title>
+    <title>Admin Dashboard | Alawihao Center</title>
     <style>
-        :root { --dark-sage: #718355; --sage: #A3C981; --beige: #F5F5DC; --white: #FFFFFF; }
-        body { font-family: 'Times New Roman', serif; margin: 0; background-color: var(--beige); display: flex; height: 100vh; overflow: hidden; }
+        :root { 
+            --sage: #8DAE74; 
+            --dark-sage: #6B8E55; 
+            --light-bg: #F8FAFC; 
+            --card-bg: #FFFFFF; 
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+        }
 
-        /* Sidebar - Matching your screenshot */
-        .sidebar { width: 280px; background-color: var(--dark-sage); color: white; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 30px 20px; text-align: center; font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .menu-item { border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .collapsible { width: 100%; padding: 20px 25px; background: none; border: none; color: white; text-align: left; font-size: 1.1rem; cursor: pointer; display: flex; justify-content: space-between; font-family: serif; }
-        .content-collapse { display: none; background-color: rgba(0,0,0,0.15); }
-        .nav-link { color: rgba(255,255,255,0.8); text-decoration: none; padding: 12px 45px; display: block; }
-        .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
-        .logout { margin-top: auto; padding: 25px; color: #ff9999; text-decoration: none; font-weight: bold; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            background-color: var(--light-bg); 
+            color: var(--text-main);
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
 
-        /* Content Area */
-        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
-        .card { background: var(--white); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 30px; }
-        .grid-container { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid var(--sage); color: var(--dark-sage); font-size: 0.85rem; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
-        
-        .btn-approve { background: var(--sage); color: #333; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8rem; }
-        .sched-item { padding: 10px; border-left: 4px solid var(--dark-sage); background: #f9f9f9; margin-bottom: 10px; border-radius: 4px; }
+        #main { 
+            flex: 1; 
+            margin-left: 0; 
+            transition: margin-left .3s cubic-bezier(0.4, 0, 0.2, 1); 
+            padding: 30px 40px; 
+            overflow-y: auto; 
+            box-sizing: border-box;
+        }
+
+        .welcome-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 24px;
+        }
+
+        /* Metric Cards Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            padding: 20px 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+            border-top: 4px solid var(--sage);
+        }
+
+        .metric-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Main Grid Layout */
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: 2fr 1fr; 
+            gap: 24px; 
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            padding: 24px; 
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+            margin-bottom: 24px; 
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--dark-sage);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-header-title::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 14px;
+            background-color: var(--dark-sage);
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+
+        th { 
+            text-align: left; 
+            padding: 10px 12px; 
+            background-color: #F8FAFC;
+            border-bottom: 1px solid var(--border-color); 
+            color: var(--text-muted); 
+            font-size: 0.7rem; 
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 700;
+        }
+
+        td { 
+            padding: 14px 12px; 
+            border-bottom: 1px solid #F1F5F9; 
+            font-size: 0.85rem; 
+            color: var(--text-main);
+        }
+
+        .no-data {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+            font-size: 0.85rem;
+        }
+
+        .btn-approve { 
+            background: #F1F5ED; 
+            color: var(--dark-sage); 
+            padding: 6px 14px; 
+            border-radius: 6px; 
+            text-decoration: none; 
+            font-weight: 700; 
+            font-size: 0.75rem; 
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .btn-approve:hover {
+            background: var(--dark-sage);
+            color: white;
+        }
+
+        .sched-item { 
+            padding: 12px; 
+            border-left: 3px solid var(--sage); 
+            background: #FAFAF9; 
+            margin-bottom: 12px; 
+            border-radius: 0 8px 8px 0; 
+        }
+
+        .sched-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn-done {
+            background: #DCFCE7;
+            color: #16A34A;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-done:hover { background: #16A34A; color: white; }
+
+        .resched-container {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-top: 5px;
+        }
+
+        .resched-input {
+            padding: 3px 6px;
+            font-size: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .btn-resched {
+            background: #FEF3C7;
+            color: #D97706;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-resched:hover { background: #D97706; color: white; }
+
+        .success-alert {
+            background: #F0FDF4;
+            color: #16A34A;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: 1px solid #DCFCE7;
+        }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">ADMIN PANEL</div>
-        <div class="menu-item">
-            <button class="collapsible">Register ▼</button>
-            <div class="content-collapse">
-                <a href="maternal_reg.php" class="nav-link">Pregnancy</a>
-                <a href="infant_reg.php" class="nav-link">New Baby</a>
+    <!-- Minimalist Sidebar Integration -->
+    <?php include('admin_sidebar.php'); ?>
+
+    <div id="main">
+        <div class="welcome-title">Welcome, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?></div>
+        
+        <?php if (!empty($message)): ?>
+            <div class="success-alert"><?php echo $message; ?></div>
+        <?php endif; ?>
+
+        <!-- Top Overview Metric Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">TOTAL MATERNAL</div>
+                <div class="metric-value"><?php echo $total_maternal; ?></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">REGISTERED INFANTS</div>
+                <div class="metric-value"><?php echo $total_infant; ?></div>
+            </div>
+            <div class="metric-card" style="border-top-color: #D97706;">
+                <div class="metric-title">PENDING APPROVALS</div>
+                <div class="metric-value" style="color: #D97706;"><?php echo $pending_total; ?></div>
+            </div>
+            <div class="metric-card" style="border-top-color: #3B82F6;">
+                <div class="metric-title">TODAY'S SCHEDULE</div>
+                <div class="metric-value" style="color: #3B82F6; font-size: 1.5rem;"><?php echo $today_sched_count; ?> Patient<?php echo ($today_sched_count > 1) ? 's' : ''; ?></div>
             </div>
         </div>
-        <div class="menu-item">
-            <button class="collapsible">Records ▼</button>
-            <div class="content-collapse"><a href="#" class="nav-link">New Record</a></div>
-        </div>
-        <div class="menu-item">
-            <button class="collapsible">Schedule ▼</button>
-            <div class="content-collapse"><a href="#" class="nav-link">Set Schedule</a></div>
-        </div>
-        <div class="menu-item">
-            <button class="collapsible">History ▼</button>
-            <div class="content-collapse"><a href="#" class="nav-link">View History</a></div>
-        </div>
-        <a href="logout.php" class="logout">Logout</a>
-    </div>
 
-    <div class="main-content">
-        <h1 style="color: var(--dark-sage);">Welcome, <?php echo $_SESSION['name']; ?></h1>
-        
         <div class="grid-container">
+            <!-- Left Column: Pending Approvals -->
             <div class="left-column">
                 <div class="card">
-                    <h3>Pending Newborn Enrollments</h3>
+                    <div class="card-header-title">Pending Newborn Enrollments</div>
                     <table>
                         <tr><th>Baby Name</th><th>Mother</th><th>Action</th></tr>
-                        <?php while($row = mysqli_fetch_assoc($infant_pending)): ?>
-                        <tr>
-                            <td><?php echo $row['baby_name']; ?></td>
-                            <td><?php echo $row['mother_name']; ?></td>
-                            <td><a href="?approve_infant=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
-                        </tr>
-                        <?php endwhile; ?>
+                        <?php if($infant_pending && mysqli_num_rows($infant_pending) > 0): ?>
+                            <?php while($row = mysqli_fetch_assoc($infant_pending)): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($row['baby_name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
+                                <td><a href="?approve_infant=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
+                            </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="3" class="no-data">No pending newborn enrollments.</td></tr>
+                        <?php endif; ?>
                     </table>
                 </div>
 
                 <div class="card">
-                    <h3>Pending Maternal Enrollments</h3>
+                    <div class="card-header-title">Pending Maternal Enrollments</div>
                     <table>
                         <tr><th>Mother's Name</th><th>LMP Date</th><th>Action</th></tr>
-                        <?php while($row = mysqli_fetch_assoc($maternal_pending)): ?>
-                        <tr>
-                            <td><?php echo $row['mother_name']; ?></td>
-                            <td><?php echo $row['lmp_date']; ?></td>
-                            <td><a href="?approve_maternal=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
-                        </tr>
-                        <?php endwhile; ?>
+                        <?php if($maternal_pending && mysqli_num_rows($maternal_pending) > 0): ?>
+                            <?php while($row = mysqli_fetch_assoc($maternal_pending)): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['lmp_date']); ?></td>
+                                <td><a href="?approve_maternal=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
+                            </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="3" class="no-data">No pending maternal enrollments.</td></tr>
+                        <?php endif; ?>
                     </table>
                 </div>
             </div>
 
+            <!-- Right Column: Upcoming Schedule with Done & Resched Actions -->
             <div class="right-column">
                 <div class="card">
-                    <h3>Upcoming Schedule</h3>
-                    <?php if($upcoming_schedules && mysqli_num_rows($upcoming_schedules) > 0): ?>
-                        <?php while($s = mysqli_fetch_assoc($upcoming_schedules)): ?>
+                    <div class="card-header-title">Upcoming Schedule</div>
+                    <?php if(!empty($upcoming_schedules)): ?>
+                        <?php foreach($upcoming_schedules as $s): ?>
                         <div class="sched-item">
-                            <strong style="color:var(--dark-sage);"><?php echo $s['next_appointment']; ?></strong><br>
-                            <small><?php echo $s['baby_name']; ?></small>
+                            <strong style="color: var(--dark-sage); font-size: 0.85rem;"><?php echo htmlspecialchars($s['sched_date']); ?> (<?php echo htmlspecialchars($s['type']); ?>)</strong><br>
+                            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);"><?php echo htmlspecialchars($s['details']); ?></span>
+                            
+                            <!-- Action Forms for Done / Resched -->
+                            <div class="sched-actions">
+                                <!-- Done Form -->
+                                <form method="POST" style="margin: 0;">
+                                    <input type="hidden" name="sched_id" value="<?php echo $s['id']; ?>">
+                                    <input type="hidden" name="sched_table" value="<?php echo $s['type']; ?>">
+                                    <input type="hidden" name="action_type" value="done">
+                                    <button type="submit" class="btn-done" onclick="return confirm('Mark this schedule as completed?')">Mark Done</button>
+                                </form>
+                            </div>
+
+                            <!-- Reschedule Form -->
+                            <form method="POST" class="resched-container">
+                                <input type="hidden" name="sched_id" value="<?php echo $s['id']; ?>">
+                                <input type="hidden" name="sched_table" value="<?php echo $s['type']; ?>">
+                                <input type="hidden" name="action_type" value="resched">
+                                <input type="date" name="new_date" class="resched-input" required>
+                                <button type="submit" class="btn-resched">Resched</button>
+                            </form>
                         </div>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     <?php else: ?>
-                        <p style="color:#999;">No upcoming appointments.</p>
+                        <p class="no-data" style="margin: 0;">No upcoming appointments.</p>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        var coll = document.getElementsByClassName("collapsible");
-        for (var i = 0; i < coll.length; i++) {
-            coll[i].addEventListener("click", function() {
-                var content = this.nextElementSibling;
-                content.style.display = (content.style.display === "block") ? "none" : "block";
-            });
-        }
-    </script>
 </body>
 </html>
