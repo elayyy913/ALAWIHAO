@@ -175,7 +175,7 @@ $result = mysqli_query($conn, $sql);
                             </td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="admin_maternal_view.php?id=<?php echo $patient_id; ?>" class="btn-history">View History</a>
+                                    <a href="admin_maternal_history.php?id=<?php echo $patient_id; ?>" class="btn-history">View History</a>
                                     <button type="button" class="btn-update" onclick="openUpdateModal('<?php echo $patient_id; ?>', '<?php echo addslashes($row['full_name']); ?>')">Add Record</button>
                                 </div>
                             </td>
