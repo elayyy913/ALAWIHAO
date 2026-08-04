@@ -22,19 +22,25 @@ if (isset($_GET['delete_id'])) {
 if (isset($_GET['fetch_patient_details'])) {
     header('Content-Type: application/json');
 
-    // FIX: this line was missing before, causing "$mother_id undefined" warnings
     $mother_id = mysqli_real_escape_string($conn, $_GET['fetch_patient_details']);
 
     $reg_q = mysqli_query($conn, "SELECT *, CONCAT(COALESCE(street,''), ', ', COALESCE(barangay,''), ', ', COALESCE(municipality,'')) AS full_address FROM maternal_registration WHERE id = '$mother_id' LIMIT 1");
     $reg_data = mysqli_fetch_assoc($reg_q) ?: [];
 
-    // FIX: pregnancy_history table has 'patient_id', not 'mother_id'
     $history_q = mysqli_query($conn, "SELECT * FROM pregnancy_history WHERE patient_id = '$mother_id' ORDER BY id DESC LIMIT 1");
     $history_data = mysqli_fetch_assoc($history_q) ?: [];
 
     $visits_q = mysqli_query($conn, "SELECT * FROM maternal_records WHERE mother_id = '$mother_id' ORDER BY checkup_date DESC");
     $visits_data = [];
     while ($v = mysqli_fetch_assoc($visits_q)) {
+        $ga = intval($v['gestational_age_weeks'] ?? 0);
+        if ($ga > 0) {
+            $v['current_aog'] = $ga . ' weeks';
+            $v['remaining_weeks'] = max(0, 40 - $ga);
+        } else {
+            $v['current_aog'] = 'N/A';
+            $v['remaining_weeks'] = 'N/A';
+        }
         $visits_data[] = $v;
     }
 
@@ -46,21 +52,50 @@ if (isset($_GET['fetch_patient_details'])) {
     exit();
 }
 
-// 3. FETCH PATIENTS MASTERLIST
+// 3. FETCH PATIENTS MASTERLIST WITH SEARCH & TRIMESTER FILTER
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
+$trimester_filter = isset($_GET['trimester_filter']) ? mysqli_real_escape_string($conn, $_GET['trimester_filter']) : '';
 
 $query = "SELECT u.*, 
          CONCAT(u.client_fname, ' ', COALESCE(u.client_mi,''), ' ', u.client_lname) AS full_name,
-         r.weight_kg, r.bp, r.temperature, r.fetal_heart_rate, r.remarks, r.checkup_date
+         r.weight_kg, r.bp, r.temperature, r.fetal_heart_rate, r.remarks, r.checkup_date, r.gestational_age_weeks
          FROM maternal_registration u
          LEFT JOIN (
-             SELECT * FROM maternal_records WHERE id IN (SELECT MAX(id) FROM maternal_records GROUP BY mother_id)
+             SELECT mother_id, weight_kg, bp, temperature, fetal_heart_rate, remarks, checkup_date, gestational_age_weeks 
+             FROM maternal_records 
+             WHERE id IN (SELECT MAX(id) FROM maternal_records GROUP BY mother_id)
          ) r ON u.id = r.mother_id
          WHERE u.status = 'Approved' 
-         AND (u.client_fname LIKE '%$search%' OR u.client_lname LIKE '%$search%') 
-         ORDER BY u.created_at DESC";
+         AND (u.client_fname LIKE '%$search%' OR u.client_lname LIKE '%$search%')";
+
+$query .= " ORDER BY u.created_at DESC";
 
 $result = mysqli_query($conn, $query);
+
+$patients = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $ga = intval($row['gestational_age_weeks'] ?? 0);
+    
+    // Compute current AOG and Remaining to full-term
+    $row['current_aog'] = ($ga > 0) ? $ga . ' weeks' : 'N/A';
+    $remaining = ($ga > 0) ? max(0, 40 - $ga) : -1;
+    $row['computed_remaining'] = ($remaining >= 0) ? $remaining . ' weeks left' : 'N/A';
+
+    // Trimester Filter Logic
+    if ($trimester_filter !== '') {
+        if ($ga > 0) {
+            if ($trimester_filter === '1' && $ga >= 1 && $ga <= 13) {
+                $patients[] = $row;
+            } elseif ($trimester_filter === '2' && $ga >= 14 && $ga <= 27) {
+                $patients[] = $row;
+            } elseif ($trimester_filter === '3' && $ga >= 28) {
+                $patients[] = $row;
+            }
+        }
+    } else {
+        $patients[] = $row;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -77,10 +112,16 @@ $result = mysqli_query($conn, $query);
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-beige); margin: 0; display: flex; }
         #main { width: 100%; padding: 40px; box-sizing: border-box; min-height: 100vh; margin-left: 280px; }
         .records-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         h2 { color: var(--sage-green); font-size: 1.8rem; margin: 0; }
-        .search-box { padding: 10px; border: 1px solid #ddd; border-radius: 8px; width: 220px; }
-        .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+        
+        .filter-form { display: flex; gap: 10px; align-items: center; }
+        .search-box, .filter-select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; outline: none; }
+        .search-box { width: 200px; }
+        .filter-select { background: white; cursor: pointer; }
+        
+        .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .btn-add:hover { background-color: #5a7b45; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         thead { background-color: var(--sage-green); }
@@ -94,9 +135,19 @@ $result = mysqli_query($conn, $query);
         .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
         .modal-content { background: white; margin: 3% auto; padding: 35px; border-radius: 20px; width: 850px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.15); }
         
+        /* CONFIRMATION MODAL CARD STYLES */
+        .confirm-modal-content { background: white; margin: 15% auto; padding: 30px; border-radius: 16px; width: 400px; text-align: center; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
+        .confirm-modal-content h3 { color: #333; margin-top: 0; margin-bottom: 10px; font-size: 1.3rem; }
+        .confirm-modal-content p { color: #666; font-size: 0.9rem; margin-bottom: 25px; line-height: 1.4; }
+        .confirm-actions { display: flex; justify-content: center; gap: 12px; }
+        .btn-confirm-yes { background-color: var(--danger-red); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-confirm-yes:hover { opacity: 0.9; }
+        .btn-confirm-no { background-color: #eee; color: #333; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-confirm-no:hover { background-color: #ddd; }
+
         /* TABS */
         .tab-menu { display: flex; border-bottom: 2px solid #eee; margin-top: 20px; margin-bottom: 20px; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; background: none; border: none; font-weight: 600; color: #8DAE74; #888; font-size: 0.95rem; border-bottom: 3px solid transparent; }
+        .tab-btn { padding: 10px 20px; cursor: pointer; background: none; border: none; font-weight: 600; color: #888; font-size: 0.95rem; border-bottom: 3px solid transparent; }
         .tab-btn.active { color: var(--sage-green); border-bottom-color: var(--sage-green); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -109,7 +160,7 @@ $result = mysqli_query($conn, $query);
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; line-height: 1.5; }
 
         .btn-delete { background: none; border: none; color: var(--danger-red); text-decoration: underline; cursor: pointer; font-weight: 600; }
-        .alert { background: #dff0d8; color: #8DAE74;  padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .alert { background: #dff0d8; color: #3c763d; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
     </style>
 </head>
 <body>
@@ -130,8 +181,16 @@ $result = mysqli_query($conn, $query);
         <div class="records-card">
             <div class="header-section">
                 <h2>Maternal Health Records</h2>
-                <div style="display:flex; gap:10px;">
-                    <form method="GET"><input type="text" name="search" class="search-box" placeholder="Search..." value="<?= htmlspecialchars($search) ?>"></form>
+                <div style="display:flex; gap:10px; align-items: center;">
+                    <form method="GET" class="filter-form">
+                        <select name="trimester_filter" class="filter-select" onchange="this.form.submit()">
+                            <option value="">-- Filter by Trimester --</option>
+                            <option value="1" <?= ($trimester_filter == '1') ? 'selected' : '' ?>>1st Trimester (1 - 13 wks)</option>
+                            <option value="2" <?= ($trimester_filter == '2') ? 'selected' : '' ?>>2nd Trimester (14 - 27 wks)</option>
+                            <option value="3" <?= ($trimester_filter == '3') ? 'selected' : '' ?>>3rd Trimester (28+ wks)</option>
+                        </select>
+                        <input type="text" name="search" class="search-box" placeholder="Search name..." value="<?= htmlspecialchars($search) ?>">
+                    </form>
                     <a href="admin_maternal_reg.php" class="btn-add">+ Register Patient</a>
                 </div>
             </div>
@@ -141,17 +200,37 @@ $result = mysqli_query($conn, $query);
                     <tr>
                         <th>Patient Name</th>
                         <th>Last Visit</th>
+                        <th>Current AOG</th>
+                        <th>Remaining to Full-Term</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while($row = mysqli_fetch_assoc($result)): ?>
-                    <tr>
-                        <td style="font-weight:600;"><?= htmlspecialchars($row['full_name']) ?></td>
-                        <td><?= $row['checkup_date'] ? date('M d, Y', strtotime($row['checkup_date'])) : 'No records' ?></td>
-                        <td><button class="view-btn" onclick='openModal(<?= json_encode($row) ?>)'>View Details</button></td>
-                    </tr>
-                    <?php endwhile; ?>
+                    <?php if(count($patients) > 0): ?>
+                        <?php foreach($patients as $row): ?>
+                        <tr>
+                            <td style="font-weight:600;"><?= htmlspecialchars($row['full_name']) ?></td>
+                            <td><?= $row['checkup_date'] ? date('M d, Y', strtotime($row['checkup_date'])) : 'No records' ?></td>
+                            <td>
+                                <span style="color: #555; font-weight: 600;"><?= htmlspecialchars($row['current_aog']) ?></span>
+                            </td>
+                            <td>
+                                <?php if($row['computed_remaining'] !== 'N/A'): ?>
+                                    <span style="background: #eef4ec; color: var(--sage-green); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                                        <?= htmlspecialchars($row['computed_remaining']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span style="color: #999; font-style: italic;">N/A</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><button class="view-btn" onclick='openModal(<?= json_encode($row) ?>)'>View Details</button></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888; padding: 20px;">Walang nakitang rekord ng pasyente.</td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -244,6 +323,7 @@ $result = mysqli_query($conn, $query);
                         <tr style="background:#89936C;">
                             <th>Date</th>
                             <th>AOG</th>
+                            <th>Remaining Weeks</th>
                             <th>BP</th>
                             <th>Weight</th>
                             <th>FHR</th>
@@ -257,8 +337,20 @@ $result = mysqli_query($conn, $query);
             </div>
 
             <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items:center;">
-                <button type="button" class="btn-delete" onclick="deletePatient()">Delete Patient</button>
+                <button type="button" class="btn-delete" onclick="confirmDelete()">Delete Patient</button>
                 <button onclick="closeModal()" style="background:#eee; border:none; padding:8px 18px; border-radius:8px; cursor:pointer;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL CARD -->
+    <div id="confirmModal" class="modal">
+        <div class="confirm-modal-content">
+            <h3>Kumpirmahin ang Pag-delete</h3>
+            <p>Sigurado ka ba na gusto mong tanggalin ang rekord na ito? Ang aksyong ito ay hindi na maibabalik.</p>
+            <div class="confirm-actions">
+                <button type="button" class="btn-confirm-no" onclick="closeConfirmModal()">I-cancel</button>
+                <button type="button" class="btn-confirm-yes" onclick="executeDelete()">Oo, I-delete</button>
             </div>
         </div>
     </div>
@@ -288,8 +380,6 @@ $result = mysqli_query($conn, $query);
             fetch(`admin_maternal_rec.php?fetch_patient_details=${data.id}`)
                 .then(res => res.json())
                 .then(resData => {
-                    console.log("BUONG AJAX RESPONSE:", resData); // Pindutin ang F12 > Console para makita ang laman
-
                     const reg = resData.registration_info || {};
                     document.getElementById('m_address').innerText = reg.full_address || "N/A";
                     document.getElementById('m_spouse').innerText = ((reg.spouse_fname || '') + ' ' + (reg.spouse_lname || '')).trim() || "N/A";
@@ -304,14 +394,12 @@ $result = mysqli_query($conn, $query);
                     document.getElementById('m_ab').innerText = med.abortion || 0;
                     document.getElementById('m_lc').innerText = med.living_children || 0;
                     
-                    // Physical Exam & Vitals fields mapping
                     document.getElementById('m_pe_vitals').innerText = med.physical_exam_vitals || med.vitals || "None specified";
                     document.getElementById('m_pe_findings').innerText = med.physical_exam_findings || "None specified";
                     document.getElementById('m_tt_status').innerText = med.tt_status || "None specified";
                     document.getElementById('m_muac').innerText = med.muac || "None specified";
                     document.getElementById('m_bmi').innerText = med.bmi || "None specified";
 
-                    // System findings mapping
                     document.getElementById('m_heent').innerText = med.heent_findings || med.heent || "None specified";
                     document.getElementById('m_neck').innerText = med.neck || "None specified";
                     
@@ -328,12 +416,10 @@ $result = mysqli_query($conn, $query);
                     document.getElementById('m_extremities').innerText = med.extremities_med || med.extremities || "None specified";
                     document.getElementById('m_skin').innerText = med.skin_med || med.skin || "None specified";
 
-                    // History fields mapping
                     document.getElementById('m_fh').innerText = med.family_history_details || med.family_history || "None specified";
                     document.getElementById('m_phh').innerText = med.past_health_details || med.past_health_history || "None specified";
                     document.getElementById('m_sh').innerText = med.social_history_details || med.social_history || "None specified";
 
-                    // Family Planning mapping
                     document.getElementById('m_prev_fp').innerText = med.prev_fp_method || "None specified";
                     document.getElementById('m_fp_dur').innerText = med.fp_duration || "None specified";
 
@@ -341,18 +427,18 @@ $result = mysqli_query($conn, $query);
                     document.getElementById('m_bleeding').innerText = med.bleeding_duration_days ? med.bleeding_duration_days + ' days' : "N/A";
                     document.getElementById('m_attendant').innerText = med.last_delivery_attendant || "N/A";
 
-                    // Check-up Visits Table
                     const tbody = document.getElementById('visits_table_body');
                     tbody.innerHTML = '';
 
                     if (!resData.checkup_visits || resData.checkup_visits.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888;">No check-up visits recorded yet.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#888;">No check-up visits recorded yet.</td></tr>`;
                     } else {
                         resData.checkup_visits.forEach(visit => {
                             tbody.innerHTML += `
                                 <tr>
                                     <td>${visit.checkup_date || '--'}</td>
-                                    <td>${visit.gestational_age_weeks ? visit.gestational_age_weeks + ' wks' : '--'}</td>
+                                    <td>${visit.current_aog !== 'N/A' ? visit.current_aog : '--'}</td>
+                                    <td>${visit.remaining_weeks !== 'N/A' ? visit.remaining_weeks + ' wks left' : '--'}</td>
                                     <td>${visit.bp || '--'}</td>
                                     <td>${visit.weight_kg ? visit.weight_kg + ' kg' : '--'}</td>
                                     <td>${visit.fetal_heart_rate ? visit.fetal_heart_rate + ' bpm' : '--'}</td>
@@ -369,8 +455,18 @@ $result = mysqli_query($conn, $query);
 
         function closeModal() { document.getElementById('maternalModal').style.display = "none"; }
 
-        function deletePatient() {
-            if (currentMotherId && confirm("Are you sure you want to delete this maternal record? This action cannot be undone.")) {
+        function confirmDelete() {
+            if (currentMotherId) {
+                document.getElementById('confirmModal').style.display = "block";
+            }
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').style.display = "none";
+        }
+
+        function executeDelete() {
+            if (currentMotherId) {
                 window.location.href = `admin_maternal_rec.php?delete_id=${currentMotherId}`;
             }
         }
