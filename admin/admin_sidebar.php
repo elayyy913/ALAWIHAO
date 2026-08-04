@@ -44,8 +44,7 @@ $ham_display = ($current_page == 'admin_dashboard.php') ? 'block' : 'none';
         <div class="menu-label">(OTHERS)</div>
         <a href="admin_history.php" class="nav-item">History</a>
     </div>
-
-    <a href="logout.php" class="logout-link">Log out</a>
+    <a href="/FINAL_CAPSTONE/logout.php" class="logout-link">Log out</a>
 </div>
 
 <button class="open-btn" id="hamBtn" onclick="openNav()" style="display: <?php echo $ham_display; ?>;">&#9776;</button>
@@ -81,7 +80,7 @@ $ham_display = ($current_page == 'admin_dashboard.php') ? 'block' : 'none';
     .nav-item, .dropdown-btn { padding: 14px 25px; text-decoration: none; font-size: 16px; color: #4A5568; display: block; transition: 0.3s; width: calc(100% - 30px); margin: 4px 15px; text-align: left; background: none; border: none; cursor: pointer; border-radius: 10px; font-weight: 600; }
     .nav-item:hover, .dropdown-btn:hover { background-color: #95AF7E; color: #FFFFFF; }
     .dropdown-container { display: none; background-color: #F8FAF5; margin: 0 15px 10px 15px; border-radius: 10px; }
-    .nav-item-sub { display: block; padding: 12px 25px; color: #718355; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+    .nav-item-sub { display: block; padding: 12px 25px; color: #8DAE74;  text-decoration: none; font-size: 0.9rem; font-weight: 600; }
     .closebtn { position: absolute; top: 15px; right: 20px; font-size: 25px; color: #CBD5E0; cursor: pointer; }
     .logout-link { margin-top: auto; padding: 25px; color: #E53E3E; text-decoration: none; font-weight: 700; border-top: 1px solid #F1F5F9; }
 </style>

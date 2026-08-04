@@ -25,8 +25,8 @@ if (isset($_GET['approve_maternal'])) {
 }
 
 // 3. FETCH DATA (Safely)
-$infant_pending = mysqli_query($conn, "SELECT * FROM infant_registrations WHERE status='Pending'");
-$maternal_pending = mysqli_query($conn, "SELECT * FROM maternal_registrations WHERE status='Pending'");
+$infant_pending = mysqli_query($conn, "SELECT * FROM infant_registration WHERE status='Pending'");
+$maternal_pending = mysqli_query($conn, "SELECT * FROM maternal_registration WHERE status='Pending'");
 
 // 4. FETCH UPCOMING SCHEDULE (Checks if column exists first to prevent crash)
 $upcoming_schedules = false;

@@ -34,7 +34,7 @@ $result = mysqli_query($conn, $query);
     <meta charset="UTF-8">
     <title>Infant Records | Alawihao Health Center</title>
     <style>
-        :root { --sage-green: #89936C; --bg-beige: #fcfdfa; --danger-red: #E53E3E; }
+        :root { --sage-green: #6B8E55; --bg-beige: #f8f9fa;  --danger-red: #E53E3E; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-beige); margin: 0; display: flex; }
         #main { width: 100%; padding: 40px; box-sizing: border-box; min-height: 100vh; margin-left: 280px; }
         .records-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
@@ -52,7 +52,7 @@ $result = mysqli_query($conn, $query);
         .info-card { background: #fdfdfd; border: 1px dashed var(--sage-green); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .info-item label { display: block; font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; }
         .info-item span { font-weight: 600; color: #333; }
-        .latest-record-box { background: #fcfdfa; border: 1px solid #f0f0f0; padding: 20px; border-radius: 15px; position: relative; }
+        .latest-record-box { background: #f8f9fa; border: 1px solid #f0f0f0; padding: 20px; border-radius: 15px; position: relative; }
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px; }
         .stat-box { text-align: center; background: white; padding: 10px; border-radius: 10px; border: 1px solid #f0f0f0; }
         .stat-box small { display: block; color: #999; font-size: 0.65rem; text-transform: uppercase; }

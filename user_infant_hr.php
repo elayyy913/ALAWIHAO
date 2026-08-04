@@ -1,6 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
-include 'admin/db_connect.php';
+include 'db_connect.php';
 
 // 1. Siguraduhin na may ID na pinasa at naka-login ang user
 if (!isset($_GET['id']) || !isset($_SESSION['user_id'])) {

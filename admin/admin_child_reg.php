@@ -49,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <style>
         :root {
             --sage-green: #718355;
-            --light-beige: #f5f5dc;
+            --light-beige: #f8f9fa;  
             --border-color: #eaddca;
             --sidebar-width: 280px;
         }

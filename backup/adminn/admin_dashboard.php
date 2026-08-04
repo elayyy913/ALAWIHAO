@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'admin/db_connect.php';
+include 'db_connect.php';
 
 // 1. SECURITY CHECK - Basic Session Check
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {

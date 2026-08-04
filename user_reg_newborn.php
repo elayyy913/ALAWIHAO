@@ -2,7 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-include 'admin/db_connect.php'; 
+include 'db_connect.php'; 
 
 $message = "";
 

@@ -1,10 +1,10 @@
 <?php
 session_start();
-include 'admin/db_connect.php';
-
+include('db_connect.php');
 // Security: Check if logged in and is Super Admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
-    header("Location: login.php");
+    header("Location: admin/super_admin_dashboard.php?msg=Worker+successfully+registered");
+exit(); 
     exit();
 }
 
@@ -101,7 +101,8 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
 </head>
 <body>
 
-<?php include 'super_admin_sidebar.php'; ?>
+<!-- Naayos na ang path papunta sa loob ng admin folder -->
+<?php include(strtolower($_SESSION['role']) == 'super admin' ? 'admin/super_admin_sidebar.php' : 'admin/admin_sidebar.php'); ?>
 
 <div class="main-content">
     <div class="form-card">
@@ -155,7 +156,8 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
             <button type="submit" class="btn-register" id="submitBtn">Complete Registration</button>
         </form>
         
-        <a href="admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
+        <!-- Naayos na ang pabalik na link papuntang admin folder -->
+        <a href="admin/admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
     </div>
 </div>
 

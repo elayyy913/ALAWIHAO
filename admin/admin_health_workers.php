@@ -116,7 +116,7 @@ $result = mysqli_query($conn, $query);
         <div class="card-header">
             <h2 style="color: var(--dark-sage); margin: 0;">Personnel Directory</h2>
             <?php if ($_SESSION['role'] === 'Super Admin'): ?>
-                <a href="register_worker.php" class="btn-add">+ Register Worker</a>
+                <a href="../register_worker.php" class="btn-add">+ Register Worker</a>
             <?php endif; ?>
         </div>
 

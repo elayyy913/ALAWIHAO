@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'admin/db_connect.php';
+include 'db_connect.php';
 
 // Security check
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {

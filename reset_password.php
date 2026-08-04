@@ -2,7 +2,7 @@
 // 1. Timezone and Session
 date_default_timezone_set('Asia/Manila');
 session_start();
-include 'admin/db_connect.php';
+include 'db_connect.php';
 
 // 2. Security Check
 if (!isset($_SESSION['otp_verified']) || !isset($_SESSION['reset_email'])) {
@@ -68,7 +68,7 @@ if (isset($_POST['submit_reset'])) {
 </head>
 <body>
     <div class="card">
-        <div style="font-size: 30px; margin-bottom: 10px;">🔑</div>
+        <div style="font-size: 30px; margin-bottom: 10px;"></div>
         <h2>Create New Password</h2>
         <p style="color: #718096; font-size: 0.9rem; margin-bottom: 25px;">Setting password for:<br><b><?php echo $email; ?></b></p>
 

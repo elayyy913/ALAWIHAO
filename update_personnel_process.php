@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'admin/db_connect.php';
+include 'db_connect.php';
 
 if (isset($_POST['update_submit']) && $_SESSION['role'] === 'Super Admin') {
     $uid = $_POST['uid'];

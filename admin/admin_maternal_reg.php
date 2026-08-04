@@ -17,8 +17,8 @@ if (!isset($_SESSION['user_id'])) {
     <style>
         :root {
             --sage-green: #718355;
-            --light-beige: #f5f5dc;
-            --border-color: #eaddca;
+            --light-beige: #f8f9fa; 
+            --border-color: #f8f9fa; 
             --sidebar-width: 280px;
         }
 

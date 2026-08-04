@@ -1,6 +1,6 @@
 <?php
 // 1. DATABASE CONNECTION & LOGIC
-include 'admin/db_connect.php'; 
+include 'db_connect.php'; 
 session_start();
 
 // Bilangin ang 'pending' para sa sidebar badge

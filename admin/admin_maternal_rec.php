@@ -70,7 +70,7 @@ $result = mysqli_query($conn, $query);
     <title>Maternal Health Records | Alawihao Center</title>
     <style>
         :root { 
-            --sage-green: #89936C; 
+            --sage-green: #6B8E55;
             --bg-beige: #fcfdfa; 
             --danger-red: #d9534f; 
         }
@@ -96,7 +96,7 @@ $result = mysqli_query($conn, $query);
         
         /* TABS */
         .tab-menu { display: flex; border-bottom: 2px solid #eee; margin-top: 20px; margin-bottom: 20px; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; background: none; border: none; font-weight: 600; color: #888; font-size: 0.95rem; border-bottom: 3px solid transparent; }
+        .tab-btn { padding: 10px 20px; cursor: pointer; background: none; border: none; font-weight: 600; color: #8DAE74; #888; font-size: 0.95rem; border-bottom: 3px solid transparent; }
         .tab-btn.active { color: var(--sage-green); border-bottom-color: var(--sage-green); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -109,7 +109,7 @@ $result = mysqli_query($conn, $query);
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; line-height: 1.5; }
 
         .btn-delete { background: none; border: none; color: var(--danger-red); text-decoration: underline; cursor: pointer; font-weight: 600; }
-        .alert { background: #dff0d8; color: #3c763d; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .alert { background: #dff0d8; color: #8DAE74;  padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
     </style>
 </head>
 <body>

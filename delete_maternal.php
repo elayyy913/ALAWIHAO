@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'admin/db_connect.php';
+include 'db_connect.php';
 
 if (isset($_POST['mother_id'])) {
     $id = mysqli_real_escape_string($conn, $_POST['mother_id']);

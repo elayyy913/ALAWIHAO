@@ -1,5 +1,7 @@
 <?php
 $current_page = basename($_SERVER['PHP_SELF']);
+// Direktang tinutukoy ang tamang path papunta sa admin folder para maiwasan ang dobleng folder
+$base_url = "/FINAL_CAPSTONE/admin/";
 ?>
 
 <!DOCTYPE html>
@@ -31,7 +33,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         border-radius: 8px;
         cursor: pointer;
         font-size: 1.2rem;
-        display: none; /* Default na tago hangga't bukas ang sidebar */
+        display: none;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         transition: var(--transition);
     }
@@ -54,7 +56,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         transition: transform 0.3s ease-in-out;
     }
 
-    /* Slide out animation */
     .sidebar.is-hidden {
         transform: translateX(-100%);
     }
@@ -181,13 +182,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
     }
     .logout-btn:hover { background: #FFF5F5; }
 
-    /* DYNAMIC ADJUSTMENT: Ito ang magagalaw sa dashboard mo */
+    /* DYNAMIC ADJUSTMENT */
     .main-content, #main {
         margin-left: var(--sidebar-width);
         transition: margin-left 0.3s ease-in-out;
     }
     
-    /* Kapag ang sidebar ay naka-hide, dapat mag-0 margin ang content */
     .sidebar.is-hidden ~ .main-content,
     .sidebar.is-hidden ~ #main {
         margin-left: 0 !important;
@@ -206,85 +206,80 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 
     <div class="nav-menu">
-        <a href="super_admin_dashboard.php" class="nav-link" id="link-overview">Overview</a>
+        <a href="<?php echo $base_url; ?>super_admin_dashboard.php" class="nav-link" id="link-overview">Overview</a>
         
         <span class="nav-label">(inventory)</span>
-        <a href="admin_health_workers.php" class="nav-link" id="link-workers">Health Worker</a>
-        <a href="admin_vaccines.php" class="nav-link" id="link-vaccines">Vaccines</a>
-        <a href="admin_maternal_rec.php" class="nav-link" id="link-maternal-rec">Maternal Records</a>
-        <a href="admin_child_rec.php" class="nav-link" id="link-child-rec">Child/Infant Records</a>
+        <a href="<?php echo $base_url; ?>admin_health_workers.php" class="nav-link" id="link-workers">Health Worker</a>
+        <a href="<?php echo $base_url; ?>admin_vaccines.php" class="nav-link" id="link-vaccines">Vaccines</a>
+        <a href="<?php echo $base_url; ?>admin_maternal_rec.php" class="nav-link" id="link-maternal-rec">Maternal Records</a>
+        <a href="<?php echo $base_url; ?>admin_child_rec.php" class="nav-link" id="link-child-rec">Child/Infant Records</a>
 
         <span class="nav-label">(management)</span>
         <button class="dropdown-btn" onclick="toggleDropdown('maternalDrop', this)">
             Maternal Management <span class="chevron">▼</span>
         </button>
         <div class="dropdown-container" id="maternalDrop">
-            <a href="admin_maternal_reg.php" id="link-maternal-reg">Registration Form</a>
-            <a href="admin_maternal_hr.php" id="id-maternal-health">Maternal Health Record</a>
+            <a href="<?php echo $base_url; ?>admin_maternal_reg.php" id="link-maternal-reg">Registration Form</a>
+            <a href="<?php echo $base_url; ?>admin_maternal_hr.php" id="id-maternal-health">Maternal Health Record</a>
         </div>
 
         <button class="dropdown-btn" onclick="toggleDropdown('childDrop', this)">
             Child Management <span class="chevron">▼</span>
         </button>
         <div class="dropdown-container" id="childDrop">
-            <a href="admin_child_reg.php" id="link-child-reg">Registration Form</a>
-            <a href="admin_child_hr.php" id="id-child-health">Child Health Record</a>
+            <a href="<?php echo $base_url; ?>admin_child_reg.php" id="link-child-reg">Registration Form</a>
+            <a href="<?php echo $base_url; ?>admin_child_hr.php" id="id-child-health">Child Health Record</a>
         </div>
 
         <button class="dropdown-btn" onclick="toggleDropdown('schedDrop', this)">
             Schedule Management <span class="chevron">▼</span>
         </button>
         <div class="dropdown-container" id="schedDrop">
-            <a href="admin_sched_maternal.php" id="link-sched-maternal">Maternal Schedule</a>
-            <a href="admin_sched_child.php" id="link-sched-child">Child Schedule</a>
+            <a href="<?php echo $base_url; ?>admin_sched_maternal.php" id="link-sched-maternal">Maternal Schedule</a>
+            <a href="<?php echo $base_url; ?>admin_sched_child.php" id="link-sched-child">Child Schedule</a>
         </div>
 
         <span class="nav-label">(others)</span>
-        <a href="admin_settings.php" class="nav-link" id="link-settings">Setting</a>
+        <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link" id="link-settings">Setting</a>
     </div>
 
     <div class="sidebar-footer">
-        <a href="logout.php" class="logout-btn">Log out</a>
+    <a href="../logout.php" class="logout-btn">Log out</a>
     </div>
 </nav>
 
 <script>
-// Function para itago ang sidebar at i-adjust ang dashboard space
 function hideSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const hamBtn = document.getElementById('hamBtn');
     const main = document.getElementById('main') || document.querySelector('.main-content');
 
-    sidebar.classList.add('is-hidden');
-    hamBtn.style.display = 'block';
-    
-    if(main) {
-        main.style.marginLeft = "0";
-    }
+    if(sidebar) sidebar.classList.add('is-hidden');
+    if(hamBtn) hamBtn.style.display = 'block';
+    if(main) main.style.marginLeft = "0";
 }
 
-// Function para ibalik ang sidebar at ibalik ang margin ng dashboard
 function showSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const hamBtn = document.getElementById('hamBtn');
     const main = document.getElementById('main') || document.querySelector('.main-content');
 
-    sidebar.classList.remove('is-hidden');
-    hamBtn.style.display = 'none';
-    
-    if(main) {
-        main.style.marginLeft = "280px";
-    }
+    if(sidebar) sidebar.classList.remove('is-hidden');
+    if(hamBtn) hamBtn.style.display = 'none';
+    if(main) main.style.marginLeft = "280px";
 }
 
 function toggleDropdown(id, btn) {
     const dropdown = document.getElementById(id);
-    const chevron = btn.querySelector('.chevron');
-    dropdown.style.display = (dropdown.style.display === "block") ? "none" : "block";
-    chevron.classList.toggle('rotate');
+    if(dropdown) {
+        dropdown.style.display = (dropdown.style.display === "block") ? "none" : "block";
+    }
+    if(btn) {
+        const chevron = btn.querySelector('.chevron');
+        if(chevron) chevron.classList.toggle('rotate');
+    }
 }
 
-// Active link logic
 document.addEventListener('DOMContentLoaded', function() {
     const currentPath = window.location.pathname.split("/").pop();
     const links = {
@@ -299,7 +294,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'admin_child_hr.php': 'id-child-health',
         'admin_sched_maternal.php': 'link-sched-maternal',
         'admin_sched_child.php': 'link-sched-child',
-        'admin_settings.php': 'link-settings'
+        'admin_settings.php': 'link-settings',
+        'register_worker.php': 'link-workers'
     };
 
     if (links[currentPath]) {
@@ -310,9 +306,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (parentDropdown) {
                 parentDropdown.style.display = 'block';
                 const btn = parentDropdown.previousElementSibling;
-                btn.classList.add('active-parent');
-                const chevron = btn.querySelector('.chevron');
-                if(chevron) chevron.classList.add('rotate');
+                if(btn) {
+                    btn.classList.add('active-parent');
+                    const chevron = btn.querySelector('.chevron');
+                    if(chevron) chevron.classList.add('rotate');
+                }
             }
         }
     }
