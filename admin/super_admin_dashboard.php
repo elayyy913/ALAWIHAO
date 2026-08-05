@@ -57,11 +57,10 @@ if (isset($_GET['approve_id'])) {
     }
 }
 
-// Maternal Registration Approval + Editable Personal Info + History saving gamit ang tamang DB columns
+// Maternal Registration Approval + Editable Personal Info + History saving
 if (isset($_POST['submit_maternal_approval'])) {
     $mother_id = mysqli_real_escape_string($conn, $_POST['mother_id']);
     
-    // 1. I-update ang Personal Info (Tugma sa maternal_registration table)
     $client_lname = mysqli_real_escape_string($conn, $_POST['client_lname']);
     $client_fname = mysqli_real_escape_string($conn, $_POST['client_fname']);
     $client_mi = mysqli_real_escape_string($conn, $_POST['client_mi'] ?? $_POST['client_mname'] ?? '');
@@ -83,7 +82,6 @@ if (isset($_POST['submit_maternal_approval'])) {
         status = 'Approved' 
         WHERE id = '$mother_id'");
 
-    // 2. Kunin ang mga data para sa Clinical & Menstrual History
     $heent = isset($_POST['heent_findings']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['heent_findings'])) : '';
     $chest = isset($_POST['chest_heart']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['chest_heart'])) : '';
     $abdomen = isset($_POST['abdomen_med']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['abdomen_med'])) : '';
@@ -106,7 +104,6 @@ if (isset($_POST['submit_maternal_approval'])) {
     $bleeding_duration = mysqli_real_escape_string($conn, $_POST['duration_menstrual_bleeding'] ?? '');
     $last_attendant = mysqli_real_escape_string($conn, $_POST['birth_attendant'] ?? '');
 
-    // 3. I-save o I-update ang pregnancy_history gamit ang mga eksaktong existing columns
     $check = mysqli_query($conn, "SELECT id FROM pregnancy_history WHERE patient_id = '$mother_id'");
     if (mysqli_num_rows($check) > 0) {
         $history_sql = "UPDATE pregnancy_history SET 
@@ -220,7 +217,7 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
         td { padding: 12px; border-bottom: 1px solid #F0F0F0; font-size: 0.85rem; }
         
         .btn-approve { background: var(--sage); color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.7rem; display: inline-block; border: none; cursor: pointer; }
-        .btn-reject { background: #e74c3c; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.7rem; margin-left: 5px; display: inline-block; }
+        .btn-reject { background: #e74c3c; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.7rem; margin-left: 5px; display: inline-block; border: none; cursor: pointer; }
 
         /* MODAL STYLES */
         .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
@@ -288,7 +285,7 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
                     <td><?php echo htmlspecialchars($row['child_name']); ?></td>
                     <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
                     <td>
-                        <a href="?approve_id=<?php echo $row['id']; ?>" class="btn-approve">CONFIRM</a>
+                        <button type="button" class="btn-approve" onclick='openNewbornModal(<?php echo json_encode($row); ?>)'>REVIEW</button>
                         <a href="?remove_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
                     </td>
                 </tr>
@@ -319,6 +316,90 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
     </div>
 </div>
 
+<!-- NEWBORN VERIFICATION MODAL (UPDATED WITH FULL FORM FIELDS) -->
+<div id="newbornVerifyModal" class="modal">
+    <div class="modal-content" style="width: 750px;">
+        <h2 style="color:var(--dark-sage); margin-top:0; border-bottom:2px solid var(--border); padding-bottom:10px; font-size:1.2rem;">Infant Registration Review</h2>
+        
+        <div class="section-tag" style="margin-top:0;">ADMINISTRATIVE DETAILS</div>
+        <div class="patient-info-box" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group">
+                <label>Health Center</label>
+                <input type="text" id="nb_health_center" readonly style="background: #e9e9e1;" value="Alawihao Health Center">
+            </div>
+            <div class="form-group">
+                <label>Family Serial / No.</label>
+                <input type="text" id="nb_family_serial" readonly style="background: #e9e9e1;" placeholder="N/A">
+            </div>
+        </div>
+
+        <div class="section-tag">PATIENT PERSONAL INFORMATION</div>
+        <div class="patient-info-box" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="form-group" style="grid-column: span 3;">
+                <label>Full Name of Baby</label>
+                <input type="text" id="nb_child_name" readonly style="background: #e9e9e1;">
+            </div>
+            <div class="form-group">
+                <label>Gender</label>
+                <input type="text" id="nb_gender" readonly style="background: #e9e9e1;">
+            </div>
+            <div class="form-group">
+                <label>Blood Type</label>
+                <input type="text" id="nb_blood_type" readonly style="background: #e9e9e1;" value="Unknown / N/A">
+            </div>
+            <div class="form-group">
+                <label>Birth Date</label>
+                <input type="text" id="nb_birth_date" readonly style="background: #e9e9e1;">
+            </div>
+            <div class="form-group">
+                <label>Birth Weight (kg)</label>
+                <input type="text" id="nb_weight" readonly style="background: #e9e9e1;">
+            </div>
+            <div class="form-group">
+                <label>Birth Height (cm)</label>
+                <input type="text" id="nb_height" readonly style="background: #e9e9e1;" placeholder="N/A">
+            </div>
+            <div class="form-group">
+                <label>Place of Birth</label>
+                <input type="text" id="nb_place_of_birth" readonly style="background: #e9e9e1;">
+            </div>
+        </div>
+
+        <div class="section-tag">ADDRESS INFORMATION</div>
+        <div class="patient-info-box" style="grid-template-columns: 2fr 1fr;">
+            <div class="form-group">
+                <label>Address (Number, Street, Purok)</label>
+                <input type="text" id="nb_address_details" readonly style="background: #e9e9e1;" placeholder="N/A">
+            </div>
+            <div class="form-group">
+                <label>Barangay</label>
+                <input type="text" id="nb_barangay" readonly style="background: #e9e9e1;" value="Alawihao">
+            </div>
+        </div>
+
+        <div class="section-tag">PARENT / GUARDIAN INFORMATION</div>
+        <div class="patient-info-box" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group">
+                <label>Mother's Full Name</label>
+                <input type="text" id="nb_mother_name" readonly style="background: #e9e9e1;">
+            </div>
+            <div class="form-group">
+                <label>Father's Full Name</label>
+                <input type="text" id="nb_father_name" readonly style="background: #e9e9e1;" placeholder="N/A">
+            </div>
+        </div>
+
+        <div class="section-tag">IMMUNIZATION RECORDS</div>
+        <div id="nb_vaccines_container" class="checkbox-group" style="background: #F4F4ED; pointer-events: none;">
+            <!-- Dynamically populated to show only checked vaccines -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn-reject" style="background: #95a5a6; padding: 8px 15px; cursor:pointer;" onclick="closeNewbornModal()">Cancel</button>
+            <a href="#" id="confirmNewbornBtn" class="btn-approve" style="padding: 8px 15px; text-align: center; text-decoration:none;">CONFIRM / ACCEPT</a>
+        </div>
+    </div>
+</div>
 
 <!-- MATERNAL CLINICAL VERIFICATION MODAL -->
 <div id="verifyModal" class="modal">
@@ -328,7 +409,6 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
         <form method="POST">
             <input type="hidden" name="mother_id" id="modal_mother_id">
             
-            <!-- EDITABLE PATIENT PERSONAL INFORMATION -->
             <div class="section-tag" style="margin-top:0;">PATIENT PERSONAL INFORMATION (EDITABLE)</div>
             <div class="patient-info-box">
                 <div class="form-group">
@@ -369,7 +449,6 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
                 </div>
             </div>
 
- <!-- OBSTETRICAL & MENSTRUAL HISTORY -->
             <div class="section-tag">I. OBSTETRICAL & MENSTRUAL HISTORY</div>
             <div class="form-grid">
                 <div class="form-group">
@@ -452,7 +531,6 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
                 <label class="checkbox-label"><input type="checkbox" name="history_hydatidiform" value="1"> Hydatidiform mole (within the last 12 months)</label>
             </div>
 
-            <!-- MEDICAL HISTORY SECTION -->
             <div class="section-tag">II. MEDICAL HISTORY (REVIEW OF SYSTEM)</div>
             <div class="form-grid-2">
                 <div class="form-group">
@@ -516,194 +594,86 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
                 </div>
             </div>
 
-            <!-- FAMILY & PAST HEALTH HISTORY -->
-            <div class="section-tag">III. FAMILY & PAST HEALTH HISTORY</div>
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label>Family History</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="None"> None</label>
-                        <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="CVA (Stroke)"> CVA (Stroke)</label>
-                        <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Hypertension"> Hypertension</label>
-                        <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Asthma"> Asthma</label>
-                        <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Heart Disease"> Heart Disease</label>
-                        <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Diabetes"> Diabetes</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Past Health History</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="None"> None</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Allergies"> Allergies</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Drug intake (Anti-TB/Diabetic)"> Drug intake (Anti-TB, Anti-diabetic)</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Bleeding tendencies"> Bleeding tendencies (nose, gums)</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Anemia"> Anemia</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Diabetes"> Diabetes</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="itching or sore in/around vagina"> itching or sore in/around vagina</label>
-                        <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Pain or burning sensation on urination">Pain or burning sensation on urination</label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SOCIAL HISTORY -->
-            <div class="section-tag">IV. SOCIAL HISTORY</div>
-            <div class="form-group">
-                <label>Social History & Habits</label>
-                <div class="checkbox-group" style="max-height: 110px;">
-                    <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Non-smoker / Normal"> Non-smoker / Normal</label>
-                    <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Smoking"> Smoking</label>
-                    <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Alcohol beverage"> Alcohol beverage</label>
-                    <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Obesity"> Obesity</label>
-                    <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="History of domestic violence / VAW"> History of domestic violence / VAW</label>
-                    <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Treated STIs in the past"> Treated STIs in the past</label>
-                </div>
-            </div>
-
-            <!-- SECTION VII. PHYSICAL EXAMINATION -->
-            <div class="section-tag">VII. PHYSICAL EXAMINATION</div>
-            
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Blood Pressure (mmHg)</label>
-                    <input type="text" name="bp" placeholder="e.g. 120/80">
-                </div>
-                <div class="form-group">
-                    <label>Weight (kgs)</label>
-                    <input type="text" name="weight" placeholder="Weight in kgs">
-                </div>
-                <div class="form-group">
-                    <label>Pulse (bpm)</label>
-                    <input type="text" name="pulse" placeholder="Pulse in bpm">
-                </div>
-                <div class="form-group">
-                    <label>Height (cm)</label>
-                    <input type="text" name="height" placeholder="Height in cm">
-                </div>
-                <div class="form-group">
-                    <label>MUAC</label>
-                    <input type="text" name="muac" placeholder="MUAC">
-                </div>
-                <div class="form-group">
-                    <label>BMI & Category</label>
-                    <div style="display:flex; gap:5px;">
-                        <input type="text" name="bmi" placeholder="BMI" style="width:50%;">
-                        <input type="text" name="category" placeholder="Category" style="width:50%;">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-grid-2" style="margin-top: 10px;">
-                <div class="form-group">
-                    <label>Conjunctiva</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="conjunctiva[]" value="Pale"> Pale</label>
-                        <label class="checkbox-label"><input type="checkbox" name="conjunctiva[]" value="Yellowish"> Yellowish</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Neck</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="neck[]" value="Enlarged thyroid"> Enlarged thyroid</label>
-                        <label class="checkbox-label"><input type="checkbox" name="neck[]" value="Enlarged lymph node"> Enlarged lymph node</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group" style="margin-top: 10px;">
-                <label>Breast</label>
-                <div class="checkbox-group">
-                    <label class="checkbox-label" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-                        <input type="checkbox" name="breast[]" value="Mass"> Mass 
-                        (Size: Left <input type="text" name="breast_mass_left" placeholder="size" style="width: 80px; padding: 2px 5px; display: inline-block;"> 
-                        Right <input type="text" name="breast_mass_right" placeholder="size" style="width: 80px; padding: 2px 5px; display: inline-block;">)
-                    </label>
-                    <label class="checkbox-label"><input type="checkbox" name="breast[]" value="Nipple"> Nipple Discharge</label>
-                    <label class="checkbox-label"><input type="checkbox" name="breast[]" value="Skin-orange or dimpling"> Skin-orange or dimpling</label>
-                    <label class="checkbox-label"><input type="checkbox" name="breast[]" value="Enlarged axillary lymph nodes"> Enlarged axillary lymph nodes</label>
-                </div>
-            </div>
-
-            <div class="form-grid-2" style="margin-top: 10px;">
-                <div class="form-group">
-                    <label>Thorax</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="thorax[]" value="Abnormal heart sound / cardiac rate"> Abnormal heart sound / cardiac rate</label>
-                        <label class="checkbox-label"><input type="checkbox" name="thorax[]" value="Abnormal breath sound / respiratory rate"> Abnormal breath sound / respiratory rate</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Abdomen</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen[]" value="Enlarge liver"> Enlarge liver</label>
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen[]" value="Mass"> Mass</label>
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen[]" value="Tenderness"> Tenderness</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-grid-2" style="margin-top: 10px;">
-                <div class="form-group">
-                    <label>Extremities</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="extremities[]" value="Edema"> Edema</label>
-                        <label class="checkbox-label"><input type="checkbox" name="extremities[]" value="Varicosities"> Varicosities</label>
-                        <label class="checkbox-label"><input type="checkbox" name="extremities[]" value="Pain on force dorsiflexion"> Pain on force dorsiflexion</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>TT Status</label>
-                    <input type="text" name="tt_status" placeholder="TT STATUS">
-                </div>
-            </div>
-
-        <div class="section-tag">VIII. FAMILY PLANNING HISTORY</div>
-            <label>Family Planning Method</label>
-            <select name="family_planning_method" id="family_planning_method" required>
-                <option value="">Select Family Planning Method</option>
-                <option value="Combined Oral Pills (COC)">Combined Oral Pills (COC)</option>
-                <option value="Progestin-Only Pills (POP)">Progestin-Only Pills (POP)</option>
-                <option value="Injectable (Depo-Provera / DMPA)">Injectable (Depo-Provera / DMPA)</option>
-                <option value="Subdermal Implant">Subdermal Implant</option>
-                <option value="Intrauterine Device (IUD)">Intrauterine Device (IUD)</option>
-                <option value="Condom">Condom</option>
-                <option value="Calendar / Rhythm Method">Calendar / Rhythm Method</option>
-                <option value="Lactational Amenorrhea Method (LAM)">Lactational Amenorrhea Method (LAM)</option>
-                <option value="Bilateral Tubal Ligation (BTL)">Bilateral Tubal Ligation (BTL)</option>
-                <option value="None / New Client">None / New Client</option>
-            </select>
-                    <input type="text" name="Duration" placeholder="Duration">
-    
-            <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
-                <button type="button" onclick="closeVerifyModal()" style="background:#ddd; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:600; font-size:0.8rem;">Cancel</button>
-                <button type="submit" name="submit_maternal_approval" class="btn-approve" style="padding:8px 16px; font-size:0.8rem;">Save & Approve Enrollment</button>
+            <div style="margin-top: 25px; text-align: right;">
+                <button type="button" class="btn-reject" style="background: #95a5a6; padding: 10px 20px;" onclick="closeVerifyModal()">Cancel</button>
+                <button type="submit" name="submit_maternal_approval" class="btn-approve" style="padding: 10px 20px; font-size: 0.85rem;">APPROVE & ENROLL</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    function openVerifyModal(data) {
-        console.log("Patient Data from DB:", data);
-
-        document.getElementById('modal_mother_id').value = data.id;
+    // JS para sa Newborn Modal
+    function openNewbornModal(data) {
+        document.getElementById('nb_child_name').value = data.child_name || '';
+        document.getElementById('nb_birth_date').value = data.birth_date || '';
+        document.getElementById('nb_gender').value = data.gender || '';
+        document.getElementById('nb_weight').value = data.weight || '';
+        document.getElementById('nb_mother_name').value = data.mother_name || '';
+        document.getElementById('nb_place_of_birth').value = data.place_of_birth || '';
         
+        document.getElementById('nb_family_serial').value = data.family_serial || data.serial_no || '';
+        document.getElementById('nb_blood_type').value = data.blood_type || 'Unknown / N/A';
+        document.getElementById('nb_height').value = data.height || data.birth_height || '';
+        document.getElementById('nb_address_details').value = data.address || data.street || '';
+        document.getElementById('nb_barangay').value = data.barangay || 'Alawihao';
+        document.getElementById('nb_father_name').value = data.father_name || '';
+
+        // Dynamic Immunization Records display (Shows only checked vaccines)
+        let vaccinesStr = data.immunization_records || data.vaccines || '';
+        let vaccinesArray = vaccinesStr ? vaccinesStr.split(',').map(v => v.trim()) : [];
+        let container = document.getElementById('nb_vaccines_container');
+        container.innerHTML = '';
+
+        if (vaccinesArray.length > 0 && vaccinesArray[0] !== '') {
+            vaccinesArray.forEach(vac => {
+                let label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.innerHTML = `<input type="checkbox" checked disabled> ${vac}`;
+                container.appendChild(label);
+            });
+        } else {
+            container.innerHTML = '<span style="font-size: 0.8rem; color: #777; font-style: italic;">No immunization records checked/provided.</span>';
+        }
+
+        document.getElementById('confirmNewbornBtn').href = "?approve_id=" + data.id;
+        document.getElementById('newbornVerifyModal').style.display = 'block';
+    }
+
+    function closeNewbornModal() {
+        document.getElementById('newbornVerifyModal').style.display = 'none';
+    }
+
+    // JS para sa Maternal Modal
+    function openVerifyModal(data) {
+        document.getElementById('modal_mother_id').value = data.id || '';
         document.getElementById('p_lname').value = data.client_lname || '';
         document.getElementById('p_fname').value = data.client_fname || '';
-        document.getElementById('p_mname').value = data.client_mname || data.mname || data.middle_name || data.client_mi || '';
+        document.getElementById('p_mname').value = data.client_mi || '';
         document.getElementById('p_birthdate').value = data.dob || '';
         document.getElementById('p_age').value = data.age || '';
         document.getElementById('p_blood').value = data.blood_type || '';
-        document.getElementById('p_contact').value = data.contact || data.contact_no || '';
-        document.getElementById('p_address').value = data.address || data.computed_address || '';
-        document.getElementById('p_spouse').value = data.spouse_name || data.computed_spouse || '';
-        document.getElementById('p_lmp').value = data.lmp || '';
-        document.getElementById('p_edc').value = data.edc || '';
+        document.getElementById('p_contact').value = data.contact || '';
+        document.getElementById('p_address').value = data.street || '';
+        document.getElementById('p_spouse').value = (data.spouse_fname || '') + ' ' + (data.spouse_lname || '');
 
         document.getElementById('verifyModal').style.display = 'block';
     }
 
     function closeVerifyModal() {
         document.getElementById('verifyModal').style.display = 'none';
+    }
+
+    // Isara ang modals kapag na-click sa labas ng box
+    window.onclick = function(event) {
+        var nbModal = document.getElementById('newbornVerifyModal');
+        var matModal = document.getElementById('verifyModal');
+        if (event.target == nbModal) {
+            nbModal.style.display = "none";
+        }
+        if (event.target == matModal) {
+            matModal.style.display = "none";
+        }
     }
 </script>
 
