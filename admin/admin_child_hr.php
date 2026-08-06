@@ -28,9 +28,9 @@ if (isset($_POST['update_health'])) {
     $w = mysqli_real_escape_string($conn, $_POST['weight']);
     $h = mysqli_real_escape_string($conn, $_POST['height']);
     $v = mysqli_real_escape_string($conn, $_POST['vaccine']);
-    $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); // Bagong field para sa date ng turok
-    $next_date = mysqli_real_escape_string($conn, $_POST['next_checkup']); // Bagong field para sa next check-up
-    $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); // Bagong field para sa remarks
+    $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); 
+    $next_date = mysqli_real_escape_string($conn, $_POST['next_checkup']); 
+    $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); 
     $hw_id = $_SESSION['user_id']; 
 
     // I-update ang SQL para maisama ang mga bagong columns
@@ -42,8 +42,12 @@ if (isset($_POST['update_health'])) {
     }
 }
 
-// Fetching child data
-$query = "SELECT * FROM children ORDER BY child_name ASC";
+// Fetching child data kasama ang pag-aggregate ng mga naibigay nang bakuna para madaling Makita sa modal
+$query = "SELECT c.*, GROUP_CONCAT(CONCAT(ir.vaccine_taken, ' (', ir.vaccine_date, ')') SEPARATOR ', ') AS previous_vaccines 
+          FROM children c 
+          LEFT JOIN infant_records ir ON c.id = ir.child_id 
+          GROUP BY c.id 
+          ORDER BY c.child_name ASC";
 $result = mysqli_query($conn, $query);
 ?>
 
@@ -127,7 +131,7 @@ $result = mysqli_query($conn, $query);
             z-index: 3000;
             left: 0; top: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.4);
-            overflow-y: auto; /* Para mascroll kung medyo mahaba ang modal */
+            overflow-y: auto; 
         }
         .modal-content {
             background: white;
@@ -169,7 +173,7 @@ $result = mysqli_query($conn, $query);
                     <td><?php echo $row['gender']; ?></td>
                     <td>
                         <a href="admin_child_record_view.php?id=<?php echo $row['id']; ?>" class="btn btn-view">Full History</a>
-                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo $row['child_name']; ?>')">Update Health</button>
+                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($row['previous_vaccines'] ?? '', ENT_QUOTES); ?>')">Update Health</button>
                     </td>
                 </tr>
                 <?php endwhile; ?>
@@ -184,6 +188,14 @@ $result = mysqli_query($conn, $query);
         <form method="POST">
             <input type="hidden" name="child_id" id="modal_id">
             
+            <!-- Previous Vaccines Display Box -->
+            <div style="background: #F8FAFC; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #E2E8F0;">
+                <label style="display:block; font-size:0.75rem; font-weight:700; color: #4A5568; margin-bottom: 5px; text-transform: uppercase;">Previously Taken Vaccines:</label>
+                <div id="modal_previous_vaccines" style="font-size: 0.85rem; color: #2D3748; font-style: italic;">
+                    No vaccines recorded yet.
+                </div>
+            </div>
+
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Weight (kg)</label>
                 <input type="number" name="weight" step="0.01" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
@@ -208,19 +220,19 @@ $result = mysqli_query($conn, $query);
                 </select>
             </div>
 
-            <!-- Bagong Field: Date of Vaccination -->
+            <!-- Date of Vaccination -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Date of Vaccination</label>
                 <input type="date" name="vaccine_date" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <!-- Bagong Field: Next Check-up / Vaccination Schedule -->
+            <!-- Next Check-up / Vaccination Schedule -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Next Check-up Schedule</label>
                 <input type="date" name="next_checkup" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <!-- Bagong Field: Remarks / Notes -->
+            <!-- Remarks / Notes -->
             <div style="margin-bottom:15px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Remarks / Notes</label>
                 <textarea name="remarks" rows="3" placeholder="Optional notes or observations..." style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; resize: vertical;"></textarea>
@@ -260,11 +272,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function openEditModal(id, name) {
+function openEditModal(id, name, previousVaccines) {
     document.getElementById('editModal').style.display = 'block';
     document.getElementById('modal_id').value = id;
     document.getElementById('modalTitle').innerText = "Update: " + name;
+
+    // I-display ang mga naunang bakuna sa loob ng modal box
+    let vaccinesContainer = document.getElementById('modal_previous_vaccines');
+    if (previousVaccines && previousVaccines.trim() !== '') {
+        vaccinesContainer.innerHTML = previousVaccines;
+        vaccinesContainer.style.fontStyle = 'normal';
+        vaccinesContainer.style.fontWeight = '600';
+        vaccinesContainer.style.color = '#2B6CB0';
+    } else {
+        vaccinesContainer.innerHTML = 'No vaccines recorded yet.';
+        vaccinesContainer.style.fontStyle = 'italic';
+        vaccinesContainer.style.fontWeight = 'normal';
+        vaccinesContainer.style.color = '#718096';
+    }
 }
+
 function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 </script>
 
