@@ -196,7 +196,16 @@ $result = mysqli_query($conn, $query);
 
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
-                <input type="text" name="vaccine" placeholder="e.g., BCG, Polio, etc." style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+                <select name="vaccine" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
+                    <option value="">-- Select Vaccine --</option>
+                    <option value="BCG Vaccine">BCG Vaccine</option>
+                    <option value="Hepatitis B Vaccine">Hepatitis B Vaccine</option>
+                    <option value="Pentavalent Vaccine (DPT-Hep B-HIB)">Pentavalent Vaccine (DPT-Hep B-HIB)</option>
+                    <option value="Oral Polio Vaccine (OPV)">Oral Polio Vaccine (OPV)</option>
+                    <option value="Inactivated Polio Vaccine (IPV)">Inactivated Polio Vaccine (IPV)</option>
+                    <option value="Pneumococcal Conjugate Vaccine (PCV)">Pneumococcal Conjugate Vaccine (PCV)</option>
+                    <option value="Measles, Mumps, Rubella Vaccine (MMR)">Measles, Mumps, Rubella Vaccine (MMR)</option>
+                </select>
             </div>
 
             <!-- Bagong Field: Date of Vaccination -->
