@@ -204,16 +204,63 @@ $result = mysqli_query($conn, $query);
             document.getElementById('last_height').innerText = data.height || "--";
             document.getElementById('last_vaccine').innerText = data.vaccine_taken || "None";
             
-            // Standard Vaccines list with keywords for matching database records
+// Standard Vaccines list na naka-break down bawat dose para may sarili silang cell/row
             const standardVaccines = [
-                { name: "BCG Vaccine", keyword: "bcg", dose: "1", schedule: "At birth" },
-                { name: "Hepatitis B Vaccine", keyword: "hepatitis", dose: "1", schedule: "At birth" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", dose: "1, 2, 3", schedule: "1½, 2½, 3½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", dose: "1, 2, 3", schedule: "1½, 2½, 3½ mos" },
-                { name: "Inactivated Polio Vaccine (IPV)", keyword: "ipv", dose: "1, 2", schedule: "3½ & 9 mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", dose: "1, 2, 3", schedule: "1½, 2½, 3½ mos" },
-                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keyword: "mmr", dose: "1, 2", schedule: "9 mos & 1 year" }
+                { name: "BCG Vaccine", keyword: "bcg", doseNum: "1", schedule: "At birth" },
+                { name: "Hepatitis B Vaccine", keyword: "hepatitis", doseNum: "1", schedule: "At birth" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", doseNum: "1", schedule: "1½ mos" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", doseNum: "2", schedule: "2½ mos" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", doseNum: "3", schedule: "3½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", doseNum: "1", schedule: "1½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", doseNum: "2", schedule: "2½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", doseNum: "3", schedule: "3½ mos" },
+                { name: "Inactivated Polio Vaccine (IPV)", keyword: "ipv", doseNum: "1", schedule: "3½ mos" },
+                { name: "Inactivated Polio Vaccine (IPV)", keyword: "ipv", doseNum: "2", schedule: "9 mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", doseNum: "1", schedule: "1½ mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", doseNum: "2", schedule: "2½ mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", doseNum: "3", schedule: "3½ mos" },
+                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keyword: "mmr", doseNum: "1", schedule: "9 mos" },
+                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keyword: "mmr", doseNum: "2", schedule: "1 year" }
             ];
+
+            let immHtml = '';
+            standardVaccines.forEach(vac => {
+                let matchedRecord = null;
+                if (data.history && data.history.length > 0) {
+                    // Hahanapin nito kung aling record ang tumutugma sa vaccine keyword at kung may indication ng dose
+                    matchedRecord = data.history.find(h => {
+                        let vTaken = h.vaccine_taken ? h.vaccine_taken.toLowerCase() : '';
+                        let remarks = h.remarks ? h.remarks.toLowerCase() : '';
+                        let matchesKeyword = vTaken.includes(vac.keyword);
+                        let matchesDose = vTaken.includes(vac.doseNum) || remarks.includes(vac.doseNum) || vac.doseNum === "1";
+                        return matchesKeyword && matchesDose;
+                    });
+                }
+
+                let dateTaken = '--';
+                let administeredBy = '--';
+                let remarksText = '<span style="color:#a0aec0; font-style:italic;">Not yet administered</span>';
+
+                if (matchedRecord) {
+                    dateTaken = matchedRecord.vaccine_date || (matchedRecord.created_at ? matchedRecord.created_at.split(' ')[0] : '--');
+                    administeredBy = matchedRecord.administered_by || matchedRecord.staff_name || 'Health Worker';
+                    remarksText = matchedRecord.remarks || 'Given';
+                } else if (vac.doseNum === "1" && data.vaccine_taken && data.vaccine_taken.toLowerCase().includes(vac.keyword)) {
+                    dateTaken = data.birth_date || '--';
+                    administeredBy = 'Hospital / Registration';
+                    remarksText = 'Given (Hospital)';
+                }
+
+                immHtml += `<tr>
+                    <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
+                    <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Dose ${vac.doseNum}</span></td>
+                    <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
+                    <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
+                    <td style="font-size: 0.75rem;">${remarksText}</td>
+                </tr>`;
+            });
+
+            document.getElementById('immunization_rows').innerHTML = immHtml;
 
  let immHtml = '';
             standardVaccines.forEach(vac => {
