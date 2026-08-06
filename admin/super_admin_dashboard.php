@@ -603,24 +603,31 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
 </div>
 
 <script>
-    // JS para sa Newborn Modal
+    // JS para sa Newborn Modal (Updated mapping)
     function openNewbornModal(data) {
         document.getElementById('nb_child_name').value = data.child_name || '';
         document.getElementById('nb_birth_date').value = data.birth_date || '';
         document.getElementById('nb_gender').value = data.gender || '';
-        document.getElementById('nb_weight').value = data.weight || '';
+        
+        document.getElementById('nb_weight').value = data.weight_kg || data.weight || data.baby_weight || '';
+        
         document.getElementById('nb_mother_name').value = data.mother_name || '';
         document.getElementById('nb_place_of_birth').value = data.place_of_birth || '';
         
-        document.getElementById('nb_family_serial').value = data.family_serial || data.serial_no || '';
+        // Itugma ang family serial/no galing sa database column mo
+        document.getElementById('nb_family_serial').value = data.family_no || data.family_serial || data.serial_no || '';
+        
         document.getElementById('nb_blood_type').value = data.blood_type || 'Unknown / N/A';
-        document.getElementById('nb_height').value = data.height || data.birth_height || '';
+        
+        // Itugma ang height galing sa database column mo (height_cm)
+        document.getElementById('nb_height').value = data.height_cm || data.height || data.birth_height || '';
+        
         document.getElementById('nb_address_details').value = data.address || data.street || '';
         document.getElementById('nb_barangay').value = data.barangay || 'Alawihao';
         document.getElementById('nb_father_name').value = data.father_name || '';
 
-        // Dynamic Immunization Records display (Shows only checked vaccines)
-        let vaccinesStr = data.immunization_records || data.vaccines || '';
+        // Dynamic Immunization Records display (Sinasalo ang vaccine_taken o immunization_records)
+        let vaccinesStr = data.vaccine_taken || data.immunization_records || data.vaccines || '';
         let vaccinesArray = vaccinesStr ? vaccinesStr.split(',').map(v => v.trim()) : [];
         let container = document.getElementById('nb_vaccines_container');
         container.innerHTML = '';
