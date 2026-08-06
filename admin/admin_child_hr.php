@@ -8,7 +8,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-
 $user_id = $_SESSION['user_id'];
 $query_role = mysqli_query($conn, "SELECT role FROM users WHERE id = '$user_id'");
 $user_data = mysqli_fetch_assoc($query_role);
@@ -29,10 +28,14 @@ if (isset($_POST['update_health'])) {
     $w = mysqli_real_escape_string($conn, $_POST['weight']);
     $h = mysqli_real_escape_string($conn, $_POST['height']);
     $v = mysqli_real_escape_string($conn, $_POST['vaccine']);
+    $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); // Bagong field para sa date ng turok
+    $next_date = mysqli_real_escape_string($conn, $_POST['next_checkup']); // Bagong field para sa next check-up
+    $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); // Bagong field para sa remarks
     $hw_id = $_SESSION['user_id']; 
 
-    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, health_worker_id, created_at) 
-            VALUES ('$c_id', '$w', '$h', '$v', '$hw_id', NOW())";
+    // I-update ang SQL para maisama ang mga bagong columns
+    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, health_worker_id, created_at) 
+            VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$hw_id', NOW())";
     
     if (mysqli_query($conn, $sql)) {
         echo "<script>alert('Health Record Updated!'); window.location='admin_child_list.php';</script>";
@@ -124,12 +127,13 @@ $result = mysqli_query($conn, $query);
             z-index: 3000;
             left: 0; top: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.4);
+            overflow-y: auto; /* Para mascroll kung medyo mahaba ang modal */
         }
         .modal-content {
             background: white;
-            margin: 10% auto;
+            margin: 5% auto;
             padding: 30px;
-            width: 400px;
+            width: 450px;
             border-radius: 15px;
             border-top: 8px solid var(--sage);
         }
@@ -176,23 +180,45 @@ $result = mysqli_query($conn, $query);
 
 <div id="editModal" class="modal">
     <div class="modal-content">
-        <h3 id="modalTitle" style="color: var(--dark-sage);">Update Health Data</h3>
+        <h3 id="modalTitle" style="color: var(--dark-sage); margin-top: 0;">Update Health Data</h3>
         <form method="POST">
             <input type="hidden" name="child_id" id="modal_id">
-            <div style="margin-bottom:15px;">
+            
+            <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Weight (kg)</label>
-                <input type="number" name="weight" step="0.01" required style="width:100%; padding:10px; border-radius:5px; border:1px solid #ddd;">
+                <input type="number" name="weight" step="0.01" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
-            <div style="margin-bottom:15px;">
+
+            <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Height (cm)</label>
-                <input type="number" name="height" step="0.1" required style="width:100%; padding:10px; border-radius:5px; border:1px solid #ddd;">
+                <input type="number" name="height" step="0.1" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
+                <input type="text" name="vaccine" placeholder="e.g., BCG, Polio, etc." style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+            </div>
+
+            <!-- Bagong Field: Date of Vaccination -->
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:600;">Date of Vaccination</label>
+                <input type="date" name="vaccine_date" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+            </div>
+
+            <!-- Bagong Field: Next Check-up / Vaccination Schedule -->
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:600;">Next Check-up Schedule</label>
+                <input type="date" name="next_checkup" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+            </div>
+
+            <!-- Bagong Field: Remarks / Notes -->
             <div style="margin-bottom:15px;">
-                <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine</label>
-                <input type="text" name="vaccine" placeholder="Optional" style="width:100%; padding:10px; border-radius:5px; border:1px solid #ddd;">
+                <label style="display:block; font-size:0.8rem; font-weight:600;">Remarks / Notes</label>
+                <textarea name="remarks" rows="3" placeholder="Optional notes or observations..." style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; resize: vertical;"></textarea>
             </div>
+
             <div style="text-align:right;">
-                <button type="button" onclick="closeModal()" style="padding:10px; border:none; cursor:pointer;">Cancel</button>
+                <button type="button" onclick="closeModal()" style="padding:9px 15px; border:none; cursor:pointer; background: #e2e8f0; border-radius: 5px; font-weight: 600;">Cancel</button>
                 <button type="submit" name="update_health" class="btn btn-edit">Save Changes</button>
             </div>
         </form>
