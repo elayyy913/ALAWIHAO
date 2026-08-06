@@ -13,7 +13,7 @@ $message = "";
 // 2. HANDLE APPROVALS
 if (isset($_GET['approve_infant'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_infant']);
-    mysqli_query($conn, "UPDATE infant_registrations SET status='Approved' WHERE id='$id'");
+    mysqli_query($conn, "UPDATE children SET status='Approved' WHERE id='$id'");
     $message = "Infant approved successfully!";
 }
 
@@ -43,10 +43,10 @@ if (isset($_POST['action_type']) && isset($_POST['sched_id']) && isset($_POST['s
 $total_maternal_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM maternal_registration");
 $total_maternal = $total_maternal_q ? mysqli_fetch_assoc($total_maternal_q)['count'] : 0;
 
-$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM infant_registration");
+$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM children");
 $total_infant = $total_infant_q ? mysqli_fetch_assoc($total_infant_q)['count'] : 0;
 
-$infant_pending = mysqli_query($conn, "SELECT * FROM infant_registration WHERE status='Pending'");
+$infant_pending = mysqli_query($conn, "SELECT * FROM children WHERE status='Pending'");
 $maternal_pending = mysqli_query($conn, "SELECT * FROM maternal_registration WHERE status='Pending'");
 
 $pending_total = (mysqli_num_rows($infant_pending) + mysqli_num_rows($maternal_pending));

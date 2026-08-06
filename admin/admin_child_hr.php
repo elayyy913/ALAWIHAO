@@ -33,21 +33,18 @@ if (isset($_POST['update_health'])) {
     $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); 
     $hw_id = $_SESSION['user_id']; 
 
-    // I-update ang SQL para maisama ang mga bagong columns
+    // I-update ang SQL para sa infant_records
     $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, health_worker_id, created_at) 
             VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$hw_id', NOW())";
     
     if (mysqli_query($conn, $sql)) {
+        // Opsyonal: Pwede ring i-update ang children table kung gusto mong sumabay ang vaccine_taken column doon
         echo "<script>alert('Health Record Updated!'); window.location='admin_child_list.php';</script>";
     }
 }
 
-// Fetching child data kasama ang pag-aggregate ng mga naibigay nang bakuna para madaling Makita sa modal
-$query = "SELECT c.*, GROUP_CONCAT(CONCAT(ir.vaccine_taken, ' (', ir.vaccine_date, ')') SEPARATOR ', ') AS previous_vaccines 
-          FROM children c 
-          LEFT JOIN infant_records ir ON c.id = ir.child_id 
-          GROUP BY c.id 
-          ORDER BY c.child_name ASC";
+// Fetching child data 
+$query = "SELECT * FROM children ORDER BY child_name ASC";
 $result = mysqli_query($conn, $query);
 ?>
 
@@ -150,7 +147,6 @@ $result = mysqli_query($conn, $query);
 <div id="main">
     <div class="header-section">
         <button onclick="toggleSidebar()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--dark-sage); margin-bottom:10px;"></button>
-        <div class="role-badge"><?php echo $role_label; ?> Access</div>
         <h1>Child & Infant Records</h1>
         <p style="color: #A0AEC0;">Alawihao Health Center Management System</p>
     </div>
@@ -173,7 +169,7 @@ $result = mysqli_query($conn, $query);
                     <td><?php echo $row['gender']; ?></td>
                     <td>
                         <a href="admin_child_record_view.php?id=<?php echo $row['id']; ?>" class="btn btn-view">Full History</a>
-                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($row['previous_vaccines'] ?? '', ENT_QUOTES); ?>')">Update Health</button>
+                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($row['vaccine_taken'] ?? '', ENT_QUOTES); ?>')">Update Health</button>
                     </td>
                 </tr>
                 <?php endwhile; ?>
@@ -272,15 +268,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function openEditModal(id, name, previousVaccines) {
+function openEditModal(id, name, vaccineTaken) {
     document.getElementById('editModal').style.display = 'block';
     document.getElementById('modal_id').value = id;
     document.getElementById('modalTitle').innerText = "Update: " + name;
 
-    // I-display ang mga naunang bakuna sa loob ng modal box
     let vaccinesContainer = document.getElementById('modal_previous_vaccines');
-    if (previousVaccines && previousVaccines.trim() !== '') {
-        vaccinesContainer.innerHTML = previousVaccines;
+    if (vaccineTaken && vaccineTaken.trim() !== '') {
+        vaccinesContainer.innerHTML = vaccineTaken;
         vaccinesContainer.style.fontStyle = 'normal';
         vaccinesContainer.style.fontWeight = '600';
         vaccinesContainer.style.color = '#2B6CB0';
