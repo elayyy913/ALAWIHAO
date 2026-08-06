@@ -603,6 +603,7 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
 </div>
 
 <script>
+    
     // JS para sa Newborn Modal (Updated mapping)
     function openNewbornModal(data) {
         document.getElementById('nb_child_name').value = data.child_name || '';
