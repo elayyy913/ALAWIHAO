@@ -31,14 +31,14 @@ if (isset($_POST['update_health'])) {
     $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); 
     $next_date = mysqli_real_escape_string($conn, $_POST['next_checkup']); 
     $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); 
+    $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']); 
     $hw_id = $_SESSION['user_id']; 
 
-    // I-update ang SQL para sa infant_records
-    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, health_worker_id, created_at) 
-            VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$hw_id', NOW())";
+    // I-update ang SQL para sa infant_records kasama ang administered_by
+    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at) 
+            VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$administered_by', '$hw_id', NOW())";
     
     if (mysqli_query($conn, $sql)) {
-        // Opsyonal: Pwede ring i-update ang children table kung gusto mong sumabay ang vaccine_taken column doon
         echo "<script>alert('Health Record Updated!'); window.location='admin_child_list.php';</script>";
     }
 }
@@ -204,7 +204,7 @@ $result = mysqli_query($conn, $query);
 
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
-                <select name="vaccine" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
+                <select name="vaccine" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
                     <option value="">-- Select Vaccine --</option>
                     <option value="BCG Vaccine">BCG Vaccine</option>
                     <option value="Hepatitis B Vaccine">Hepatitis B Vaccine</option>
@@ -216,16 +216,22 @@ $result = mysqli_query($conn, $query);
                 </select>
             </div>
 
+            <!-- Administered By / Nagturok -->
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:600;">Administered By (Nagturok)</label>
+                <input type="text" name="administered_by" placeholder="Enter health worker or midwife name..." required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+            </div>
+
             <!-- Date of Vaccination -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Date of Vaccination</label>
-                <input type="date" name="vaccine_date" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+                <input type="date" name="vaccine_date" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
             <!-- Next Check-up / Vaccination Schedule -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Next Check-up Schedule</label>
-                <input type="date" name="next_checkup" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+                <input type="date" name="next_checkup" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
             <!-- Remarks / Notes -->

@@ -14,7 +14,7 @@ $query = "SELECT c.*,
           COALESCE(r.weight_kg, 0) AS weight_kg, 
           COALESCE(r.height, 0) AS height, 
           COALESCE(r.vaccine_taken, c.vaccine_taken, 'None') AS vaccine_taken,
-          r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name
+          r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name, r.administered_by
           FROM children c
           LEFT JOIN (
               SELECT * FROM infant_records WHERE id IN (SELECT MAX(id) FROM infant_records GROUP BY child_id)
@@ -165,7 +165,7 @@ $result = mysqli_query($conn, $query);
                                 <th style="width: 12%;">Doses</th>
                                 <th style="width: 20%;">Petsa ng bakuna</th>
                                 <th style="width: 20%;">Nagturok</th>
-                                <th style="width: 18%;">Remarks</th>
+                                <th style="width: 18%;">Remarks / Notes</th>
                             </tr>
                         </thead>
                         <tbody id="immunization_rows">
@@ -204,7 +204,7 @@ $result = mysqli_query($conn, $query);
             document.getElementById('last_height').innerText = data.height || "--";
             document.getElementById('last_vaccine').innerText = data.vaccine_taken || "None";
             
-// Standard Vaccines list na naka-break down bawat dose para may sarili silang cell/row
+            // Standard Vaccines list with individual breakdown for multiple doses
             const standardVaccines = [
                 { name: "BCG Vaccine", keyword: "bcg", doseNum: "1", schedule: "At birth" },
                 { name: "Hepatitis B Vaccine", keyword: "hepatitis", doseNum: "1", schedule: "At birth" },
@@ -227,7 +227,6 @@ $result = mysqli_query($conn, $query);
             standardVaccines.forEach(vac => {
                 let matchedRecord = null;
                 if (data.history && data.history.length > 0) {
-                    // Hahanapin nito kung aling record ang tumutugma sa vaccine keyword at kung may indication ng dose
                     matchedRecord = data.history.find(h => {
                         let vTaken = h.vaccine_taken ? h.vaccine_taken.toLowerCase() : '';
                         let remarks = h.remarks ? h.remarks.toLowerCase() : '';
@@ -239,54 +238,21 @@ $result = mysqli_query($conn, $query);
 
                 let dateTaken = '--';
                 let administeredBy = '--';
-                let remarksText = '<span style="color:#a0aec0; font-style:italic;">Not yet administered</span>';
+                let remarksText = '<span style="color:#a0aec0; font-style:italic;">No notes yet</span>';
 
                 if (matchedRecord) {
                     dateTaken = matchedRecord.vaccine_date || (matchedRecord.created_at ? matchedRecord.created_at.split(' ')[0] : '--');
                     administeredBy = matchedRecord.administered_by || matchedRecord.staff_name || 'Health Worker';
-                    remarksText = matchedRecord.remarks || 'Given';
+                    remarksText = matchedRecord.remarks ? matchedRecord.remarks : '<span style="color:#a0aec0; font-style:italic;">No notes</span>';
                 } else if (vac.doseNum === "1" && data.vaccine_taken && data.vaccine_taken.toLowerCase().includes(vac.keyword)) {
                     dateTaken = data.birth_date || '--';
-                    administeredBy = 'Hospital / Registration';
-                    remarksText = 'Given (Hospital)';
+                    administeredBy = data.administered_by || 'Hospital / Registration';
+                    remarksText = data.remarks ? data.remarks : 'Given (Hospital)';
                 }
 
                 immHtml += `<tr>
                     <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
                     <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Dose ${vac.doseNum}</span></td>
-                    <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
-                    <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
-                    <td style="font-size: 0.75rem;">${remarksText}</td>
-                </tr>`;
-            });
-
-            document.getElementById('immunization_rows').innerHTML = immHtml;
-
- let immHtml = '';
-            standardVaccines.forEach(vac => {
-                let matchedRecord = null;
-                if (data.history && data.history.length > 0) {
-                    matchedRecord = data.history.find(h => h.vaccine_taken && h.vaccine_taken.toLowerCase().includes(vac.keyword));
-                }
-
-                let dateTaken = '--';
-                let administeredBy = '--';
-                let remarksText = '<span style="color:#a0aec0; font-style:italic;">Not yet administered</span>';
-
-                if (matchedRecord) {
-                    dateTaken = matchedRecord.vaccine_date || (matchedRecord.created_at ? matchedRecord.created_at.split(' ')[0] : '--');
-                    // Palitan ang 'administered_by' ng tamang column name sa database table mo kung iba man
-                    administeredBy = matchedRecord.administered_by || matchedRecord.staff_name || 'Health Worker';
-                    remarksText = matchedRecord.remarks || 'Given';
-                } else if (data.vaccine_taken && data.vaccine_taken.toLowerCase().includes(vac.keyword)) {
-                    dateTaken = data.birth_date || '--';
-                    administeredBy = 'Hospital / Registration';
-                    remarksText = 'Given (Hospital)';
-                }
-
-                immHtml += `<tr>
-                    <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
-                    <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">${vac.dose}</span></td>
                     <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
                     <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
                     <td style="font-size: 0.75rem;">${remarksText}</td>
