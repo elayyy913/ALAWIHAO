@@ -10,9 +10,11 @@ if (!isset($_SESSION['user_id'])) {
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'newest';
 
-// QUERY: Nag-join tayo sa infant_records para makuha yung data na nakita natin sa phpMyAdmin
 $query = "SELECT c.*, 
-          r.weight_kg, r.height, r.vaccine_taken, r.birth_date AS r_dob, r.baby_name
+          COALESCE(r.weight_kg, 0) AS weight_kg, 
+          COALESCE(r.height, 0) AS height, 
+          COALESCE(r.vaccine_taken, c.vaccine_taken, 'None') AS vaccine_taken,
+          r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name
           FROM children c
           LEFT JOIN (
               SELECT * FROM infant_records WHERE id IN (SELECT MAX(id) FROM infant_records GROUP BY child_id)
@@ -47,16 +49,28 @@ $result = mysqli_query($conn, $query);
         th { color: white; padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
         .view-btn { background: transparent; color: var(--sage-green); border: 1.5px solid var(--sage-green); padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; }
-        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 5% auto; padding: 35px; border-radius: 25px; width: 550px; position: relative; }
-        .info-card { background: #fdfdfd; border: 1px dashed var(--sage-green); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .info-item label { display: block; font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; }
-        .info-item span { font-weight: 600; color: #333; }
-        .latest-record-box { background: #f8f9fa; border: 1px solid #f0f0f0; padding: 20px; border-radius: 15px; position: relative; }
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px; }
-        .stat-box { text-align: center; background: white; padding: 10px; border-radius: 10px; border: 1px solid #f0f0f0; }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
+        .modal-content { background: white; margin: 2% auto; padding: 30px; border-radius: 20px; width: 750px; position: relative; max-height: 90vh; overflow-y: auto; }
+        
+        .info-card { background: #fdfdfd; border: 1px dashed var(--sage-green); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .info-item label { display: block; font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
+        .info-item span { font-weight: 600; color: #333; font-size: 0.9rem; }
+        
+        .latest-record-box { background: #f8f9fa; border: 1px solid #f0f0f0; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .stat-box { text-align: center; background: white; padding: 10px; border-radius: 8px; border: 1px solid #eaeaea; }
         .stat-box small { display: block; color: #999; font-size: 0.65rem; text-transform: uppercase; }
-        .stat-box b { font-size: 1.1rem; color: var(--sage-green); }
+        .stat-box b { font-size: 1rem; color: var(--sage-green); }
+
+        /* Immunization Monitoring Table Style */
+        .immunization-box { margin-top: 20px; }
+        .immunization-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; border: 1px solid #e2e8f0; }
+        .immunization-table th { background-color: #d4a373; color: white; padding: 10px; font-size: 0.75rem; text-align: center; border: 1px solid #c89664; }
+        .immunization-table td { padding: 10px; border: 1px solid #e2e8f0; color: #2d3748; text-align: center; vertical-align: middle; }
+        .immunization-table td:first-child { text-align: left; font-weight: 600; }
+
         .btn-delete { background: none; border: none; color: var(--danger-red); text-decoration: underline; cursor: pointer; font-weight: bold; }
     </style>
 </head>
@@ -92,6 +106,15 @@ $result = mysqli_query($conn, $query);
                 </thead>
                 <tbody>
                     <?php while($row = mysqli_fetch_assoc($result)): ?>
+                    <?php 
+                        $child_current_id = $row['id'];
+                        $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
+                        $history_arr = [];
+                        while($hist = mysqli_fetch_assoc($history_query)) {
+                            $history_arr[] = $hist;
+                        }
+                        $row['history'] = $history_arr;
+                    ?>
                     <tr id="row_<?= $row['id']; ?>">
                         <td style="font-weight:600;"><?= htmlspecialchars($row['child_name'] ?? $row['baby_name']); ?></td>
                         <td><?= htmlspecialchars($row['mother_name'] ?? 'N/A'); ?></td>
@@ -104,21 +127,54 @@ $result = mysqli_query($conn, $query);
         </div>
     </div>
 
+    <!-- Modal for Detailed Info & Immunization Monitoring -->
     <div id="infantModal" class="modal">
         <div class="modal-content">
-            <h1 id="m_name" style="color: var(--sage-green); margin: 0 0 15px 0;"></h1>
+            <h1 id="m_name" style="color: var(--sage-green); margin: 0 0 15px 0; font-size: 1.5rem;"></h1>
+            
+            <!-- Personal Information Section -->
+            <p style="font-size: 0.75rem; font-weight: bold; color: var(--sage-green); margin-bottom: 8px; text-transform: uppercase;">Verified Personal Information</p>
             <div class="info-card">
-                <div class="info-item"><label>Mother</label><span id="m_mother"></span></div>
-                <div class="info-item"><label>Birthday</label><span id="m_dob"></span></div>
+                <div class="info-item"><label>Mother's Name</label><span id="m_mother">--</span></div>
+                <div class="info-item"><label>Father's Name</label><span id="m_father">--</span></div>
+                <div class="info-item"><label>Birthday</label><span id="m_dob">--</span></div>
+                <div class="info-item"><label>Gender</label><span id="m_gender">--</span></div>
+                <div class="info-item"><label>Blood Type</label><span id="m_blood">--</span></div>
+                <div class="info-item"><label>Place of Birth</label><span id="m_pob">--</span></div>
+                <div class="info-item" style="grid-column: span 2;"><label>Address / Barangay</label><span id="m_address">--</span></div>
             </div>
+
+            <!-- Latest Health Data Section -->
             <div class="latest-record-box">
                 <label style="font-size: 0.75rem; font-weight: bold; color: var(--sage-green);">LATEST HEALTH DATA</label>
                 <div class="stat-grid">
                     <div class="stat-box"><small>Weight</small><b id="last_weight">--</b><small>kg</small></div>
                     <div class="stat-box"><small>Height</small><b id="last_height">--</b><small>cm</small></div>
-                    <div class="stat-box"><small>Vaccine</small><b id="last_vaccine">--</b></div>
+                    <div class="stat-box"><small>Latest Vaccine</small><b id="last_vaccine" style="font-size: 0.85rem;">--</b></div>
                 </div>
             </div>
+
+            <!-- Immunization Monitoring Table -->
+            <div class="immunization-box">
+                <label style="font-size: 0.75rem; font-weight: bold; color: var(--sage-green); text-transform: uppercase;">Immunization Monitoring Table</label>
+                <div style="overflow-x: auto; margin-top: 5px;">
+                    <table class="immunization-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Bakuna</th>
+                                <th style="width: 12%;">Doses</th>
+                                <th style="width: 20%;">Petsa ng bakuna</th>
+                                <th style="width: 20%;">Nagturok</th>
+                                <th style="width: 18%;">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="immunization_rows">
+                            <!-- Dynamic rows loaded via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center;">
                 <button type="button" onclick="deleteRecord()" class="btn-delete">Delete Record</button>
                 <button onclick="closeModal()" style="background:#eee; border:none; padding: 10px 20px; border-radius:10px; cursor:pointer; font-weight:600;">Close</button>
@@ -131,16 +187,70 @@ $result = mysqli_query($conn, $query);
         function openModal(data) {
             currentChildId = data.id;
             document.getElementById('m_name').innerText = data.child_name || data.baby_name;
-            document.getElementById('m_mother').innerText = data.mother_name || "N/A";
-            document.getElementById('m_dob').innerText = data.birth_date || "N/A";
             
-            // Map columns: weight_kg, height, vaccine_taken
+            // Personal Info mapping
+            document.getElementById('m_mother').innerText = data.mother_name || "N/A";
+            document.getElementById('m_father').innerText = data.father_name || "N/A";
+            document.getElementById('m_dob').innerText = data.birth_date ? new Date(data.birth_date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : "N/A";
+            document.getElementById('m_gender').innerText = data.gender || "N/A";
+            document.getElementById('m_blood').innerText = data.blood_type || "N/A";
+            document.getElementById('m_pob').innerText = data.place_of_birth || "N/A";
+            
+            let fullAddress = (data.address ? data.address + ", " : "") + (data.barangay || "");
+            document.getElementById('m_address').innerText = fullAddress !== "" ? fullAddress : "N/A";
+            
+            // Latest Health Data mapping
             document.getElementById('last_weight').innerText = data.weight_kg || "--";
             document.getElementById('last_height').innerText = data.height || "--";
             document.getElementById('last_vaccine').innerText = data.vaccine_taken || "None";
             
+            // Standard Vaccines list with keywords for matching database records
+            const standardVaccines = [
+                { name: "BCG Vaccine", keyword: "bcg", dose: "1", schedule: "At birth" },
+                { name: "Hepatitis B Vaccine", keyword: "hepatitis", dose: "1", schedule: "At birth" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", dose: "1, 2, 3", schedule: "1½, 2½, 3½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", dose: "1, 2, 3", schedule: "1½, 2½, 3½ mos" },
+                { name: "Inactivated Polio Vaccine (IPV)", keyword: "ipv", dose: "1, 2", schedule: "3½ & 9 mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", dose: "1, 2, 3", schedule: "1½, 2½, 3½ mos" },
+                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keyword: "mmr", dose: "1, 2", schedule: "9 mos & 1 year" }
+            ];
+
+ let immHtml = '';
+            standardVaccines.forEach(vac => {
+                let matchedRecord = null;
+                if (data.history && data.history.length > 0) {
+                    matchedRecord = data.history.find(h => h.vaccine_taken && h.vaccine_taken.toLowerCase().includes(vac.keyword));
+                }
+
+                let dateTaken = '--';
+                let administeredBy = '--';
+                let remarksText = '<span style="color:#a0aec0; font-style:italic;">Not yet administered</span>';
+
+                if (matchedRecord) {
+                    dateTaken = matchedRecord.vaccine_date || (matchedRecord.created_at ? matchedRecord.created_at.split(' ')[0] : '--');
+                    // Palitan ang 'administered_by' ng tamang column name sa database table mo kung iba man
+                    administeredBy = matchedRecord.administered_by || matchedRecord.staff_name || 'Health Worker';
+                    remarksText = matchedRecord.remarks || 'Given';
+                } else if (data.vaccine_taken && data.vaccine_taken.toLowerCase().includes(vac.keyword)) {
+                    dateTaken = data.birth_date || '--';
+                    administeredBy = 'Hospital / Registration';
+                    remarksText = 'Given (Hospital)';
+                }
+
+                immHtml += `<tr>
+                    <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
+                    <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">${vac.dose}</span></td>
+                    <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
+                    <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
+                    <td style="font-size: 0.75rem;">${remarksText}</td>
+                </tr>`;
+            });
+
+            document.getElementById('immunization_rows').innerHTML = immHtml;
+
             document.getElementById('infantModal').style.display = "block";
         }
+
         function closeModal() { document.getElementById('infantModal').style.display = "none"; }
 
         function deleteRecord() {
@@ -148,12 +258,10 @@ $result = mysqli_query($conn, $query);
                 const formData = new FormData();
                 formData.append('child_id', currentChildId);
                 
-                // Fetching sa delete_infant
                 fetch('delete_infant.php', { method: 'POST', body: formData })
                 .then(res => res.text())
                 .then(result => {
                     if (result.trim() === "success") {
-                        // Alisin sa table UI
                         const row = document.getElementById('row_' + currentChildId);
                         if(row) row.remove();
                         closeModal();
