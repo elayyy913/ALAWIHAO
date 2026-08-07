@@ -9,17 +9,31 @@ if (!isset($_SESSION['user_id'])) {
 
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'newest';
+$age_filter = isset($_GET['age_filter']) ? $_GET['age_filter'] : 'all';
 
 $query = "SELECT c.*, 
-          COALESCE(r.weight_kg, 0) AS weight_kg, 
-          COALESCE(r.height, 0) AS height, 
-          COALESCE(r.vaccine_taken, c.vaccine_taken, 'None') AS vaccine_taken,
-          r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name, r.administered_by
-          FROM children c
-          LEFT JOIN (
-              SELECT * FROM infant_records WHERE id IN (SELECT MAX(id) FROM infant_records GROUP BY child_id)
-          ) r ON c.id = r.child_id
-          WHERE c.status = 'Approved' AND (c.child_name LIKE '%$search%' OR r.baby_name LIKE '%$search%')";
+         COALESCE(r.weight_kg, 0) AS weight_kg, 
+         COALESCE(r.height, 0) AS height, 
+         COALESCE(r.vaccine_taken, c.vaccine_taken, 'None') AS vaccine_taken,
+         r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name, r.administered_by
+         FROM children c
+         LEFT JOIN (
+             SELECT * FROM infant_records WHERE id IN (SELECT MAX(id) FROM infant_records GROUP BY child_id)
+         ) r ON c.id = r.child_id
+         WHERE c.status = 'Approved' AND (c.child_name LIKE '%$search%' OR r.baby_name LIKE '%$search%')";
+
+// Age Filtering Logic gamit ang TIMESTAMPDIFF sa MySQL
+if ($age_filter == '0-1') {
+    $query .= " AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) <= 1";
+} elseif ($age_filter == '1-6') {
+    $query .= " AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) > 1 AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) <= 6";
+} elseif ($age_filter == '6-12') {
+    $query .= " AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) > 6 AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) <= 12";
+} elseif ($age_filter == '1-2') {
+    $query .= " AND TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) >= 1 AND TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) < 2";
+} elseif ($age_filter == '2_above') {
+    $query .= " AND TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) >= 2";
+}
 
 if ($filter == 'newest') { 
     $query .= " ORDER BY c.created_at DESC"; 
@@ -40,9 +54,10 @@ $result = mysqli_query($conn, $query);
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-beige); margin: 0; display: flex; }
         #main { width: 100%; padding: 40px; box-sizing: border-box; min-height: 100vh; margin-left: 280px; }
         .records-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         h2 { color: var(--sage-green); font-size: 1.8rem; margin: 0; }
-        .search-box { padding: 10px; border: 1px solid #ddd; border-radius: 8px; width: 220px; outline: none; }
+        .search-box, .filter-select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; background: white; font-size: 0.9rem; }
+        .search-box { width: 200px; }
         .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         thead { background-color: var(--sage-green); }
@@ -89,8 +104,25 @@ $result = mysqli_query($conn, $query);
         <div class="records-card">
             <div class="header-section">
                 <h2>Infant Health Records</h2>
-                <div style="display:flex; gap:10px;">
-                    <form method="GET"><input type="text" name="search" class="search-box" placeholder="Search baby..." value="<?= htmlspecialchars($search); ?>"></form>
+                <div style="display:flex; gap:10px; align-items: center; flex-wrap: wrap;">
+                    <form method="GET" style="display:flex; gap:10px; align-items:center;">
+                        <!-- Age Filter Dropdown -->
+                        <select name="age_filter" class="filter-select" onchange="this.form.submit()">
+                            <option value="all" <?= $age_filter == 'all' ? 'selected' : ''; ?>>All Ages</option>
+                            <option value="0-1" <?= $age_filter == '0-1' ? 'selected' : ''; ?>>0 - 1 Month Old</option>
+                            <option value="1-6" <?= $age_filter == '1-6' ? 'selected' : ''; ?>>1 - 6 Months Old</option>
+                            <option value="6-12" <?= $age_filter == '6-12' ? 'selected' : ''; ?>>6 - 12 Months Old</option>
+                            <option value="1-2" <?= $age_filter == '1-2' ? 'selected' : ''; ?>>1 - 2 Years Old</option>
+                            <option value="2_above" <?= $age_filter == '2_above' ? 'selected' : ''; ?>>2 Years Old & Above</option>
+                        </select>
+                        
+                        <!-- Search Box -->
+                        <input type="text" name="search" class="search-box" placeholder="Search baby..." value="<?= htmlspecialchars($search); ?>">
+                        
+                        <!-- Panatilihin ang sorting filter kung meron man -->
+                        <input type="hidden" name="filter" value="<?= htmlspecialchars($filter); ?>">
+                    </form>
+                    
                     <a href="admin_child_reg.php" class="btn-add">+ New Baby</a>
                 </div>
             </div>
@@ -105,23 +137,30 @@ $result = mysqli_query($conn, $query);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while($row = mysqli_fetch_assoc($result)): ?>
-                    <?php 
-                        $child_current_id = $row['id'];
-                        $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
-                        $history_arr = [];
-                        while($hist = mysqli_fetch_assoc($history_query)) {
-                            $history_arr[] = $hist;
-                        }
-                        $row['history'] = $history_arr;
-                    ?>
-                    <tr id="row_<?= $row['id']; ?>">
-                        <td style="font-weight:600;"><?= htmlspecialchars($row['child_name'] ?? $row['baby_name']); ?></td>
-                        <td><?= htmlspecialchars($row['mother_name'] ?? 'N/A'); ?></td>
-                        <td><?= $row['birth_date'] ? date('M d, Y', strtotime($row['birth_date'])) : 'N/A'; ?></td>
-                        <td><button class="view-btn" onclick='openModal(<?= json_encode($row); ?>)'>View Record</button></td>
-                    </tr>
-                    <?php endwhile; ?>
+                    <?php if(mysqli_num_rows($result) > 0): ?>
+                        <?php while($row = mysqli_fetch_assoc($result)): ?>
+                        <?>
+                        <?php 
+                            $child_current_id = $row['id'];
+                            $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
+                            $history_arr = [];
+                            while($hist = mysqli_fetch_assoc($history_query)) {
+                                $history_arr[] = $hist;
+                            }
+                            $row['history'] = $history_arr;
+                        ?>
+                        <tr id="row_<?= $row['id']; ?>">
+                            <td style="font-weight:600;"><?= htmlspecialchars($row['child_name'] ?? $row['baby_name']); ?></td>
+                            <td><?= htmlspecialchars($row['mother_name'] ?? 'N/A'); ?></td>
+                            <td><?= $row['birth_date'] ? date('M d, Y', strtotime($row['birth_date'])) : 'N/A'; ?></td>
+                            <td><button class="view-btn" onclick='openModal(<?= json_encode($row); ?>)'>View Record</button></td>
+                        </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #888; padding: 30px;">No infant records found matching the criteria.</td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -260,7 +299,6 @@ $result = mysqli_query($conn, $query);
             });
 
             document.getElementById('immunization_rows').innerHTML = immHtml;
-
             document.getElementById('infantModal').style.display = "block";
         }
 
@@ -271,7 +309,7 @@ $result = mysqli_query($conn, $query);
                 const formData = new FormData();
                 formData.append('child_id', currentChildId);
                 
-                fetch('delete_infant.php', { method: 'POST', body: formData })
+                fetch('../delete_infant.php', { method: 'POST', body: formData })
                 .then(res => res.text())
                 .then(result => {
                     if (result.trim() === "success") {
