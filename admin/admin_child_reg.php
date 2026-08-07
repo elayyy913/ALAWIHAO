@@ -28,6 +28,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $mother = mysqli_real_escape_string($conn, $_POST['mother_name']);
     $father = mysqli_real_escape_string($conn, $_POST['father_name']); 
     
+    // Nakuha ang administered_by mula sa input field
+    $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']);
+    
     $status = "Pending";
     
     // Kinukuha ang mga bakunang naka-check kasama ang date na ibinigay
@@ -44,10 +47,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $vaccines = !empty($vaccines_arr) ? implode(", ", $vaccines_arr) : "None";
 
-    $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, status, vaccine_taken) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("issssdssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines);
+        $stmt->bind_param("issssdsssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines, $administered_by);
         if ($stmt->execute()) {
             $message = "Baby enrolled successfully! " . ($status === "Pending" ? "Pending for admin review." : "");
         } else {
@@ -442,6 +445,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
                             <input type="date" name="vax_date[MMR]">
                         </div>
+                    </div>
+
+                    <div style="margin-top: 10px; grid-column: span 2;">
+                        <label style="font-size: 0.75rem; color: #666; font-weight: bold;">NAGTROK / HEALTH FACILITY (Kung saan binakunahan):</label>
+                        <input type="text" name="administered_by" class="form-control" placeholder="Hal. Alawihao Health Center o Hospisyo" style="padding: 8px; width: 100%; border: 1px solid #ddd; border-radius: 6px; margin-top: 4px;">
                     </div>
 
                 </div>
