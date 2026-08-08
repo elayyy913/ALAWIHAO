@@ -236,8 +236,6 @@ $base_url = "/FINAL_CAPSTONE/admin/";
 
         <span class="nav-label">(others)</span>
         <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link" id="link-settings">Setting</a>
-        <span class="nav-label">(others)</span>
-        <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link" id="link-settings">Setting</a>
     </div>
 
     <div class="sidebar-footer">
