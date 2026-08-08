@@ -231,14 +231,11 @@ $base_url = "/FINAL_CAPSTONE/admin/";
             <a href="<?php echo $base_url; ?>admin_child_hr.php" id="id-child-health">Child Health Record</a>
         </div>
 
-        <button class="dropdown-btn" onclick="toggleDropdown('schedDrop', this)">
-            Schedule Management <span class="chevron">▼</span>
-        </button>
-        <div class="dropdown-container" id="schedDrop">
-            <a href="<?php echo $base_url; ?>admin_sched_maternal.php" id="link-sched-maternal">Maternal Schedule</a>
-            <a href="<?php echo $base_url; ?>admin_sched_child.php" id="link-sched-child">Child Schedule</a>
-        </div>
+        <!-- Dito yung pagbabago: Iisang link na lang para sa Schedule -->
+        <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link" id="link-schedule">Schedule Management</a>
 
+        <span class="nav-label">(others)</span>
+        <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link" id="link-settings">Setting</a>
         <span class="nav-label">(others)</span>
         <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link" id="link-settings">Setting</a>
     </div>
