@@ -17,19 +17,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
     $category = mysqli_real_escape_string($conn, $_POST['category']);
     $total_received = intval($_POST['total_received']);
     $available_stock = intval($_POST['available_stock']);
-    $stock_in_date = mysqli_real_escape_string($conn, $_POST['stock_in_date']);
-    $received_by = mysqli_real_escape_string($conn, $_POST['received_by']);
-    $provided_by = mysqli_real_escape_string($conn, $_POST['provided_by']);
+    
+    // Safe checking para sa Date at Time para maiwasan ang undefined array key warning
+    $stock_date = isset($_POST['stock_date']) ? mysqli_real_escape_string($conn, $_POST['stock_date']) : date('Y-m-d');
+    $stock_time = isset($_POST['stock_time']) ? mysqli_real_escape_string($conn, $_POST['stock_time']) : date('H:i');
+    $stock_in_datetime = $stock_date . ' ' . $stock_time . ':00';
 
-    $sql = "INSERT INTO vaccines (vaccine_name, description, category, total_received, available_stock, stock_in_date, received_by, provided_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("sssiiiss", $vaccine_name, $description, $category, $total_received, $available_stock, $stock_in_date, $received_by, $provided_by);
-        if ($stmt->execute()) {
-            $message = "Vaccine added successfully!";
-        } else {
-            $message = "Error: " . $conn->error;
+    $received_by = trim($_POST['received_by'] ?? '');
+    $provided_by = trim($_POST['provided_by'] ?? '');
+
+    // Server-side validation para siguraduhing may laman ang receiver, supplier, date, at time
+    if (empty($received_by) || empty($provided_by) || empty($stock_date) || empty($stock_time)) {
+        $message = "Error: All fields including 'Provided By', 'Received By', Date, and Time are required!";
+    } else {
+        $received_by_esc = mysqli_real_escape_string($conn, $received_by);
+        $provided_by_esc = mysqli_real_escape_string($conn, $provided_by);
+
+        $sql = "INSERT INTO vaccines (vaccine_name, description, category, total_received, available_stock, stock_in_date, received_by, provided_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        if ($stmt = $conn->prepare($sql)) {
+            $stmt->bind_param("sssiiiss", $vaccine_name, $description, $category, $total_received, $available_stock, $stock_in_datetime, $received_by_esc, $provided_by_esc);
+            if ($stmt->execute()) {
+                $message = "Vaccine added successfully!";
+            } else {
+                $message = "Error: " . $conn->error;
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
 
@@ -41,19 +54,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_vaccine'])) {
     $category = mysqli_real_escape_string($conn, $_POST['category']);
     $total_received = intval($_POST['total_received']);
     $available_stock = intval($_POST['available_stock']);
-    $stock_in_date = mysqli_real_escape_string($conn, $_POST['stock_in_date']);
-    $received_by = mysqli_real_escape_string($conn, $_POST['received_by']);
-    $provided_by = mysqli_real_escape_string($conn, $_POST['provided_by']);
+    
+    // Safe checking din para sa update
+    $stock_date = isset($_POST['stock_date']) ? mysqli_real_escape_string($conn, $_POST['stock_date']) : date('Y-m-d');
+    $stock_time = isset($_POST['stock_time']) ? mysqli_real_escape_string($conn, $_POST['stock_time']) : date('H:i');
+    $stock_in_datetime = $stock_date . ' ' . $stock_time . ':00';
 
-    $sql = "UPDATE vaccines SET vaccine_name=?, description=?, category=?, total_received=?, available_stock=?, stock_in_date=?, received_by=?, provided_by=? WHERE id=?";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("sssiiissi", $vaccine_name, $description, $category, $total_received, $available_stock, $stock_in_date, $received_by, $provided_by, $id);
-        if ($stmt->execute()) {
-            $message = "Vaccine updated successfully!";
-        } else {
-            $message = "Error updating: " . $conn->error;
+    $received_by = trim($_POST['received_by'] ?? '');
+    $provided_by = trim($_POST['provided_by'] ?? '');
+
+    // Server-side validation para sa update
+    if (empty($received_by) || empty($provided_by) || empty($stock_date) || empty($stock_time)) {
+        $message = "Error: All fields including 'Provided By', 'Received By', Date, and Time are required!";
+    } else {
+        $received_by_esc = mysqli_real_escape_string($conn, $received_by);
+        $provided_by_esc = mysqli_real_escape_string($conn, $provided_by);
+
+        $sql = "UPDATE vaccines SET vaccine_name=?, description=?, category=?, total_received=?, available_stock=?, stock_in_date=?, received_by=?, provided_by=? WHERE id=?";
+        if ($stmt = $conn->prepare($sql)) {
+            $stmt->bind_param("sssiiissi", $vaccine_name, $description, $category, $total_received, $available_stock, $stock_in_datetime, $received_by_esc, $provided_by_esc, $id);
+            if ($stmt->execute()) {
+                $message = "Vaccine updated successfully!";
+            } else {
+                $message = "Error updating: " . $conn->error;
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
 
@@ -187,7 +213,7 @@ $result_maternal = $conn->query($sql_maternal);
             background-color: #fafaf9;
         }
 
-        /* Modal Styling for Modals */
+        /* Modal Styling */
         .modal {
             display: none; 
             position: fixed; 
@@ -248,7 +274,7 @@ $result_maternal = $conn->query($sql_maternal);
 <body>
 
 <?php 
-    if ($_SESSION['role'] === 'Super Admin') {
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'Super Admin') {
         include 'super_admin_sidebar.php';
     } else {
         include 'admin_sidebar.php'; 
@@ -263,7 +289,7 @@ $result_maternal = $conn->query($sql_maternal);
             <button class="btn-add" onclick="document.getElementById('addModal').style.display='block'">+ Add New Vaccine</button>
         </div>
 
-        <?php if($message) echo "<div class='success-msg'>$message</div>"; ?>
+        <?php if(!empty($message)) echo "<div class='success-msg'>$message</div>"; ?>
 
         <!-- Tabs Navigation -->
         <div class="tabs">
@@ -279,13 +305,15 @@ $result_maternal = $conn->query($sql_maternal);
                         <th>Vaccine Name</th>
                         <th>Total / Stock</th>
                         <th>Received From / By</th>
-                        <th>Date Received</th>
+                        <th>Date & Time Received</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if ($result_baby->num_rows > 0): ?>
-                        <?php while($row = $result_baby->fetch_assoc()): ?>
+                    <?php if ($result_baby && $result_baby->num_rows > 0): ?>
+                        <?php while($row = $result_baby->fetch_assoc()): 
+                            $datetime_val = !empty($row['stock_in_date']) ? $row['stock_in_date'] : $row['created_at'];
+                        ?>
                             <tr>
                                 <td>
                                     <strong><?= htmlspecialchars($row['vaccine_name']) ?></strong><br>
@@ -299,7 +327,7 @@ $result_maternal = $conn->query($sql_maternal);
                                     <small><strong>From:</strong> <?= htmlspecialchars($row['provided_by'] ?? 'N/A') ?></small><br>
                                     <small><strong>By:</strong> <?= htmlspecialchars($row['received_by'] ?? 'N/A') ?></small>
                                 </td>
-                                <td><?= !empty($row['stock_in_date']) ? date('M d, Y', strtotime($row['stock_in_date'])) : date('M d, Y', strtotime($row['created_at'])) ?></td>
+                                <td><?= date('M d, Y h:i A', strtotime($datetime_val)) ?></td>
                                 <td>
                                     <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
                                        onclick="openEditModal(
@@ -309,7 +337,8 @@ $result_maternal = $conn->query($sql_maternal);
                                            '<?= $row['category'] ?>', 
                                            '<?= $row['total_received'] ?>', 
                                            '<?= $row['available_stock'] ?>', 
-                                           '<?= $row['stock_in_date'] ?? date('Y-m-d', strtotime($row['created_at'])) ?>',
+                                           '<?= date('Y-m-d', strtotime($datetime_val)) ?>',
+                                           '<?= date('H:i', strtotime($datetime_val)) ?>',
                                            '<?= htmlspecialchars($row['received_by'] ?? '', ENT_QUOTES) ?>',
                                            '<?= htmlspecialchars($row['provided_by'] ?? '', ENT_QUOTES) ?>'
                                        )">Edit</a>
@@ -331,13 +360,15 @@ $result_maternal = $conn->query($sql_maternal);
                         <th>Vaccine Name</th>
                         <th>Total / Stock</th>
                         <th>Received From / By</th>
-                        <th>Date Received</th>
+                        <th>Date & Time Received</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if ($result_maternal->num_rows > 0): ?>
-                        <?php while($row = $result_maternal->fetch_assoc()): ?>
+                    <?php if ($result_maternal && $result_maternal->num_rows > 0): ?>
+                        <?php while($row = $result_maternal->fetch_assoc()): 
+                            $datetime_val = !empty($row['stock_in_date']) ? $row['stock_in_date'] : $row['created_at'];
+                        ?>
                             <tr>
                                 <td>
                                     <strong><?= htmlspecialchars($row['vaccine_name']) ?></strong><br>
@@ -351,7 +382,7 @@ $result_maternal = $conn->query($sql_maternal);
                                     <small><strong>From:</strong> <?= htmlspecialchars($row['provided_by'] ?? 'N/A') ?></small><br>
                                     <small><strong>By:</strong> <?= htmlspecialchars($row['received_by'] ?? 'N/A') ?></small>
                                 </td>
-                                <td><?= !empty($row['stock_in_date']) ? date('M d, Y', strtotime($row['stock_in_date'])) : date('M d, Y', strtotime($row['created_at'])) ?></td>
+                                <td><?= date('M d, Y h:i A', strtotime($datetime_val)) ?></td>
                                 <td>
                                     <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
                                        onclick="openEditModal(
@@ -361,7 +392,8 @@ $result_maternal = $conn->query($sql_maternal);
                                            '<?= $row['category'] ?>', 
                                            '<?= $row['total_received'] ?>', 
                                            '<?= $row['available_stock'] ?>', 
-                                           '<?= $row['stock_in_date'] ?? date('Y-m-d', strtotime($row['created_at'])) ?>',
+                                           '<?= date('Y-m-d', strtotime($datetime_val)) ?>',
+                                           '<?= date('H:i', strtotime($datetime_val)) ?>',
                                            '<?= htmlspecialchars($row['received_by'] ?? '', ENT_QUOTES) ?>',
                                            '<?= htmlspecialchars($row['provided_by'] ?? '', ENT_QUOTES) ?>'
                                        )">Edit</a>
@@ -411,16 +443,20 @@ $result_maternal = $conn->query($sql_maternal);
                 <input type="number" name="available_stock" value="0" min="0" required>
             </div>
             <div class="form-group">
-                <label>Provided By </label>
-                <input type="text" name="provided_by" placeholder="e.g. Provincial Health Office">
+                <label>Provided By (Nagbigay / Supplier / Source) *</label>
+                <input type="text" name="provided_by" placeholder="e.g. Provincial Health Office" required>
             </div>
             <div class="form-group">
-                <label>Received By </label>
-                <input type="text" name="received_by" placeholder="e.g. Juan Dela Cruz">
+                <label>Received By (Sino ang tumanggap) *</label>
+                <input type="text" name="received_by" placeholder="e.g. Juan Dela Cruz" required>
             </div>
             <div class="form-group">
-                <label>Date Received</label>
-                <input type="date" name="stock_in_date" value="<?= date('Y-m-d') ?>" required>
+                <label>Date Received *</label>
+                <input type="date" name="stock_date" value="<?= date('Y-m-d') ?>" required>
+            </div>
+            <div class="form-group">
+                <label>Time Received *</label>
+                <input type="time" name="stock_time" value="<?= date('H:i') ?>" required>
             </div>
             <button type="submit" name="add_vaccine" class="btn-submit">Save Vaccine</button>
         </form>
@@ -461,16 +497,20 @@ $result_maternal = $conn->query($sql_maternal);
                 <input type="number" name="available_stock" id="edit_available_stock" min="0" required>
             </div>
             <div class="form-group">
-                <label>Provided By (Nagbigay / Supplier / Source)</label>
-                <input type="text" name="provided_by" id="edit_provided_by">
+                <label>Provided By (Nagbigay / Supplier / Source) *</label>
+                <input type="text" name="provided_by" id="edit_provided_by" required>
             </div>
             <div class="form-group">
-                <label>Received By (Sino ang tumanggap)</label>
-                <input type="text" name="received_by" id="edit_received_by">
+                <label>Received By (Sino ang tumanggap) *</label>
+                <input type="text" name="received_by" id="edit_received_by" required>
             </div>
             <div class="form-group">
-                <label>Date Received</label>
-                <input type="date" name="stock_in_date" id="edit_stock_in_date" required>
+                <label>Date Received *</label>
+                <input type="date" name="stock_date" id="edit_stock_date" required>
+            </div>
+            <div class="form-group">
+                <label>Time Received *</label>
+                <input type="time" name="stock_time" id="edit_stock_time" required>
             </div>
             <button type="submit" name="update_vaccine" class="btn-submit">Update Vaccine</button>
         </form>
@@ -489,14 +529,15 @@ $result_maternal = $conn->query($sql_maternal);
         event.currentTarget.classList.add('active');
     }
 
-    function openEditModal(id, name, description, category, totalReceived, availableStock, stockInDate, receivedBy, providedBy) {
+    function openEditModal(id, name, description, category, totalReceived, availableStock, stockDate, stockTime, receivedBy, providedBy) {
         document.getElementById('edit_vaccine_id').value = id;
         document.getElementById('edit_vaccine_name').value = name;
         document.getElementById('edit_description').value = description;
         document.getElementById('edit_category').value = category;
         document.getElementById('edit_total_received').value = totalReceived;
         document.getElementById('edit_available_stock').value = availableStock;
-        document.getElementById('edit_stock_in_date').value = stockInDate;
+        document.getElementById('edit_stock_date').value = stockDate;
+        document.getElementById('edit_stock_time').value = stockTime;
         document.getElementById('edit_received_by').value = receivedBy;
         document.getElementById('edit_provided_by').value = providedBy;
         
