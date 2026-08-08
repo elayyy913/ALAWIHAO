@@ -210,7 +210,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         
         <span class="nav-label">(inventory)</span>
         <a href="<?php echo $base_url; ?>admin_health_workers.php" class="nav-link" id="link-workers">Health Worker</a>
-        <a href="<?php echo $base_url; ?>admin_vaccines.php" class="nav-link" id="link-vaccines">Vaccines</a>
+        <a href="<?php echo $base_url; ?>vaccine_inventory.php" class="nav-link" id="link-vaccines">Vaccines</a>
         <a href="<?php echo $base_url; ?>admin_maternal_rec.php" class="nav-link" id="link-maternal-rec">Maternal Records</a>
         <a href="<?php echo $base_url; ?>admin_child_rec.php" class="nav-link" id="link-child-rec">Child/Infant Records</a>
 
