@@ -1,6 +1,6 @@
 <?php
 session_start();
-include '../db_connect.php'; 
+include '../db_connect.php';
 
 // Check if logged in and if admin/super admin
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'Admin' && $_SESSION['role'] !== 'Super Admin')) {
@@ -219,7 +219,7 @@ $result_maternal = $conn->query($sql_maternal);
 
 <?php 
     if ($_SESSION['role'] === 'Super Admin') {
-        include 'super_admin_sidebar.php'; 
+        include 'super_admin_sidebar.php';
     } else {
         include 'admin_sidebar.php'; 
     }

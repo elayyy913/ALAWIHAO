@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const links = {
         'super_admin_dashboard.php': 'link-overview',
         'admin_health_workers.php': 'link-workers',
-        'admin_vaccines.php': 'link-vaccines',
+        'vaccine_inventory.php': 'link-vaccines',
         'admin_maternal_rec.php': 'link-maternal-rec',
         'admin_child_rec.php': 'link-child-rec',
         'admin_maternal_reg.php': 'link-maternal-reg',
