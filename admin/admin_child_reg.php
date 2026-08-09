@@ -266,7 +266,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } elseif ($_SESSION['role'] === 'Admin') {
             include 'admin_sidebar.php'; 
         } else {
-            include 'user_sidebar.php';
+            include('../user_sidebar.php');
         }
     }
 ?>
