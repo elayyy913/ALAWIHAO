@@ -168,7 +168,7 @@ $result = mysqli_query($conn, $query);
                     <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
                     <td><?php echo $row['gender']; ?></td>
                     <td>
-                        <a href="admin_child_record_view.php?id=<?php echo $row['id']; ?>" class="btn btn-view">Full History</a>
+                        <a href="admin_child_history.php?id=<?php echo $row['id']; ?>" class="btn btn-view">Full History</a>
                         <button class="btn btn-edit" onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($row['vaccine_taken'] ?? '', ENT_QUOTES); ?>')">Update Health</button>
                     </td>
                 </tr>
