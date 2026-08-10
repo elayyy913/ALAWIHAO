@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
     $total_received = intval($_POST['total_received']);
     $available_stock = intval($_POST['available_stock']);
     
-    // Safe checking para sa Date at Time para maiwasan ang undefined array key warning
+    // Safe checking para sa Date at Time
     $stock_date = isset($_POST['stock_date']) ? mysqli_real_escape_string($conn, $_POST['stock_date']) : date('Y-m-d');
     $stock_time = isset($_POST['stock_time']) ? mysqli_real_escape_string($conn, $_POST['stock_time']) : date('H:i');
     $stock_in_datetime = $stock_date . ' ' . $stock_time . ':00';
@@ -26,7 +26,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
     $received_by = trim($_POST['received_by'] ?? '');
     $provided_by = trim($_POST['provided_by'] ?? '');
 
-    // Server-side validation para siguraduhing may laman ang receiver, supplier, date, at time
     if (empty($received_by) || empty($provided_by) || empty($stock_date) || empty($stock_time)) {
         $message = "Error: All fields including 'Provided By', 'Received By', Date, and Time are required!";
     } else {
@@ -55,7 +54,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_vaccine'])) {
     $total_received = intval($_POST['total_received']);
     $available_stock = intval($_POST['available_stock']);
     
-    // Safe checking din para sa update
     $stock_date = isset($_POST['stock_date']) ? mysqli_real_escape_string($conn, $_POST['stock_date']) : date('Y-m-d');
     $stock_time = isset($_POST['stock_time']) ? mysqli_real_escape_string($conn, $_POST['stock_time']) : date('H:i');
     $stock_in_datetime = $stock_date . ' ' . $stock_time . ':00';
@@ -63,7 +61,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_vaccine'])) {
     $received_by = trim($_POST['received_by'] ?? '');
     $provided_by = trim($_POST['provided_by'] ?? '');
 
-    // Server-side validation para sa update
     if (empty($received_by) || empty($provided_by) || empty($stock_date) || empty($stock_time)) {
         $message = "Error: All fields including 'Provided By', 'Received By', Date, and Time are required!";
     } else {
@@ -80,6 +77,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_vaccine'])) {
             }
             $stmt->close();
         }
+    }
+}
+
+// Handle Delete Request para sa isang partikular na vaccine
+if (isset($_GET['delete_id'])) {
+    $delete_id = intval($_GET['delete_id']);
+    $sql = "DELETE FROM vaccines WHERE id = ?";
+    if ($stmt = $conn->prepare($sql)) {
+        $stmt->bind_param("i", $delete_id);
+        if ($stmt->execute()) {
+            $message = "Vaccine deleted successfully!";
+        } else {
+            $message = "Error deleting record: " . $conn->error;
+        }
+        $stmt->close();
+    }
+}
+
+// Handle Empty Table Request para idelete lahat ng records
+if (isset($_POST['empty_inventory'])) {
+    $sql = "TRUNCATE TABLE vaccines";
+    if ($conn->query($sql) === TRUE) {
+        $message = "Vaccine inventory table cleared successfully!";
+    } else {
+        $message = "Error clearing table: " . $conn->error;
     }
 }
 
@@ -105,6 +127,7 @@ $result_maternal = $conn->query($sql_maternal);
             --light-beige: #fdfbf7;
             --border-color: #d1d5db;
             --sidebar-width: 280px;
+            --danger-red: #dc2626;
         }
 
         body { 
@@ -143,8 +166,26 @@ $result_maternal = $conn->query($sql_maternal);
             letter-spacing: 0.5px;
         }
 
+        .action-btns {
+            display: flex;
+            gap: 10px;
+        }
+
         .btn-add {
             background-color: var(--sage-green);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .btn-empty {
+            background-color: var(--danger-red);
             color: white;
             border: none;
             padding: 8px 15px;
@@ -269,6 +310,20 @@ $result_maternal = $conn->query($sql_maternal);
             color: #166534; background: #f0fdf4; padding: 10px;
             border-left: 3px solid var(--sage-green); margin-bottom: 15px;
         }
+
+        .action-links a {
+            font-weight: bold;
+            text-decoration: none;
+            margin-right: 10px;
+        }
+
+        .action-edit {
+            color: var(--sage-green);
+        }
+
+        .action-delete {
+            color: var(--danger-red);
+        }
     </style>
 </head>
 <body>
@@ -286,7 +341,12 @@ $result_maternal = $conn->query($sql_maternal);
         
         <div class="page-header">
             <h2>Vaccine Inventory</h2>
-            <button class="btn-add" onclick="document.getElementById('addModal').style.display='block'">+ Add New Vaccine</button>
+            <div class="action-btns">
+                <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete LAHAT ng nakatala sa vaccine inventory? Hindi na ito maibabalik.');" style="display:inline;">
+                    <button type="submit" name="empty_inventory" class="btn-empty">Empty Table</button>
+                </form>
+                <button class="btn-add" onclick="document.getElementById('addModal').style.display='block'">+ Add New Vaccine</button>
+            </div>
         </div>
 
         <?php if(!empty($message)) echo "<div class='success-msg'>$message</div>"; ?>
@@ -328,8 +388,8 @@ $result_maternal = $conn->query($sql_maternal);
                                     <small><strong>By:</strong> <?= htmlspecialchars($row['received_by'] ?? 'N/A') ?></small>
                                 </td>
                                 <td><?= date('M d, Y h:i A', strtotime($datetime_val)) ?></td>
-                                <td>
-                                    <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
+                                <td class="action-links">
+                                    <a href="#" class="action-edit" 
                                        onclick="openEditModal(
                                            '<?= $row['id'] ?>', 
                                            '<?= htmlspecialchars($row['vaccine_name'], ENT_QUOTES) ?>', 
@@ -342,6 +402,7 @@ $result_maternal = $conn->query($sql_maternal);
                                            '<?= htmlspecialchars($row['received_by'] ?? '', ENT_QUOTES) ?>',
                                            '<?= htmlspecialchars($row['provided_by'] ?? '', ENT_QUOTES) ?>'
                                        )">Edit</a>
+                                    <a href="?delete_id=<?= $row['id'] ?>" class="action-delete" onclick="return confirm('Sigurado ka bang gusto mong idelete ang vaccine na ito?');">Delete</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -383,8 +444,8 @@ $result_maternal = $conn->query($sql_maternal);
                                     <small><strong>By:</strong> <?= htmlspecialchars($row['received_by'] ?? 'N/A') ?></small>
                                 </td>
                                 <td><?= date('M d, Y h:i A', strtotime($datetime_val)) ?></td>
-                                <td>
-                                    <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
+                                <td class="action-links">
+                                    <a href="#" class="action-edit" 
                                        onclick="openEditModal(
                                            '<?= $row['id'] ?>', 
                                            '<?= htmlspecialchars($row['vaccine_name'], ENT_QUOTES) ?>', 
@@ -397,6 +458,7 @@ $result_maternal = $conn->query($sql_maternal);
                                            '<?= htmlspecialchars($row['received_by'] ?? '', ENT_QUOTES) ?>',
                                            '<?= htmlspecialchars($row['provided_by'] ?? '', ENT_QUOTES) ?>'
                                        )">Edit</a>
+                                    <a href="?delete_id=<?= $row['id'] ?>" class="action-delete" onclick="return confirm('Sigurado ka bang gusto mong idelete ang vaccine na ito?');">Delete</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
