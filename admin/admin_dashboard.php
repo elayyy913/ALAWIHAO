@@ -27,13 +27,27 @@ if (isset($_GET['approve_maternal'])) {
 if (isset($_POST['action_type']) && isset($_POST['sched_id']) && isset($_POST['sched_table'])) {
     $s_id = mysqli_real_escape_string($conn, $_POST['sched_id']);
     $s_table = ($_POST['sched_table'] === 'Maternal') ? 'maternal_schedules' : 'infant_schedule';
-    $date_col = ($_POST['sched_table'] === 'Maternal') ? 'appointment_date' : 'next_appointment';
 
     if ($_POST['action_type'] === 'done') {
         mysqli_query($conn, "UPDATE $s_table SET status='Completed' WHERE id='$s_id'");
         $message = "Schedule marked as Done!";
     } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
         $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+        
+        // Dynamic column detection para sa reschedule
+        if ($_POST['sched_table'] === 'Maternal') {
+            $col_check = mysqli_query($conn, "SHOW COLUMNS FROM maternal_schedules LIKE 'appointment_date'");
+            $date_col = (mysqli_num_rows($col_check) > 0) ? 'appointment_date' : 'schedule_date';
+        } else {
+            $col_check = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'appointment_date'");
+            if (mysqli_num_rows($col_check) > 0) {
+                $date_col = 'appointment_date';
+            } else {
+                $col_check2 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'next_appointment'");
+                $date_col = (mysqli_num_rows($col_check2) > 0) ? 'next_appointment' : 'schedule_date';
+            }
+        }
+
         mysqli_query($conn, "UPDATE $s_table SET $date_col='$new_date' WHERE id='$s_id'");
         $message = "Schedule successfully rescheduled!";
     }
@@ -49,18 +63,60 @@ $total_infant = $total_infant_q ? mysqli_fetch_assoc($total_infant_q)['count'] :
 $infant_pending = mysqli_query($conn, "SELECT * FROM children WHERE status='Pending'");
 $maternal_pending = mysqli_query($conn, "SELECT * FROM maternal_registration WHERE status='Pending'");
 
-$pending_total = (mysqli_num_rows($infant_pending) + mysqli_num_rows($maternal_pending));
+$pending_infant_count = $infant_pending ? mysqli_num_rows($infant_pending) : 0;
+$pending_maternal_count = $maternal_pending ? mysqli_num_rows($maternal_pending) : 0;
+$pending_total = ($pending_infant_count + $pending_maternal_count);
 
-// 5. FETCH SCHEDULES USING EXACT DATABASE COLUMNS
+// 5. FETCH SCHEDULES USING DYNAMIC COLUMN DETECTION
 $today_sched_count = 0;
 $upcoming_schedules = [];
 
+// Detection para sa maternal_schedules
+$mat_date_col = 'schedule_date';
+$mat_col_check = mysqli_query($conn, "SHOW COLUMNS FROM maternal_schedules LIKE 'appointment_date'");
+if ($mat_col_check && mysqli_num_rows($mat_col_check) > 0) {
+    $mat_date_col = 'appointment_date';
+}
+
+$mat_detail_col = 'purpose';
+$mat_det_check = mysqli_query($conn, "SHOW COLUMNS FROM maternal_schedules LIKE 'appointment_type'");
+if ($mat_det_check && mysqli_num_rows($mat_det_check) > 0) {
+    $mat_detail_col = 'appointment_type';
+}
+
+// Detection para sa infant_schedule
+$inf_date_col = 'schedule_date';
+$inf_col_check1 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'appointment_date'");
+$inf_col_check2 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'next_appointment'");
+$inf_col_check3 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'vaccination_date'");
+
+if ($inf_col_check1 && mysqli_num_rows($inf_col_check1) > 0) {
+    $inf_date_col = 'appointment_date';
+} elseif ($inf_col_check2 && mysqli_num_rows($inf_col_check2) > 0) {
+    $inf_date_col = 'next_appointment';
+} elseif ($inf_col_check3 && mysqli_num_rows($inf_col_check3) > 0) {
+    $inf_date_col = 'vaccination_date';
+}
+
+$inf_detail_col = 'vaccine_name';
+$inf_det_check = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'vaccine_type'");
+if ($inf_det_check && mysqli_num_rows($inf_det_check) > 0) {
+    $inf_detail_col = 'vaccine_type';
+}
+
+// Dynamic Union Query
 $union_query = "
-    SELECT id, appointment_date as sched_date, appointment_type as details, 'Maternal' as type 
+    SELECT id, 
+           $mat_date_col as sched_date, 
+           $mat_detail_col as details, 
+           'Maternal' as type 
     FROM maternal_schedules 
     WHERE status = 'Pending'
     UNION ALL
-    SELECT id, COALESCE(next_appointment, vaccination_date) as sched_date, vaccine_name as details, 'Infant' as type 
+    SELECT id, 
+           $inf_date_col as sched_date, 
+           $inf_detail_col as details, 
+           'Infant' as type 
     FROM infant_schedule 
     WHERE status = 'Pending'
 ";
@@ -344,8 +400,8 @@ if ($upcoming_q) {
                         <?php if($infant_pending && mysqli_num_rows($infant_pending) > 0): ?>
                             <?php while($row = mysqli_fetch_assoc($infant_pending)): ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($row['baby_name']); ?></td>
-                                <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['baby_name'] ?? $row['child_name'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($row['mother_name'] ?? ''); ?></td>
                                 <td><a href="?approve_infant=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
                             </tr>
                             <?php endwhile; ?>
@@ -362,8 +418,8 @@ if ($upcoming_q) {
                         <?php if($maternal_pending && mysqli_num_rows($maternal_pending) > 0): ?>
                             <?php while($row = mysqli_fetch_assoc($maternal_pending)): ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
-                                <td><?php echo htmlspecialchars($row['lmp_date']); ?></td>
+                                <td><?php echo htmlspecialchars($row['mother_name'] ?? $row['patient_name'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($row['lmp_date'] ?? ''); ?></td>
                                 <td><a href="?approve_maternal=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
                             </tr>
                             <?php endwhile; ?>
