@@ -2,9 +2,8 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 
 // Active states para sa mga dropdown
-$is_reg_active = in_array($current_page, ['admin_maternal_reg.php', 'admin_child_reg.php']);
-$is_rec_active = in_array($current_page, ['admin_maternal_rec.php', 'admin_child_rec.php']);
-$is_sched_active = in_array($current_page, ['admin_sched_maternal.php', 'admin_sched_child.php']);
+$is_reg_active   = in_array($current_page, ['admin_maternal_reg.php', 'admin_child_reg.php']);
+$is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_child_hr.php']); // Binago rito
 ?>
 
 <div id="mySidenav" class="side-nav-new">
@@ -36,26 +35,20 @@ $is_sched_active = in_array($current_page, ['admin_sched_maternal.php', 'admin_s
             <span>Records</span> <span class="caret-new <?php echo $is_rec_active ? 'rotate' : ''; ?>">▼</span>
         </button>
         <div id="dropRec" class="dropdown-container-new <?php echo $is_rec_active ? 'show' : ''; ?>">
-            <a href="admin_maternal_rec.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_maternal_rec.php') ? 'active-sub' : ''; ?>">Maternal Records</a>
-            <a href="admin_child_rec.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_child_rec.php') ? 'active-sub' : ''; ?>">Child Records</a>
+            <!-- Binago ang href mula _rec.php papuntang _hr.php -->
+            <a href="admin_maternal_hr.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_maternal_hr.php') ? 'active-sub' : ''; ?>">Maternal Records</a>
+            <a href="admin_child_hr.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_child_hr.php') ? 'active-sub' : ''; ?>">Child Records</a>
         </div>
 
-        <!-- Schedule Dropdown -->
-        <button class="dropdown-btn-new <?php echo $is_sched_active ? 'active-parent' : ''; ?>" onclick="toggleDrop('dropSched')">
-            <span>Schedule</span> <span class="caret-new <?php echo $is_sched_active ? 'rotate' : ''; ?>">▼</span>
-        </button>
-        <div id="dropSched" class="dropdown-container-new <?php echo $is_sched_active ? 'show' : ''; ?>">
-            <a href="admin_sched_maternal.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_sched_maternal.php') ? 'active-sub' : ''; ?>">Maternal Schedule</a>
-            <a href="admin_sched_child.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_sched_child.php') ? 'active-sub' : ''; ?>">Child Schedule</a>
-        </div>
-
+        <!-- Direct Schedule Management Link -->
+        <a href="schedule_management.php" class="nav-item-new <?php echo ($current_page == 'schedule_management.php') ? 'active' : ''; ?>">Schedule Management</a>
         <div class="menu-label-new">Others</div>
         <a href="admin_history.php" class="nav-item-new <?php echo ($current_page == 'admin_history.php') ? 'active' : ''; ?>">History</a>
     </div>
     <a href="/FINAL_CAPSTONE/logout.php" class="logout-link-new">Log out</a>
 </div>
 
-<!-- Hamburger Button para muling buksan ang sidebar kapag na-close -->
+<!-- Hamburger Button -->
 <button class="open-btn-new" id="hamBtn" onclick="openNav()">&#9776;</button>
 
 <style>
@@ -75,7 +68,6 @@ $is_sched_active = in_array($current_page, ['admin_sched_maternal.php', 'admin_s
         border-right: 1px solid #F1F5F9 !important;
     }
 
-    /* Awtomatikong nag-aadjust ang margin ng main container batay sa pagbukas/pagsara */
     #main, .main-content, #main-wrapper {
         transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         margin-left: 280px !important;
@@ -95,7 +87,7 @@ $is_sched_active = in_array($current_page, ['admin_sched_maternal.php', 'admin_s
         left: 20px !important; 
         z-index: 2000 !important;
         box-shadow: 0 4px 12px rgba(141, 174, 116, 0.25) !important;
-        visibility: hidden; /* Naka-hide muna habang nakabukas ang sidebar */
+        visibility: hidden;
     }
     .open-btn-new:hover { background-color: #6B8E55 !important; }
 

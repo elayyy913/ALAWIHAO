@@ -229,6 +229,8 @@ $result = mysqli_query($conn, $sql);
                     <div>
                         <label>Age of Gestation (weeks):</label>
                         <input type="number" name="gestational_age_weeks" id="aog_input" min="1" max="42" placeholder="e.g. 12" required>
+                        <!-- Added Indicator for Gestational Week & Status -->
+                        <div id="week_indicator" style="font-size: 0.8rem; font-weight: 600; color: var(--dark-sage); margin-top: -8px; margin-bottom: 10px;"></div>
                     </div>
                     <div>
                         <label>Blood Pressure:</label>
@@ -298,19 +300,19 @@ $result = mysqli_query($conn, $sql);
                         </div>
                     </div>
 
-                <div class="section-box">
-                    <label style="margin-bottom: 8px;">Tetanus-containing vaccine:</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="tetanus_vaccine_done" id="tetanusCheckbox" value="1" onchange="toggleTetanusDate()"> Tetanus-containing vaccine given
-                        </label>
+                    <div class="section-box">
+                        <label style="margin-bottom: 8px;">Tetanus-containing vaccine:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="tetanus_vaccine_done" id="tetanusCheckbox" value="1" onchange="toggleTetanusDate()"> Tetanus-containing vaccine given
+                            </label>
+                        </div>
+                        
+                        <div id="tetanusDateContainer" style="display: none; margin-top: 10px;">
+                            <label style="font-weight:normal; font-size:0.8rem;">Date given:</label>
+                            <input type="date" name="tetanus_vaccine_date">
+                        </div>
                     </div>
-                    
-                    <div id="tetanusDateContainer" style="display: none; margin-top: 10px;">
-                        <label style="font-weight:normal; font-size:0.8rem;">Date given:</label>
-                        <input type="date" name="tetanus_vaccine_date">
-                    </div>
-                </div>
 
                     <div class="section-box">
                         <label style="margin-bottom: 8px;">Treatments (1st Tri):</label>
@@ -477,17 +479,24 @@ $result = mysqli_query($conn, $sql);
         document.getElementById('section_tri' + trimesterNum).classList.add('active-section');
     }
 
-    // Auto switch tab based on Age of Gestation weeks input
+    // Auto switch tab and show current week status based on Age of Gestation input
     document.getElementById('aog_input').addEventListener('input', function() {
         let weeks = parseInt(this.value);
-        if (!isNaN(weeks)) {
+        let indicator = document.getElementById('week_indicator');
+        
+        if (!isNaN(weeks) && weeks > 0) {
             if (weeks >= 1 && weeks <= 13) {
                 setTrimester(1);
+                indicator.innerText = "📍 Currently at Week " + weeks + " (1st Trimester)";
             } else if (weeks >= 14 && weeks <= 27) {
                 setTrimester(2);
+                indicator.innerText = "📍 Currently at Week " + weeks + " (2nd Trimester)";
             } else if (weeks >= 28) {
                 setTrimester(3);
+                indicator.innerText = "📍 Currently at Week " + weeks + " (3rd Trimester)";
             }
+        } else {
+            indicator.innerText = "";
         }
     });
 
@@ -506,16 +515,17 @@ $result = mysqli_query($conn, $sql);
             closeModal(); 
         } 
     }
-    function toggleTetanusDate() {
-    let checkbox = document.getElementById('tetanusCheckbox');
-    let dateContainer = document.getElementById('tetanusDateContainer');
     
-    if (checkbox.checked) {
-        dateContainer.style.display = 'block';
-    } else {
-        dateContainer.style.display = 'none';
+    function toggleTetanusDate() {
+        let checkbox = document.getElementById('tetanusCheckbox');
+        let dateContainer = document.getElementById('tetanusDateContainer');
+        
+        if (checkbox.checked) {
+            dateContainer.style.display = 'block';
+        } else {
+            dateContainer.style.display = 'none';
+        }
     }
-}
     </script>
 </body>
 </html>
