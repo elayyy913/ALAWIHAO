@@ -2,136 +2,120 @@
 session_start();
 include '../db_connect.php';
 
+mysqli_report(MYSQLI_REPORT_OFF);
+
 // 1. SECURITY
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {
+if (!isset($_SESSION['role']) && !isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
 $message = "";
 
+// HELPER FUNCTION
+if (!function_exists('check_table_exists')) {
+    function check_table_exists($conn, $tableName) {
+        $res = mysqli_query($conn, "SHOW TABLES LIKE '$tableName'");
+        return ($res && mysqli_num_rows($res) > 0);
+    }
+}
+
+// EXACT REGISTRATION TABLES
+$mat_reg_table = check_table_exists($conn, 'maternal_registrations') ? 'maternal_registrations' : 'maternal_registration';
+$inf_reg_table = check_table_exists($conn, 'children') ? 'children' : 'infant_records';
+
 // 2. HANDLE APPROVALS
 if (isset($_GET['approve_infant'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_infant']);
-    mysqli_query($conn, "UPDATE children SET status='Approved' WHERE id='$id'");
+    mysqli_query($conn, "UPDATE $inf_reg_table SET status='Approved' WHERE id='$id'");
     $message = "Infant approved successfully!";
 }
 
 if (isset($_GET['approve_maternal'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_maternal']);
-    mysqli_query($conn, "UPDATE maternal_registrations SET status='Approved' WHERE id='$id'");
+    mysqli_query($conn, "UPDATE $mat_reg_table SET status='Approved' WHERE id='$id'");
     $message = "Maternal record approved successfully!";
 }
 
 // 3. HANDLE SCHEDULE ACTIONS (DONE / RESCHEDULE)
 if (isset($_POST['action_type']) && isset($_POST['sched_id']) && isset($_POST['sched_table'])) {
     $s_id = mysqli_real_escape_string($conn, $_POST['sched_id']);
-    $s_table = ($_POST['sched_table'] === 'Maternal') ? 'maternal_schedules' : 'infant_schedule';
 
-    if ($_POST['action_type'] === 'done') {
-        mysqli_query($conn, "UPDATE $s_table SET status='Completed' WHERE id='$s_id'");
-        $message = "Schedule marked as Done!";
-    } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
-        $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-        
-        // Dynamic column detection para sa reschedule
-        if ($_POST['sched_table'] === 'Maternal') {
-            $col_check = mysqli_query($conn, "SHOW COLUMNS FROM maternal_schedules LIKE 'appointment_date'");
-            $date_col = (mysqli_num_rows($col_check) > 0) ? 'appointment_date' : 'schedule_date';
-        } else {
-            $col_check = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'appointment_date'");
-            if (mysqli_num_rows($col_check) > 0) {
-                $date_col = 'appointment_date';
-            } else {
-                $col_check2 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'next_appointment'");
-                $date_col = (mysqli_num_rows($col_check2) > 0) ? 'next_appointment' : 'schedule_date';
-            }
+    if ($_POST['sched_table'] === 'Maternal') {
+        if ($_POST['action_type'] === 'done') {
+            mysqli_query($conn, "UPDATE maternal_schedules SET status='Completed' WHERE id='$s_id'");
+            $message = "Maternal schedule marked as Completed!";
+        } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
+            $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+            mysqli_query($conn, "UPDATE maternal_schedules SET appointment_date='$new_date', status='Rescheduled' WHERE id='$s_id'");
+            $message = "Maternal schedule successfully rescheduled!";
         }
-
-        mysqli_query($conn, "UPDATE $s_table SET $date_col='$new_date' WHERE id='$s_id'");
-        $message = "Schedule successfully rescheduled!";
+    } else {
+        if ($_POST['action_type'] === 'done') {
+            mysqli_query($conn, "UPDATE infant_schedule SET status='Completed' WHERE id='$s_id'");
+            $message = "Child schedule marked as Completed!";
+        } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
+            $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+            mysqli_query($conn, "UPDATE infant_schedule SET schedule_date='$new_date', status='Rescheduled' WHERE id='$s_id'");
+            $message = "Child schedule successfully rescheduled!";
+        }
     }
 }
 
-// 4. FETCH METRICS / COUNTS
-$total_maternal_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM maternal_registration");
+// 4. METRICS / COUNTS
+$total_maternal_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $mat_reg_table");
 $total_maternal = $total_maternal_q ? mysqli_fetch_assoc($total_maternal_q)['count'] : 0;
 
-$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM children");
+$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $inf_reg_table");
 $total_infant = $total_infant_q ? mysqli_fetch_assoc($total_infant_q)['count'] : 0;
 
-$infant_pending = mysqli_query($conn, "SELECT * FROM children WHERE status='Pending'");
-$maternal_pending = mysqli_query($conn, "SELECT * FROM maternal_registration WHERE status='Pending'");
+$infant_pending = mysqli_query($conn, "SELECT * FROM $inf_reg_table WHERE status='Pending'");
+$maternal_pending = mysqli_query($conn, "SELECT * FROM $mat_reg_table WHERE status='Pending'");
 
 $pending_infant_count = $infant_pending ? mysqli_num_rows($infant_pending) : 0;
 $pending_maternal_count = $maternal_pending ? mysqli_num_rows($maternal_pending) : 0;
 $pending_total = ($pending_infant_count + $pending_maternal_count);
 
-// 5. FETCH SCHEDULES USING DYNAMIC COLUMN DETECTION
-$today_sched_count = 0;
-$upcoming_schedules = [];
+// 5. FETCH MATERNAL SCHEDULES (MATCHING admin_sched_maternal.php STRUCTURE)
+$today_maternal_count = 0;
+$upcoming_maternal = [];
 
-// Detection para sa maternal_schedules
-$mat_date_col = 'schedule_date';
-$mat_col_check = mysqli_query($conn, "SHOW COLUMNS FROM maternal_schedules LIKE 'appointment_date'");
-if ($mat_col_check && mysqli_num_rows($mat_col_check) > 0) {
-    $mat_date_col = 'appointment_date';
+if (check_table_exists($conn, 'maternal_schedules')) {
+    // Today's Count (Case-insensitive status check)
+    $today_mat_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM maternal_schedules WHERE LOWER(status) != 'completed' AND appointment_date = CURDATE()");
+    if ($today_mat_q) { $today_maternal_count = mysqli_fetch_assoc($today_mat_q)['count']; }
+
+    // Upcoming & Active List:
+    // Gumamit ng LEFT JOIN at COALESCE para kahit may issue sa ID match, 
+    // gagamitin pa rin ang 'patient_name' column o 'Maternal Patient' bilang fallback at HINDI mawawala sa listahan!
+    $mat_upcoming_q = mysqli_query($conn, "
+        SELECT s.id, s.appointment_date, s.appointment_time, s.appointment_type, s.status, 
+               COALESCE(m.full_name, s.patient_name, 'Maternal Patient') AS full_name 
+        FROM maternal_schedules s 
+        LEFT JOIN $mat_reg_table m ON s.maternal_id = m.id 
+        WHERE LOWER(s.status) != 'completed' AND s.appointment_date >= CURDATE() 
+        ORDER BY s.appointment_date ASC, s.appointment_time ASC LIMIT 10
+    ");
+
+    if ($mat_upcoming_q) {
+        while ($row = mysqli_fetch_assoc($mat_upcoming_q)) {
+            $upcoming_maternal[] = $row;
+        }
+    }
 }
+// 6. FETCH INFANT SCHEDULES
+$today_infant_count = 0;
+$upcoming_infant = [];
 
-$mat_detail_col = 'purpose';
-$mat_det_check = mysqli_query($conn, "SHOW COLUMNS FROM maternal_schedules LIKE 'appointment_type'");
-if ($mat_det_check && mysqli_num_rows($mat_det_check) > 0) {
-    $mat_detail_col = 'appointment_type';
-}
+if (check_table_exists($conn, 'infant_schedule')) {
+    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM infant_schedule WHERE status != 'Completed' AND schedule_date = CURDATE()");
+    if ($today_inf_q) { $today_infant_count = mysqli_fetch_assoc($today_inf_q)['count']; }
 
-// Detection para sa infant_schedule
-$inf_date_col = 'schedule_date';
-$inf_col_check1 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'appointment_date'");
-$inf_col_check2 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'next_appointment'");
-$inf_col_check3 = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'vaccination_date'");
-
-if ($inf_col_check1 && mysqli_num_rows($inf_col_check1) > 0) {
-    $inf_date_col = 'appointment_date';
-} elseif ($inf_col_check2 && mysqli_num_rows($inf_col_check2) > 0) {
-    $inf_date_col = 'next_appointment';
-} elseif ($inf_col_check3 && mysqli_num_rows($inf_col_check3) > 0) {
-    $inf_date_col = 'vaccination_date';
-}
-
-$inf_detail_col = 'vaccine_name';
-$inf_det_check = mysqli_query($conn, "SHOW COLUMNS FROM infant_schedule LIKE 'vaccine_type'");
-if ($inf_det_check && mysqli_num_rows($inf_det_check) > 0) {
-    $inf_detail_col = 'vaccine_type';
-}
-
-// Dynamic Union Query
-$union_query = "
-    SELECT id, 
-           $mat_date_col as sched_date, 
-           $mat_detail_col as details, 
-           'Maternal' as type 
-    FROM maternal_schedules 
-    WHERE status = 'Pending'
-    UNION ALL
-    SELECT id, 
-           $inf_date_col as sched_date, 
-           $inf_detail_col as details, 
-           'Infant' as type 
-    FROM infant_schedule 
-    WHERE status = 'Pending'
-";
-
-// Bilang ng iskedyul ngayong araw
-$today_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM ($union_query) as combined WHERE sched_date = CURDATE()");
-if ($today_q) {
-    $today_sched_count = mysqli_fetch_assoc($today_q)['count'];
-}
-
-// Mga susunod na iskedyul (Upcoming)
-$upcoming_q = mysqli_query($conn, "SELECT * FROM ($union_query) as combined WHERE sched_date >= CURDATE() ORDER BY sched_date ASC LIMIT 5");
-if ($upcoming_q) {
-    while ($row = mysqli_fetch_assoc($upcoming_q)) {
-        $upcoming_schedules[] = $row;
+    $inf_upcoming_q = mysqli_query($conn, "SELECT id, child_name, schedule_date, schedule_time, vaccine_type FROM infant_schedule WHERE status != 'Completed' AND schedule_date >= CURDATE() ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5");
+    if ($inf_upcoming_q) {
+        while ($row = mysqli_fetch_assoc($inf_upcoming_q)) {
+            $upcoming_infant[] = $row;
+        }
     }
 }
 ?>
@@ -178,17 +162,16 @@ if ($upcoming_q) {
             margin-bottom: 24px;
         }
 
-        /* Metric Cards Grid */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
             margin-bottom: 30px;
         }
 
         .metric-card {
             background: var(--card-bg);
-            padding: 20px 24px;
+            padding: 18px 20px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border: 1px solid var(--border-color);
@@ -196,7 +179,7 @@ if ($upcoming_q) {
         }
 
         .metric-title {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
@@ -205,12 +188,11 @@ if ($upcoming_q) {
         }
 
         .metric-value {
-            font-size: 1.75rem;
+            font-size: 1.6rem;
             font-weight: 700;
             color: var(--text-main);
         }
 
-        /* Main Grid Layout */
         .grid-container { 
             display: grid; 
             grid-template-columns: 2fr 1fr; 
@@ -272,7 +254,7 @@ if ($upcoming_q) {
         .no-data {
             text-align: center;
             color: var(--text-muted);
-            padding: 20px;
+            padding: 15px;
             font-size: 0.85rem;
         }
 
@@ -295,10 +277,14 @@ if ($upcoming_q) {
 
         .sched-item { 
             padding: 12px; 
-            border-left: 3px solid var(--sage); 
+            border-left: 3px solid #3B82F6; 
             background: #FAFAF9; 
             margin-bottom: 12px; 
             border-radius: 0 8px 8px 0; 
+        }
+
+        .sched-item.child-sched {
+            border-left-color: #EF4444;
         }
 
         .sched-actions {
@@ -356,11 +342,19 @@ if ($upcoming_q) {
             font-size: 0.85rem;
             border: 1px solid #DCFCE7;
         }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            background: #E2E8F0;
+            color: #475569;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Minimalist Sidebar Integration -->
     <?php include('admin_sidebar.php'); ?>
 
     <div id="main">
@@ -370,7 +364,7 @@ if ($upcoming_q) {
             <div class="success-alert"><?php echo $message; ?></div>
         <?php endif; ?>
 
-        <!-- Top Overview Metric Cards -->
+        <!-- METRICS -->
         <div class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-title">TOTAL MATERNAL</div>
@@ -385,13 +379,18 @@ if ($upcoming_q) {
                 <div class="metric-value" style="color: #D97706;"><?php echo $pending_total; ?></div>
             </div>
             <div class="metric-card" style="border-top-color: #3B82F6;">
-                <div class="metric-title">TODAY'S SCHEDULE</div>
-                <div class="metric-value" style="color: #3B82F6; font-size: 1.5rem;"><?php echo $today_sched_count; ?> Patient<?php echo ($today_sched_count > 1) ? 's' : ''; ?></div>
+                <div class="metric-title">TODAY'S MATERNAL</div>
+                <div class="metric-value" style="color: #3B82F6;"><?php echo $today_maternal_count; ?></div>
+            </div>
+            <div class="metric-card" style="border-top-color: #EF4444;">
+                <div class="metric-title">TODAY'S CHILD VACCINE</div>
+                <div class="metric-value" style="color: #EF4444;"><?php echo $today_infant_count; ?></div>
             </div>
         </div>
 
+        <!-- MAIN CONTENT GRID -->
         <div class="grid-container">
-            <!-- Left Column: Pending Approvals -->
+            
             <div class="left-column">
                 <div class="card">
                     <div class="card-header-title">Pending Newborn Enrollments</div>
@@ -418,7 +417,7 @@ if ($upcoming_q) {
                         <?php if($maternal_pending && mysqli_num_rows($maternal_pending) > 0): ?>
                             <?php while($row = mysqli_fetch_assoc($maternal_pending)): ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($row['mother_name'] ?? $row['patient_name'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($row['full_name'] ?? $row['mother_name'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($row['lmp_date'] ?? ''); ?></td>
                                 <td><a href="?approve_maternal=<?php echo $row['id']; ?>" class="btn-approve">Approve</a></td>
                             </tr>
@@ -430,31 +429,40 @@ if ($upcoming_q) {
                 </div>
             </div>
 
-            <!-- Right Column: Upcoming Schedule with Done & Resched Actions -->
             <div class="right-column">
+                
+                <!-- UPCOMING MATERNAL CHECK-UPS -->
                 <div class="card">
-                    <div class="card-header-title">Upcoming Schedule</div>
-                    <?php if(!empty($upcoming_schedules)): ?>
-                        <?php foreach($upcoming_schedules as $s): ?>
+                    <div class="card-header-title">Upcoming Maternal Check-ups</div>
+                    <?php if(!empty($upcoming_maternal)): ?>
+                        <?php foreach($upcoming_maternal as $s): ?>
                         <div class="sched-item">
-                            <strong style="color: var(--dark-sage); font-size: 0.85rem;"><?php echo htmlspecialchars($s['sched_date']); ?> (<?php echo htmlspecialchars($s['type']); ?>)</strong><br>
-                            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);"><?php echo htmlspecialchars($s['details']); ?></span>
+                            <strong style="color: #2563EB; font-size: 0.85rem;">
+                                <?php echo htmlspecialchars($s['appointment_date']); ?> 
+                                <?php if(!empty($s['appointment_time'])) echo ' (' . htmlspecialchars($s['appointment_time']) . ')'; ?>
+                            </strong>
+                            <span class="status-badge"><?php echo htmlspecialchars($s['status']); ?></span><br>
                             
-                            <!-- Action Forms for Done / Resched -->
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                                <?php echo htmlspecialchars($s['full_name']); ?>
+                            </span><br>
+                            
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                Type: <?php echo htmlspecialchars($s['appointment_type']); ?>
+                            </span>
+                            
                             <div class="sched-actions">
-                                <!-- Done Form -->
                                 <form method="POST" style="margin: 0;">
                                     <input type="hidden" name="sched_id" value="<?php echo $s['id']; ?>">
-                                    <input type="hidden" name="sched_table" value="<?php echo $s['type']; ?>">
+                                    <input type="hidden" name="sched_table" value="Maternal">
                                     <input type="hidden" name="action_type" value="done">
-                                    <button type="submit" class="btn-done" onclick="return confirm('Mark this schedule as completed?')">Mark Done</button>
+                                    <button type="submit" class="btn-done" onclick="return confirm('Mark as completed?')">Mark Done</button>
                                 </form>
                             </div>
 
-                            <!-- Reschedule Form -->
                             <form method="POST" class="resched-container">
                                 <input type="hidden" name="sched_id" value="<?php echo $s['id']; ?>">
-                                <input type="hidden" name="sched_table" value="<?php echo $s['type']; ?>">
+                                <input type="hidden" name="sched_table" value="Maternal">
                                 <input type="hidden" name="action_type" value="resched">
                                 <input type="date" name="new_date" class="resched-input" required>
                                 <button type="submit" class="btn-resched">Resched</button>
@@ -462,9 +470,52 @@ if ($upcoming_q) {
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <p class="no-data" style="margin: 0;">No upcoming appointments.</p>
+                        <p class="no-data" style="margin: 0;">No upcoming maternal check-ups.</p>
                     <?php endif; ?>
                 </div>
+
+                <!-- UPCOMING CHILD VACCINATIONS -->
+                <div class="card">
+                    <div class="card-header-title" style="color: #DC2626;">Upcoming Child Vaccinations</div>
+                    <?php if(!empty($upcoming_infant)): ?>
+                        <?php foreach($upcoming_infant as $s): ?>
+                        <div class="sched-item child-sched">
+                            <strong style="color: #DC2626; font-size: 0.85rem;">
+                                <?php echo htmlspecialchars($s['schedule_date']); ?>
+                                <?php if(!empty($s['schedule_time'])) echo ' (' . htmlspecialchars($s['schedule_time']) . ')'; ?>
+                            </strong><br>
+
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                                <?php echo htmlspecialchars($s['child_name'] ?? 'Child'); ?>
+                            </span><br>
+
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                Vaccine: <?php echo htmlspecialchars($s['vaccine_type'] ?? 'General Vaccine'); ?>
+                            </span>
+                            
+                            <div class="sched-actions">
+                                <form method="POST" style="margin: 0;">
+                                    <input type="hidden" name="sched_id" value="<?php echo $s['id']; ?>">
+                                    <input type="hidden" name="sched_table" value="Infant">
+                                    <input type="hidden" name="action_type" value="done">
+                                    <button type="submit" class="btn-done" onclick="return confirm('Mark as completed?')">Mark Done</button>
+                                </form>
+                            </div>
+
+                            <form method="POST" class="resched-container">
+                                <input type="hidden" name="sched_id" value="<?php echo $s['id']; ?>">
+                                <input type="hidden" name="sched_table" value="Infant">
+                                <input type="hidden" name="action_type" value="resched">
+                                <input type="date" name="new_date" class="resched-input" required>
+                                <button type="submit" class="btn-resched">Resched</button>
+                            </form>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="no-data" style="margin: 0;">No upcoming child vaccinations.</p>
+                    <?php endif; ?>
+                </div>
+
             </div>
         </div>
     </div>

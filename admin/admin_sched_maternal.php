@@ -2,6 +2,9 @@
 session_start();
 include '../db_connect.php';
 
+// Turn off mysqli strict exceptions for error handling
+mysqli_report(MYSQLI_REPORT_OFF);
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
@@ -10,23 +13,40 @@ if (!isset($_SESSION['user_id'])) {
 // Get the current filter date from URL or default to today
 $view_date = isset($_GET['view_date']) ? $_GET['view_date'] : date('Y-m-d');
 
-// --- 1. HANDLE NEW SCHEDULE (Mano-mano Date) ---
+// --- 1. HANDLE NEW SCHEDULE ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_sched'])) {
     $m_id = $_POST['maternal_id'];
-    $type = mysqli_real_escape_string($conn, $_POST['appointment_type']);
+    $type = isset($_POST['appointment_type']) ? mysqli_real_escape_string($conn, $_POST['appointment_type']) : 'Prenatal Checkup';
     $date = $_POST['appointment_date']; 
     $time = $_POST['appointment_time'];
 
-    $sql = "INSERT INTO maternal_schedules (maternal_id, appointment_type, appointment_date, appointment_time, status) 
-            VALUES (?, ?, ?, ?, 'Pending')";
+    // Get mother's full name to sync with patient_name column
+    $p_name = "";
+    $get_name = $conn->query("SELECT full_name FROM maternal_registrations WHERE id = '$m_id'");
+    if ($get_name && $row_n = $get_name->fetch_assoc()) {
+        $p_name = $row_n['full_name'];
+    }
+
+    $sql = "INSERT INTO maternal_schedules (maternal_id, patient_name, appointment_type, appointment_date, appointment_time, status) 
+            VALUES (?, ?, ?, ?, ?, 'Pending')";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("isss", $m_id, $type, $date, $time);
+
+    if (!$stmt) {
+        // Fallback query if patient_name column does not exist
+        $sql = "INSERT INTO maternal_schedules (maternal_id, appointment_type, appointment_date, appointment_time, status) 
+                VALUES (?, ?, ?, ?, 'Pending')";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("isss", $m_id, $type, $date, $time);
+    } else {
+        $stmt->bind_param("issss", $m_id, $p_name, $type, $date, $time);
+    }
+
     $stmt->execute();
     header("Location: admin_sched_maternal.php?view_date=$date");
     exit();
 }
 
-// --- 2. HANDLE EDIT (Update Type, Date, Time only - Name is Read-only) ---
+// --- 2. HANDLE EDIT ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['edit_sched'])) {
     $s_id = $_POST['sched_id'];
     $type = mysqli_real_escape_string($conn, $_POST['appointment_type']);
@@ -41,7 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['edit_sched'])) {
     exit();
 }
 
-// --- 3. HANDLE RESCHEDULE STATUS (Action from the Resched Button) ---
+// --- 3. HANDLE RESCHEDULE STATUS ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['resched_action'])) {
     $s_id = $_POST['sched_id'];
     $new_date = $_POST['new_date'];
@@ -55,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['resched_action'])) {
     exit();
 }
 
-// --- 4. HANDLE REMOVE (Delete) ---
+// --- 4. HANDLE REMOVE ---
 if (isset($_GET['delete_id'])) {
     $id = (int)$_GET['delete_id'];
     $conn->query("DELETE FROM maternal_schedules WHERE id=$id");
@@ -63,7 +83,7 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// --- 5. HANDLE DONE (Complete) ---
+// --- 5. HANDLE DONE ---
 if (isset($_GET['done_id'])) {
     $id = (int)$_GET['done_id'];
     $conn->query("UPDATE maternal_schedules SET status='Completed' WHERE id=$id");
@@ -74,19 +94,19 @@ if (isset($_GET['done_id'])) {
 // --- 6. FETCH DATA FOR LISTS ---
 $mothers = $conn->query("SELECT id, full_name FROM maternal_registrations ORDER BY full_name ASC");
 
-// Pending List (Left Side)
+// Pending List
 $pending_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s 
     JOIN maternal_registrations m ON s.maternal_id = m.id 
     WHERE s.appointment_date = '$view_date' AND s.status = 'Pending' 
     ORDER BY s.appointment_time ASC");
 
-// Rescheduled (Sidebar)
+// Rescheduled List
 $resched_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s 
     JOIN maternal_registrations m ON s.maternal_id = m.id 
     WHERE s.appointment_date = '$view_date' AND s.status = 'Rescheduled' 
     ORDER BY s.appointment_time ASC");
 
-// Completed (Sidebar)
+// Completed List
 $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s 
     JOIN maternal_registrations m ON s.maternal_id = m.id 
     WHERE s.appointment_date = '$view_date' AND s.status = 'Completed' 
@@ -122,7 +142,8 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
         .btn-resched { background: var(--tan); color: white; padding: 6px 12px; border: none; border-radius: 5px; font-size: 0.8rem; cursor: pointer; margin-left: 5px; font-weight: bold; }
 
         .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); }
-        .modal-content { background: white; margin: 8% auto; padding: 35px; width: 420px; border-radius: 20px; color: #333; }
+        .modal-content { background: white; margin: 8% auto; padding: 35px; width: 420px; border-radius: 20px; color: #333; position: relative; }
+        .close-btn { position: absolute; right: 20px; top: 15px; font-size: 24px; cursor: pointer; color: #888; }
         input, select { width: 100%; height: 45px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; padding: 0 10px; box-sizing: border-box; }
         .btn-save { width: 100%; background: var(--sage); color: white; border: none; height: 50px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 15px; }
     </style>
@@ -130,9 +151,9 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
 <body>
 
 <?php 
-    // SIDEBAR LOGIC
+    // FIXED FILE EXTENSION TYPO HERE
     if (isset($_SESSION['role']) && $_SESSION['role'] == 'Super Admin') {
-        include 'super_admin_sidebar.phpp';
+        include 'super_admin_sidebar.php';
     } else {
         include 'admin_sidebar.php';
     }
@@ -154,12 +175,12 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
                 <button class="btn-add" onclick="openModal('schedModal')">+ New Entry</button>
             </div>
             
-            <?php if($pending_res->num_rows > 0): ?>
+            <?php if($pending_res && $pending_res->num_rows > 0): ?>
                 <?php while($row = $pending_res->fetch_assoc()): ?>
                     <div class="patient-item">
                         <div>
                             <strong><?= htmlspecialchars($row['full_name']) ?></strong><br>
-                            <small style="color:#666;"><?= $row['appointment_type'] ?> | <?= date('h:i A', strtotime($row['appointment_time'])) ?></small>
+                            <small style="color:#666;"><?= htmlspecialchars($row['appointment_type']) ?> | <?= date('h:i A', strtotime($row['appointment_time'])) ?></small>
                         </div>
                         <div>
                             <a href="admin_sched_maternal.php?done_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-done">Done</a>
@@ -176,54 +197,77 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
             <h3>Activity Pad</h3>
             <div class="pad-box">
                 <h4>🔄 RESCHEDULED</h4>
-                <?php while($row = $resched_res->fetch_assoc()): ?>
-                    <div class="mini-entry">
-                        <span><?= htmlspecialchars($row['full_name']) ?></span>
-                        <div class="action-links">
-                            <span class="btn-edit-small" onclick="openEditModal('<?= $row['id'] ?>', '<?= addslashes($row['full_name']) ?>', '<?= $row['appointment_type'] ?>', '<?= $row['appointment_date'] ?>', '<?= $row['appointment_time'] ?>')">Edit</span>
-                            <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" onclick="return confirm('Remove?')">Remove</a>
+                <?php if($resched_res): ?>
+                    <?php while($row = $resched_res->fetch_assoc()): ?>
+                        <div class="mini-entry">
+                            <span><?= htmlspecialchars($row['full_name']) ?></span>
+                            <div class="action-links">
+                                <span class="btn-edit-small" onclick="openEditModal('<?= $row['id'] ?>', '<?= addslashes($row['full_name']) ?>', '<?= $row['appointment_type'] ?>', '<?= $row['appointment_date'] ?>', '<?= $row['appointment_time'] ?>')">Edit</span>
+                                <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" onclick="return confirm('Remove?')">Remove</a>
+                            </div>
                         </div>
-                    </div>
-                <?php endwhile; ?>
+                    <?php endwhile; ?>
+                <?php endif; ?>
             </div>
 
             <div class="pad-box">
                 <h4>✅ COMPLETED</h4>
-                <?php while($row = $completed_res->fetch_assoc()): ?>
-                    <div class="mini-entry">
-                        <span><?= htmlspecialchars($row['full_name']) ?></span>
-                        <div class="action-links">
-                            <span class="btn-edit-small" onclick="openEditModal('<?= $row['id'] ?>', '<?= addslashes($row['full_name']) ?>', '<?= $row['appointment_type'] ?>', '<?= $row['appointment_date'] ?>', '<?= $row['appointment_time'] ?>')">Edit</span>
-                            <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" onclick="return confirm('Remove?')">Remove</a>
+                <?php if($completed_res): ?>
+                    <?php while($row = $completed_res->fetch_assoc()): ?>
+                        <div class="mini-entry">
+                            <span><?= htmlspecialchars($row['full_name']) ?></span>
+                            <div class="action-links">
+                                <span class="btn-edit-small" onclick="openEditModal('<?= $row['id'] ?>', '<?= addslashes($row['full_name']) ?>', '<?= $row['appointment_type'] ?>', '<?= $row['appointment_date'] ?>', '<?= $row['appointment_time'] ?>')">Edit</span>
+                                <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" onclick="return confirm('Remove?')">Remove</a>
+                            </div>
                         </div>
-                    </div>
-                <?php endwhile; ?>
+                    <?php endwhile; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
+<!-- NEW ENTRY MODAL -->
 <div id="schedModal" class="modal">
     <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('schedModal')">&times;</span>
         <h3>New Entry</h3>
         <form method="POST">
             <input type="hidden" name="add_sched" value="1">
+            
             <label>Patient</label>
             <select name="maternal_id" required>
                 <option value="">Select Patient</option>
-                <?php $mothers->data_seek(0); while($m = $mothers->fetch_assoc()): ?>
+                <?php if($mothers): $mothers->data_seek(0); while($m = $mothers->fetch_assoc()): ?>
                     <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['full_name']) ?></option>
-                <?php endwhile; ?>
+                <?php endwhile; endif; ?>
             </select>
-            <label>Date</label><input type="date" name="appointment_date" required>
-            <label>Time</label><input type="time" name="appointment_time" required>
+
+            <!-- ADDED MISSING TYPE FIELD -->
+            <label>Type / Purpose</label>
+            <select name="appointment_type" required>
+                <option value="Prenatal Checkup">Prenatal Checkup</option>
+                <option value="Physical Examination">Physical Examination</option>
+                <option value="Post-partum">Post-partum</option>
+                <option value="Consultation">Consultation</option>
+            </select>
+
+            <label>Date</label>
+            <input type="date" name="appointment_date" value="<?= $view_date ?>" required>
+
+            <label>Time</label>
+            <input type="time" name="appointment_time" value="09:00" required>
+
             <button type="submit" class="btn-save">Save Schedule</button>
         </form>
     </div>
 </div>
 
+<!-- RESCHEDULE MODAL -->
 <div id="reschedModal" class="modal">
     <div class="modal-content" style="border-top: 8px solid var(--tan);">
+        <span class="close-btn" onclick="closeModal('reschedModal')">&times;</span>
         <h3>Reschedule Patient</h3>
         <p id="resName" style="font-weight:bold;"></p>
         <form method="POST">
@@ -236,8 +280,10 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
     </div>
 </div>
 
+<!-- EDIT MODAL -->
 <div id="editModal" class="modal">
     <div class="modal-content" style="border-top: 8px solid #666;">
+        <span class="close-btn" onclick="closeModal('editModal')">&times;</span>
         <h3>Edit Details</h3>
         <p id="editNameDisplay" style="font-weight:bold;"></p>
         <form method="POST">
@@ -245,7 +291,10 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
             <input type="hidden" name="sched_id" id="editId">
             <label>Type</label>
             <select name="appointment_type" id="editType">
-                <option>Prenatal Checkup</option><option>Post-partum</option><option>Consultation</option>
+                <option value="Prenatal Checkup">Prenatal Checkup</option>
+                <option value="Physical Examination">Physical Examination</option>
+                <option value="Post-partum">Post-partum</option>
+                <option value="Consultation">Consultation</option>
             </select>
             <label>Date</label><input type="date" name="appointment_date" id="editDate" required>
             <label>Time</label><input type="time" name="appointment_time" id="editTime" required>

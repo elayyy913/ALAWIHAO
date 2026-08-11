@@ -9,34 +9,32 @@ if (!isset($_SESSION['user_id'])) {
 
 $view_date = isset($_GET['view_date']) ? $_GET['view_date'] : date('Y-m-d');
 
-// --- 1. HANDLE NEW SCHEDULE (WITH PRIVACY LINK) ---
+// --- 1. HANDLE NEW SCHEDULE ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_sched'])) {
     $i_id = $_POST['infant_id'];
-    $v_name = mysqli_real_escape_string($conn, $_POST['vaccine_name']);
+    $v_type = mysqli_real_escape_string($conn, $_POST['vaccine_type']);
     $dose = mysqli_real_escape_string($conn, $_POST['dose_number']);
-    $v_date = $_POST['vaccination_date']; 
-    $v_time = $_POST['vaccination_time']; 
+    $s_date = $_POST['schedule_date']; 
+    $s_time = $_POST['schedule_time']; 
 
-    /** * STEP A: Kunin ang user_id na naka-link sa infant record
-     * para 'ma-send' natin ito sa account ng magulang.
-     */
-    $get_owner = $conn->prepare("SELECT user_id FROM infant_records WHERE id = ?");
-    $get_owner->bind_param("i", $i_id);
-    $get_owner->execute();
-    $owner_result = $get_owner->get_result();
-    $owner_data = $owner_result->fetch_assoc();
-    $linked_user_id = $owner_data['user_id'];
+    // Kunin ang user_id at pangalan ng baby mula sa infant_records
+    $get_info = $conn->prepare("SELECT user_id, baby_name FROM infant_records WHERE id = ?");
+    $get_info->bind_param("i", $i_id);
+    $get_info->execute();
+    $info_result = $get_info->get_result();
+    $info_data = $info_result->fetch_assoc();
+    
+    $linked_user_id = $info_data['user_id'];
+    $child_name = $info_data['baby_name'];
 
-    /** * STEP B: I-save sa infant_schedule kasama ang user_id.
-     * Siguraduhin na may 'user_id' column ang infant_schedule table mo.
-     */
-    $sql = "INSERT INTO infant_schedule (infant_id, user_id, vaccine_name, dose_number, vaccination_date, next_appointment, status) 
-            VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+    // I-save sa infant_schedule gamit ang tamang columns
+    $sql = "INSERT INTO infant_schedule (patient_id, child_name, schedule_date, schedule_time, vaccine_type, status) 
+            VALUES (?, ?, ?, ?, ?, 'Pending')";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iissss", $i_id, $linked_user_id, $v_name, $dose, $v_date, $v_time);
+    $stmt->bind_param("issss", $linked_user_id, $child_name, $s_date, $s_time, $v_type);
     $stmt->execute();
 
-    header("Location: admin_sched_child.php?view_date=$v_date");
+    header("Location: admin_sched_child.php?view_date=$s_date");
     exit();
 }
 
@@ -46,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['resched_action'])) {
     $new_date = $_POST['new_date'];
     $new_time = $_POST['new_time'];
 
-    $sql = "UPDATE infant_schedule SET vaccination_date = ?, next_appointment = ?, status = 'Rescheduled' WHERE id = ?";
+    $sql = "UPDATE infant_schedule SET schedule_date = ?, schedule_time = ?, status = 'Rescheduled' WHERE id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ssi", $new_date, $new_time, $s_id);
     $stmt->execute();
@@ -71,20 +69,17 @@ if (isset($_GET['done_id'])) {
 // --- 4. FETCH DATA ---
 $infants = $conn->query("SELECT id, baby_name FROM infant_records ORDER BY baby_name ASC");
 
-$pending_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
-    JOIN infant_records i ON s.infant_id = i.id 
-    WHERE s.vaccination_date = '$view_date' AND s.status = 'Pending' 
-    ORDER BY s.next_appointment ASC");
+$pending_res = $conn->query("SELECT * FROM infant_schedule 
+    WHERE schedule_date = '$view_date' AND status = 'Pending' 
+    ORDER BY schedule_time ASC");
 
-$resched_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
-    JOIN infant_records i ON s.infant_id = i.id 
-    WHERE s.vaccination_date = '$view_date' AND s.status = 'Rescheduled' 
-    ORDER BY s.next_appointment ASC");
+$resched_res = $conn->query("SELECT * FROM infant_schedule 
+    WHERE schedule_date = '$view_date' AND status = 'Rescheduled' 
+    ORDER BY schedule_time ASC");
 
-$completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s 
-    JOIN infant_records i ON s.infant_id = i.id 
-    WHERE s.vaccination_date = '$view_date' AND s.status = 'Completed' 
-    ORDER BY s.next_appointment ASC");
+$completed_res = $conn->query("SELECT * FROM infant_schedule 
+    WHERE schedule_date = '$view_date' AND status = 'Completed' 
+    ORDER BY schedule_time ASC");
 ?>
 
 <!DOCTYPE html>
@@ -130,11 +125,10 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
 <body>
 
 <?php 
-    // SIDEBAR LOGIC
     if (isset($_SESSION['role']) && $_SESSION['role'] == 'Super Admin') {
-        include 'super_admin_sidebar.phpp';
+        include 'super_admin_sidebar.php';
     } else {
-        include 'admin_sidebar.php';
+        include '../user_sidebar.php';
     }
 ?>
 
@@ -157,12 +151,12 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
                 <?php while($row = $pending_res->fetch_assoc()): ?>
                     <div class="patient-item">
                         <div>
-                            <span style="font-weight: 700; font-size: 1.1rem;"><?= htmlspecialchars($row['baby_name']) ?></span><br>
-                            <small style="color:#7f8c8d;"><?= $row['vaccine_name'] ?> (<?= $row['dose_number'] ?>) • <?= $row['next_appointment'] ?></small>
+                            <span style="font-weight: 700; font-size: 1.1rem;"><?= htmlspecialchars($row['child_name']) ?></span><br>
+                            <small style="color:#7f8c8d;"><?= htmlspecialchars($row['vaccine_type']) ?> • <?= $row['schedule_time'] ?></small>
                         </div>
                         <div style="display: flex; gap: 8px;">
                             <a href="admin_sched_child.php?done_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-done">Done</a>
-                            <button class="btn-resched" onclick="openReschedModal('<?= $row['id'] ?>', '<?= addslashes($row['baby_name']) ?>')">Reschedule</button>
+                            <button class="btn-resched" onclick="openReschedModal('<?= $row['id'] ?>', '<?= addslashes($row['child_name']) ?>')">Reschedule</button>
                         </div>
                     </div>
                 <?php endwhile; ?>
@@ -177,7 +171,7 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
                 <h4>🔄 RESCHEDULED</h4>
                 <?php while($row = $resched_res->fetch_assoc()): ?>
                     <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
-                        <span><?= htmlspecialchars($row['baby_name']) ?></span>
+                        <span><?= htmlspecialchars($row['child_name']) ?></span>
                         <a href="admin_sched_child.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" style="color:#ffbaba; text-decoration:none;">×</a>
                     </div>
                 <?php endwhile; ?>
@@ -186,7 +180,7 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
                 <h4>✅ COMPLETED</h4>
                 <?php while($row = $completed_res->fetch_assoc()): ?>
                     <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
-                        <span><?= htmlspecialchars($row['baby_name']) ?></span>
+                        <span><?= htmlspecialchars($row['child_name']) ?></span>
                         <a href="admin_sched_child.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" style="color:#ffbaba; text-decoration:none;">×</a>
                     </div>
                 <?php endwhile; ?>
@@ -209,15 +203,15 @@ $completed_res = $conn->query("SELECT s.*, i.baby_name FROM infant_schedule s
                 <?php endwhile; ?>
             </select>
 
-            <label>Vaccine Name</label>
-            <input type="text" name="vaccine_name" placeholder="e.g. BCG" required>
+            <label>Vaccine Type</label>
+            <input type="text" name="vaccine_type" placeholder="e.g. BCG" required>
             
             <label>Dose #</label>
-            <input type="text" name="dose_number" placeholder="e.g. 1st Dose" required>
+            <input type="text" name="dose_number" placeholder="e.g. 1st Dose">
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div><label>Date</label><input type="date" name="vaccination_date" required></div>
-                <div><label>Time</label><input type="time" name="vaccination_time" required></div>
+                <div><label>Date</label><input type="date" name="schedule_date" required></div>
+                <div><label>Time</label><input type="time" name="schedule_time" required></div>
             </div>
 
             <button type="submit" class="btn-save">Save Schedule</button>
