@@ -142,8 +142,7 @@ if (!isset($_SESSION['user_id'])) {
 <div id="main">
     <div class="form-card">
         <h2>MATERNAL REGISTRATION</h2>
-
-        <form action="save_maternal.php" method="POST">
+    <<form method="POST" action="admin/save_maternal.php">
             <div class="form-group" style="width: 250px; margin-bottom: 20px;">
                 <label>FAMILY SERIAL NUMBER:</label>
                 <input type="text" name="family_serial">
