@@ -17,7 +17,7 @@ $user_id = $_SESSION['user_id'];
 $query = "SELECT reg.*, 
                  rec.bp, rec.weight_kg, rec.temperature, rec.fetal_heart_rate, rec.checkup_date,
                  reg.id AS reg_id
-          FROM maternal_registrations reg
+          FROM maternal_registration reg
           LEFT JOIN (
               SELECT * FROM maternal_records 
               WHERE id IN (SELECT MAX(id) FROM maternal_records GROUP BY mother_id)
