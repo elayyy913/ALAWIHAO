@@ -76,24 +76,21 @@ $pending_infant_count = $infant_pending ? mysqli_num_rows($infant_pending) : 0;
 $pending_maternal_count = $maternal_pending ? mysqli_num_rows($maternal_pending) : 0;
 $pending_total = ($pending_infant_count + $pending_maternal_count);
 
-// 5. FETCH MATERNAL SCHEDULES (MATCHING admin_sched_maternal.php STRUCTURE)
+// 5. FETCH MATERNAL SCHEDULES
 $today_maternal_count = 0;
 $upcoming_maternal = [];
 
 if (check_table_exists($conn, 'maternal_schedules')) {
-    // Today's Count (Case-insensitive status check)
     $today_mat_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM maternal_schedules WHERE LOWER(status) != 'completed' AND appointment_date = CURDATE()");
     if ($today_mat_q) { $today_maternal_count = mysqli_fetch_assoc($today_mat_q)['count']; }
 
-    // Upcoming & Active List:
-    // Gumamit ng LEFT JOIN at COALESCE para kahit may issue sa ID match, 
-    // gagamitin pa rin ang 'patient_name' column o 'Maternal Patient' bilang fallback at HINDI mawawala sa listahan!
+    // INAYOS: Tinanggal ang strict >= CURDATE para lumitaw din ang mga naka-pending kahit medyo lumipas o para makita agad
     $mat_upcoming_q = mysqli_query($conn, "
         SELECT s.id, s.appointment_date, s.appointment_time, s.appointment_type, s.status, 
                COALESCE(m.full_name, s.patient_name, 'Maternal Patient') AS full_name 
         FROM maternal_schedules s 
         LEFT JOIN $mat_reg_table m ON s.maternal_id = m.id 
-        WHERE LOWER(s.status) != 'completed' AND s.appointment_date >= CURDATE() 
+        WHERE LOWER(s.status) != 'completed' 
         ORDER BY s.appointment_date ASC, s.appointment_time ASC LIMIT 10
     ");
 
@@ -103,15 +100,35 @@ if (check_table_exists($conn, 'maternal_schedules')) {
         }
     }
 }
-// 6. FETCH INFANT SCHEDULES
+
+// 6. FETCH INFANT / CHILD SCHEDULES (FLEXIBLE COLUMN CHECKER)
 $today_infant_count = 0;
 $upcoming_infant = [];
 
-if (check_table_exists($conn, 'infant_schedule')) {
-    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM infant_schedule WHERE status != 'Completed' AND schedule_date = CURDATE()");
-    if ($today_inf_q) { $today_infant_count = mysqli_fetch_assoc($today_inf_q)['count']; }
+// Alamin kung aling table ang mayroon (child_schedule o infant_schedule)
+$target_child_table = check_table_exists($conn, 'child_schedule') ? 'child_schedule' : 'infant_schedule';
 
-    $inf_upcoming_q = mysqli_query($conn, "SELECT id, child_name, schedule_date, schedule_time, vaccine_type FROM infant_schedule WHERE status != 'Completed' AND schedule_date >= CURDATE() ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5");
+if (check_table_exists($conn, $target_child_table)) {
+    
+    // Kunin ang total count ng hindi pa completed para sa card sa taas
+    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $target_child_table WHERE LOWER(status) != 'completed'");
+    if ($today_inf_q) { 
+        $today_infant_count = mysqli_fetch_assoc($today_inf_q)['count']; 
+    }
+
+    // Kunin ang listahan gamit ang COALESCE para sa iba't ibang posibleng pangalan ng columns
+    $inf_upcoming_q = mysqli_query($conn, "
+        SELECT id, 
+               COALESCE(patient_name, child_name, 'Child') as child_name, 
+               COALESCE(schedule_date, appointment_date, date, CURDATE()) as schedule_date, 
+               COALESCE(schedule_time, time, '') as schedule_time, 
+               COALESCE(service_type, vaccine_type, type, 'Immunization') as vaccine_type,
+               COALESCE(status, 'Pending') as status
+        FROM $target_child_table 
+        WHERE LOWER(status) != 'completed' 
+        ORDER BY id DESC LIMIT 5
+    ");
+
     if ($inf_upcoming_q) {
         while ($row = mysqli_fetch_assoc($inf_upcoming_q)) {
             $upcoming_infant[] = $row;
