@@ -84,6 +84,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
 
         /* HAMBURGER BUTTON SA TOPBAR (Lilitaw lang kapag naka-close) */
         .hamburger-btn {
+            display: block !important;       
             background: none;
             border: none;
             font-size: 1.3rem;

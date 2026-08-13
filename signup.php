@@ -16,17 +16,26 @@ if (isset($_POST['signup'])) {
     $res = mysqli_query($conn, "SELECT COUNT(*) as total FROM users");
     $count = mysqli_fetch_assoc($res)['total'];
     
-    $final_role = ($count == 0) ? 'Super Admin' : 'User';
-    
-    $year = date("Y");
-    $new_id_num = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-    $generated_id = "ALW-$year-$new_id_num";
+    // Kung walang laman ang database, siya ang Super Admin at may generated ID.
+    // Kapag may laman na, Regular User na siya at walang generated ID.
+    if ($count == 0) {
+        $final_role = 'Super Admin';
+        $year = date("Y");
+        $new_id_num = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        $generated_id = "ALW-$year-$new_id_num";
+        $success_message = "Registration Successful! Your System ID is: $generated_id";
+        $id_value = "'$generated_id'";
+    } else {
+        $final_role = 'User';
+        $success_message = "Registration Successful! You can now log in using your email.";
+        $id_value = "NULL"; // Walang ID para sa mga regular users
+    }
 
     $sql = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status, created_at) 
-            VALUES ('$generated_id', '$fname', '$lname', '$email', '$pass', '$final_role', 'Approved', NOW())";
+            VALUES ($id_value, '$fname', '$lname', '$email', '$pass', '$final_role', 'Approved', NOW())";
 
     if (mysqli_query($conn, $sql)) {
-        echo "<script>alert('Registration Successful! Your System ID is: $generated_id'); window.location='login.php';</script>";
+        echo "<script>alert('$success_message'); window.location='login.php';</script>";
     } else {
         echo "Error: " . mysqli_error($conn);
     }
@@ -38,6 +47,8 @@ if (isset($_POST['signup'])) {
 <head>
     <meta charset="UTF-8">
     <title>Create Account | Alawihao</title>
+    <!-- Idinagdag ang FontAwesome para sa Eye Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --sage: #95AF7E; --dark-sage: #86A16D; --bg: #F7FAFC; --text: #2D3748; --border: #E2E8F0; --muted: #A0AEC0; }
         body { background-color: var(--bg); font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
@@ -51,6 +62,27 @@ if (isset($_POST['signup'])) {
         input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); box-sizing: border-box; font-size: 15px; background: #FAFAFA; transition: all 0.2s; }
         input:focus { border-color: var(--sage); outline: none; background: #FFF; box-shadow: 0 0 0 3px rgba(149, 175, 126, 0.1); }
         
+        /* Container para sa password input at eye icon */
+        .password-container {
+            position: relative;
+            width: 100%;
+        }
+        .password-container input {
+            padding-right: 45px; /* Para hindi matakpan ng icon ang text */
+        }
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 16px;
+        }
+        .toggle-password:hover {
+            color: var(--text);
+        }
+
         /* Password Dynamic Feedback */
         .password-policies { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; min-height: 20px; }
         .policy { font-size: 11px; color: #E53E3E; background: #FFF5F5; padding: 4px 10px; border-radius: 20px; border: 1px solid #FEB2B2; display: flex; align-items: center; transition: all 0.3s ease; }
@@ -85,7 +117,10 @@ if (isset($_POST['signup'])) {
             <input type="email" name="email" required placeholder="example@email.com">
 
             <label>Password</label>
-            <input type="password" name="password" id="passInput" required placeholder="Create a strong password">
+            <div class="password-container">
+                <input type="password" name="password" id="passInput" required placeholder="Create a strong password">
+                <i class="fa fa-eye toggle-password" id="togglePass"></i>
+            </div>
             
             <div class="password-policies" id="policyContainer">
                 <div class="policy" id="len">8+ characters</div>
@@ -96,7 +131,10 @@ if (isset($_POST['signup'])) {
             </div>
 
             <label style="margin-top: 20px;">Confirm Password</label>
-            <input type="password" name="password_confirmation" id="confirmInput" required placeholder="Repeat your password">
+            <div class="password-container">
+                <input type="password" name="password_confirmation" id="confirmInput" required placeholder="Repeat your password">
+                <i class="fa fa-eye toggle-password" id="toggleConfirm"></i>
+            </div>
 
             <button type="submit" name="signup" class="btn">Register Now</button>
         </form>
@@ -108,7 +146,27 @@ if (isset($_POST['signup'])) {
 
     <script>
         const pass = document.getElementById('passInput');
+        const confirmPass = document.getElementById('confirmInput');
         const successMsg = document.getElementById('success-msg');
+        
+        const togglePass = document.getElementById('togglePass');
+        const toggleConfirm = document.getElementById('toggleConfirm');
+
+        // Toggle function para sa Password visibility
+        togglePass.addEventListener('click', function () {
+            const type = pass.getAttribute('type') === 'password' ? 'text' : 'password';
+            pass.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        // Toggle function para sa Confirm Password visibility
+        toggleConfirm.addEventListener('click', function () {
+            const type = confirmPass.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmPass.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
         
         const policies = {
             len: document.getElementById('len'),
@@ -137,7 +195,7 @@ if (isset($_POST['signup'])) {
                 }
             });
 
-            // Ipakita ang success message kapag empty na ang listahan ng kulang
+            // Ipakita ang success message kapag kompleto na
             if (checks.len && checks.up && checks.num && checks.spec) {
                 successMsg.style.display = 'block';
             } else {
@@ -146,7 +204,7 @@ if (isset($_POST['signup'])) {
         });
 
         document.getElementById('regForm').onsubmit = function(e) {
-            if (pass.value !== document.getElementById('confirmInput').value) {
+            if (pass.value !== confirmPass.value) {
                 e.preventDefault();
                 alert("Passwords do not match!");
             }

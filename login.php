@@ -8,14 +8,31 @@ if (isset($_POST['login'])) {
     $login_input = trim($_POST['field_user_id']);
     $pass        = trim($_POST['field_user_pass']); 
 
-    // Secured using Prepared Statement against SQL Injection
-    $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE (email = ? OR generated_id = ?) LIMIT 1");
+    // Hanapin muna sa database kung may tumutugmang email o generated_id
+    $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE email = ? OR generated_id = ? LIMIT 1");
     mysqli_stmt_bind_param($stmt, "ss", $login_input, $login_input);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
     if ($row = mysqli_fetch_assoc($result)) {
-        // Direct comparison (Note: recommended to use password_verify if hashed)
+        $role = $row['role'];
+        $db_email = $row['email'];
+        $db_generated_id = $row['generated_id'];
+
+        // Strict validation base sa role:
+        if ($role == 'Super Admin' || $role == 'User') {
+            if ($login_input !== $db_email) {
+                echo "<script>alert('Please use your Email.'); window.location.href='login.php';</script>";
+                exit();
+            }
+        } else {
+            if ($login_input !== $db_generated_id) {
+                echo "<script>alert('Please use your code(ex.2026-001).'); window.location.href='login.php';</script>";
+                exit();
+            }
+        }
+
+        // Pagkatapos masigurong tama ang uri ng input, i-check ang password:
         if ($pass == $row['password']) {
             
             if ($row['role'] !== 'Super Admin' && strtolower($row['status']) !== 'approved') {
@@ -45,11 +62,11 @@ if (isset($_POST['login'])) {
             }
 
         } else {
-            echo "<script>alert('Maling password. Pakisuri ulit.'); window.location.href='login.php';</script>";
+            echo "<script>alert('Wrong Password.'); window.location.href='login.php';</script>";
             exit();
         }
     } else {
-        echo "<script>alert('Hindi mahanap ang Email o System ID na ito.'); window.location.href='login.php';</script>";
+        echo "<script>alert('Account not Found.'); window.location.href='login.php';</script>";
         exit();
     }
 }
