@@ -47,17 +47,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("issssdsssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines, $administered_by);
-        if ($stmt->execute()) {
-            $message = "Baby enrolled successfully! " . ($status === "Pending" ? "Pending for admin review." : "");
+            $stmt->bind_param("issssdsssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines, $administered_by);
+            if ($stmt->execute()) {
+                echo "<script>
+                    alert('Baby enrolled successfully! Pending for admin review.');
+                    window.location.href = 'user_dashboard.php';
+                </script>";
+                exit();
+            } else {
+                $message = "Error: " . $conn->error;
+            }
+            $stmt->close();
         } else {
-            $message = "Error: " . $conn->error;
+            $message = "Database error: Could not prepare statement.";
         }
-        $stmt->close();
-    } else {
-        $message = "Database error: Could not prepare statement.";
     }
-}
 ?>
 
 <!DOCTYPE html>

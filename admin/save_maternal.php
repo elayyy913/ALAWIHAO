@@ -82,7 +82,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
             }
         }
-        echo "<script>alert('Successfully Registered!'); window.location.href='index.php';</script>";
+    echo "<script>
+            alert('Maternal record registered successfully! Pending for admin review.');
+            window.location.href = '../user_dashboard.php';
+        </script>";
+        exit();
     } else {
         echo "Error: " . $stmt->error;
     }
