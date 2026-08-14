@@ -20,11 +20,11 @@ if (!function_exists('check_table_exists')) {
     }
 }
 
-// EXACT REGISTRATION TABLES
+// EXACT REGISTRATION TABLES (Kung may hiwalay kayong registration tables para sa records)
 $mat_reg_table = check_table_exists($conn, 'maternal_registrations') ? 'maternal_registrations' : 'maternal_registration';
 $inf_reg_table = check_table_exists($conn, 'children') ? 'children' : 'infant_records';
 
-// 2. HANDLE APPROVALS
+// 2. HANDLE APPROVALS (Kung ginagamit pa sa dashboard)
 if (isset($_GET['approve_infant'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_infant']);
     mysqli_query($conn, "UPDATE $inf_reg_table SET status='Approved' WHERE id='$id'");
@@ -37,28 +37,17 @@ if (isset($_GET['approve_maternal'])) {
     $message = "Maternal record approved successfully!";
 }
 
-// 3. HANDLE SCHEDULE ACTIONS (DONE / RESCHEDULE)
-if (isset($_POST['action_type']) && isset($_POST['sched_id']) && isset($_POST['sched_table'])) {
+// 3. HANDLE SCHEDULE ACTIONS (DONE / RESCHEDULE) - Naka-base na ngayon sa iisang 'schedules' table
+if (isset($_POST['action_type']) && isset($_POST['sched_id'])) {
     $s_id = mysqli_real_escape_string($conn, $_POST['sched_id']);
 
-    if ($_POST['sched_table'] === 'Maternal') {
-        if ($_POST['action_type'] === 'done') {
-            mysqli_query($conn, "UPDATE maternal_schedules SET status='Completed' WHERE id='$s_id'");
-            $message = "Maternal schedule marked as Completed!";
-        } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
-            $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-            mysqli_query($conn, "UPDATE maternal_schedules SET appointment_date='$new_date', status='Rescheduled' WHERE id='$s_id'");
-            $message = "Maternal schedule successfully rescheduled!";
-        }
-    } else {
-        if ($_POST['action_type'] === 'done') {
-            mysqli_query($conn, "UPDATE infant_schedule SET status='Completed' WHERE id='$s_id'");
-            $message = "Child schedule marked as Completed!";
-        } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
-            $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-            mysqli_query($conn, "UPDATE infant_schedule SET schedule_date='$new_date', status='Rescheduled' WHERE id='$s_id'");
-            $message = "Child schedule successfully rescheduled!";
-        }
+    if ($_POST['action_type'] === 'done') {
+        mysqli_query($conn, "UPDATE schedules SET status='Completed' WHERE id='$s_id'");
+        $message = "Schedule marked as Completed!";
+    } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
+        $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+        mysqli_query($conn, "UPDATE schedules SET schedule_date='$new_date', status='Rescheduled' WHERE id='$s_id'");
+        $message = "Schedule successfully rescheduled!";
     }
 }
 
@@ -76,22 +65,19 @@ $pending_infant_count = $infant_pending ? mysqli_num_rows($infant_pending) : 0;
 $pending_maternal_count = $maternal_pending ? mysqli_num_rows($maternal_pending) : 0;
 $pending_total = ($pending_infant_count + $pending_maternal_count);
 
-// 5. FETCH MATERNAL SCHEDULES
+// 5. FETCH MATERNAL SCHEDULES (Galing sa 'schedules' table kung saan category = 'Maternal')
 $today_maternal_count = 0;
 $upcoming_maternal = [];
 
-if (check_table_exists($conn, 'maternal_schedules')) {
-    $today_mat_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM maternal_schedules WHERE LOWER(status) != 'completed' AND appointment_date = CURDATE()");
+if (check_table_exists($conn, 'schedules')) {
+    $today_mat_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM schedules WHERE category='Maternal' AND LOWER(status) != 'completed' AND schedule_date = CURDATE()");
     if ($today_mat_q) { $today_maternal_count = mysqli_fetch_assoc($today_mat_q)['count']; }
 
-    // INAYOS: Tinanggal ang strict >= CURDATE para lumitaw din ang mga naka-pending kahit medyo lumipas o para makita agad
     $mat_upcoming_q = mysqli_query($conn, "
-        SELECT s.id, s.appointment_date, s.appointment_time, s.appointment_type, s.status, 
-               COALESCE(m.full_name, s.patient_name, 'Maternal Patient') AS full_name 
-        FROM maternal_schedules s 
-        LEFT JOIN $mat_reg_table m ON s.maternal_id = m.id 
-        WHERE LOWER(s.status) != 'completed' 
-        ORDER BY s.appointment_date ASC, s.appointment_time ASC LIMIT 10
+        SELECT id, schedule_date, schedule_time, service_type AS appointment_type, status, patient_name AS full_name 
+        FROM schedules 
+        WHERE category = 'Maternal' AND LOWER(status) != 'completed' 
+        ORDER BY schedule_date ASC, schedule_time ASC LIMIT 10
     ");
 
     if ($mat_upcoming_q) {
@@ -101,32 +87,27 @@ if (check_table_exists($conn, 'maternal_schedules')) {
     }
 }
 
-// 6. FETCH INFANT / CHILD SCHEDULES (FLEXIBLE COLUMN CHECKER)
+// 6. FETCH INFANT / CHILD SCHEDULES (Galing sa 'schedules' table kung saan category = 'Child')
 $today_infant_count = 0;
 $upcoming_infant = [];
 
-// Alamin kung aling table ang mayroon (child_schedule o infant_schedule)
-$target_child_table = check_table_exists($conn, 'child_schedule') ? 'child_schedule' : 'infant_schedule';
-
-if (check_table_exists($conn, $target_child_table)) {
+if (check_table_exists($conn, 'schedules')) {
     
-    // Kunin ang total count ng hindi pa completed para sa card sa taas
-    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $target_child_table WHERE LOWER(status) != 'completed'");
+    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM schedules WHERE category='Child' AND LOWER(status) != 'completed'");
     if ($today_inf_q) { 
         $today_infant_count = mysqli_fetch_assoc($today_inf_q)['count']; 
     }
 
-    // Kunin ang listahan gamit ang COALESCE para sa iba't ibang posibleng pangalan ng columns
     $inf_upcoming_q = mysqli_query($conn, "
         SELECT id, 
-               COALESCE(patient_name, child_name, 'Child') as child_name, 
-               COALESCE(schedule_date, appointment_date, date, CURDATE()) as schedule_date, 
-               COALESCE(schedule_time, time, '') as schedule_time, 
-               COALESCE(service_type, vaccine_type, type, 'Immunization') as vaccine_type,
-               COALESCE(status, 'Pending') as status
-        FROM $target_child_table 
-        WHERE LOWER(status) != 'completed' 
-        ORDER BY id DESC LIMIT 5
+               patient_name as child_name, 
+               schedule_date, 
+               schedule_time, 
+               service_type as vaccine_type,
+               status
+        FROM schedules 
+        WHERE category = 'Child' AND LOWER(status) != 'completed' 
+        ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
     ");
 
     if ($inf_upcoming_q) {
@@ -259,6 +240,7 @@ if (check_table_exists($conn, $target_child_table)) {
             text-transform: uppercase;
             letter-spacing: 0.8px;
             font-weight: 700;
+            vertical-align: middle;
         }
 
         td { 
@@ -266,6 +248,7 @@ if (check_table_exists($conn, $target_child_table)) {
             border-bottom: 1px solid #F1F5F9; 
             font-size: 0.85rem; 
             color: var(--text-main);
+            vertical-align: middle;
         }
 
         .no-data {
@@ -455,7 +438,7 @@ if (check_table_exists($conn, $target_child_table)) {
                         <?php foreach($upcoming_maternal as $s): ?>
                         <div class="sched-item">
                             <strong style="color: #2563EB; font-size: 0.85rem;">
-                                <?php echo htmlspecialchars($s['appointment_date']); ?> 
+                                <?php echo htmlspecialchars($s['schedule_date'] )?> 
                                 <?php if(!empty($s['appointment_time'])) echo ' (' . htmlspecialchars($s['appointment_time']) . ')'; ?>
                             </strong>
                             <span class="status-badge"><?php echo htmlspecialchars($s['status']); ?></span><br>

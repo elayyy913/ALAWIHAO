@@ -190,6 +190,43 @@ $pending_preg_list = mysqli_query($conn, "SELECT *,
     CONCAT(COALESCE(street,''), ' ', COALESCE(barangay,''), ' ', COALESCE(municipality,'')) AS computed_address,
     CONCAT(COALESCE(spouse_fname,''), ' ', COALESCE(spouse_lname,'')) AS computed_spouse 
     FROM maternal_registration WHERE status='Pending' ORDER BY created_at DESC");
+
+// --- FETCH UPCOMING SCHEDULES PARA SA SUPER ADMIN ---
+$upcoming_maternal = [];
+$upcoming_infant = [];
+if (!function_exists('check_table_exists')) {
+    function check_table_exists($conn, $table_name) {
+        $result = mysqli_query($conn, "SHOW TABLES LIKE '$table_name'");
+        return $result && mysqli_num_rows($result) > 0;
+    }
+}
+if (check_table_exists($conn, 'schedules')) {
+    // Maternal Schedules Query
+    $mat_upcoming_q = mysqli_query($conn, "
+        SELECT id, schedule_date, schedule_time, service_type, status, patient_name AS full_name 
+        FROM schedules 
+        WHERE category = 'Maternal' AND LOWER(status) != 'completed' 
+        ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
+    ");
+    if ($mat_upcoming_q) {
+        while ($row = mysqli_fetch_assoc($mat_upcoming_q)) {
+            $upcoming_maternal[] = $row;
+        }
+    }
+
+    // Child Schedules Query
+    $inf_upcoming_q = mysqli_query($conn, "
+        SELECT id, patient_name as child_name, schedule_date, schedule_time, service_type as vaccine_type, status
+        FROM schedules 
+        WHERE category = 'Child' AND LOWER(status) != 'completed' 
+        ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
+    ");
+    if ($inf_upcoming_q) {
+        while ($row = mysqli_fetch_assoc($inf_upcoming_q)) {
+            $upcoming_infant[] = $row;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
