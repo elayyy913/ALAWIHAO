@@ -138,6 +138,42 @@ if (isset($_POST['submit_maternal_approval'])) {
     }
 }
 
+// --- HANDLE SCHEDULE ACTIONS (MARK DONE & RESCHEDULE) ---
+
+// 1. Mark Maternal Schedule as Completed
+if (isset($_POST['mark_done_maternal'])) {
+    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'");
+    header("Location: super_admin_dashboard.php?msg=MaternalMarkedDone");
+    exit();
+}
+
+// 2. Reschedule Maternal Schedule
+if (isset($_POST['reschedule_maternal'])) {
+    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'");
+    header("Location: super_admin_dashboard.php?msg=MaternalRescheduled");
+    exit();
+}
+
+// 3. Mark Infant Schedule as Completed
+if (isset($_POST['mark_done_infant'])) {
+    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'");
+    header("Location: super_admin_dashboard.php?msg=InfantMarkedDone");
+    exit();
+}
+
+// 4. Reschedule Infant Schedule
+if (isset($_POST['reschedule_infant'])) {
+    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'");
+    header("Location: super_admin_dashboard.php?msg=InfantRescheduled");
+    exit();
+}
+
 // --- REMOVE LOGIC ---
 if (isset($_GET['remove_id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['remove_id']);
@@ -246,8 +282,12 @@ if (check_table_exists($conn, 'schedules')) {
         .stat-card h4 { font-size: 0.7rem; color: #7f8c8d; margin-bottom: 10px; text-transform: uppercase; }
         .stat-card h2 { margin: 0; font-size: 1.6rem; }
         
-        .table-container { background: var(--white); padding: 25px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 25px; width: 100%; box-sizing: border-box; }
-        .table-container h3 { font-size: 1rem; color: var(--dark-sage); border-left: 4px solid var(--sage); padding-left: 10px; margin-bottom: 20px; }
+        /* DASHBOARD GRID LAYOUT: Left (Approvals) & Right (Schedules) */
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; align-items: start; }
+        .left-column, .right-column { display: flex; flex-direction: column; gap: 25px; width: 100%; min-width: 0; }
+
+        .table-container { background: var(--white); padding: 25px; border-radius: 8px; border: 1px solid var(--border); width: 100%; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .table-container h3 { font-size: 1.1rem; color: var(--dark-sage); border-left: 4px solid var(--sage); padding-left: 10px; margin-top: 0; margin-bottom: 20px; }
         
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; background: #F4F4ED; padding: 12px; font-size: 0.75rem; text-transform: uppercase; color: #666; }
@@ -255,6 +295,28 @@ if (check_table_exists($conn, 'schedules')) {
         
         .btn-approve { background: var(--sage); color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.7rem; display: inline-block; border: none; cursor: pointer; }
         .btn-reject { background: #e74c3c; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.7rem; margin-left: 5px; display: inline-block; border: none; cursor: pointer; }
+
+        /* SCHEDULE CARD UI STYLES */
+        .schedule-card-list { display: flex; flex-direction: column; gap: 15px; }
+        .schedule-item { background: #FAFAF7; border: 1px solid #EBEBE3; border-radius: 6px; padding: 15px; position: relative; }
+        .schedule-item.maternal-border { border-left: 4px solid var(--sage); }
+        .schedule-item.infant-border { border-left: 4px solid #e74c3c; }
+        
+        .sched-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .sched-date { font-weight: bold; font-size: 0.95rem; color: #2C3E50; }
+        .status-badge { background: #E2E8F0; color: #4A5568; font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        
+        .sched-patient-name { font-size: 1rem; font-weight: bold; color: #2D2D2D; margin-bottom: 4px; text-transform: capitalize; }
+        .sched-type { font-size: 0.85rem; color: #666; margin-bottom: 12px; }
+        
+        .sched-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .btn-mark-done { background: #D1E7DD; color: #0F5132; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
+        .btn-mark-done:hover { background: #badbcc; }
+        
+        .resched-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .date-input { padding: 5px 8px; border: 1px solid #CCC; border-radius: 4px; font-size: 0.8rem; font-family: inherit; background: white; }
+        .btn-resched { background: #FDE68A; color: #78350F; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
+        .btn-resched:hover { background: #FCD34D; }
 
         /* MODAL STYLES */
         .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
@@ -291,69 +353,147 @@ if (check_table_exists($conn, 'schedules')) {
         <div class="stat-card"><h4>STAFF WORKERS</h4><h2><?php echo $total_workers; ?></h2></div>
     </div>
 
-    <!-- PENDING WORKERS TABLE -->
-    <div class="table-container">
-        <h3>Pending Staff Worker Accounts</h3>
-        <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Action</th></tr></thead>
-            <tbody>
-                <?php if (mysqli_num_rows($pending_workers) > 0): while($row = mysqli_fetch_assoc($pending_workers)): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($row['first_name'] . " " . $row['last_name']); ?></td>
-                    <td><?php echo htmlspecialchars($row['email']); ?></td>
-                    <td>
-                        <a href="?approve_worker_id=<?php echo $row['id']; ?>" class="btn-approve">APPROVE</a>
-                        <a href="?remove_worker_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this worker?')">REJECT</a>
-                    </td>
-                </tr>
-                <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending worker accounts.</td></tr>"; endif; ?>
-            </tbody>
-        </table>
-    </div>
+    <!-- MAIN DASHBOARD SPLIT GRID -->
+    <div class="dashboard-grid">
+        
+        <!-- LEFT COLUMN: Staff Accounts, Newborn & Maternal Approvals -->
+        <div class="left-column">
+            <!-- PENDING WORKERS TABLE -->
+            <div class="table-container">
+                <h3>Pending Staff Worker Accounts</h3>
+                <table>
+                    <thead><tr><th>Name</th><th>Email</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <?php if (mysqli_num_rows($pending_workers) > 0): while($row = mysqli_fetch_assoc($pending_workers)): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($row['first_name'] . " " . $row['last_name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['email']); ?></td>
+                            <td>
+                                <a href="?approve_worker_id=<?php echo $row['id']; ?>" class="btn-approve">APPROVE</a>
+                                <a href="?remove_worker_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this worker?')">REJECT</a>
+                            </td>
+                        </tr>
+                        <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending worker accounts.</td></tr>"; endif; ?>
+                    </tbody>
+                </table>
+            </div>
 
-    <!-- NEWBORN REGISTRATION TABLE -->
-    <div class="table-container">
-        <h3>Newborn Registration Approval</h3>
-        <table>
-            <thead><tr><th>Infant Name</th><th>Mother's Name</th><th>Action</th></tr></thead>
-            <tbody>
-                <?php if (mysqli_num_rows($pending_list) > 0): while($row = mysqli_fetch_assoc($pending_list)): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($row['child_name']); ?></td>
-                    <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
-                    <td>
-                        <button type="button" class="btn-approve" onclick='openNewbornModal(<?php echo json_encode($row); ?>)'>REVIEW</button>
-                        <a href="?remove_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
-                    </td>
-                </tr>
-                <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending newborn records.</td></tr>"; endif; ?>
-            </tbody>
-        </table>
-    </div>
+            <!-- NEWBORN REGISTRATION TABLE -->
+            <div class="table-container">
+                <h3>Newborn Registration Approval</h3>
+                <table>
+                    <thead><tr><th>Infant Name</th><th>Mother's Name</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <?php if (mysqli_num_rows($pending_list) > 0): while($row = mysqli_fetch_assoc($pending_list)): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($row['child_name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
+                            <td>
+                                <button type="button" class="btn-approve" onclick='openNewbornModal(<?php echo json_encode($row); ?>)'>REVIEW</button>
+                                <a href="?remove_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
+                            </td>
+                        </tr>
+                        <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending newborn records.</td></tr>"; endif; ?>
+                    </tbody>
+                </table>
+            </div>
 
-    <!-- MATERNAL REGISTRATION TABLE -->
-    <div class="table-container">
-        <h3>Maternal Registration Approval</h3>
-        <table>
-            <thead><tr><th>Patient Name</th><th>Action</th></tr></thead>
-            <tbody>
-                <?php if (mysqli_num_rows($pending_preg_list) > 0): while($row = mysqli_fetch_assoc($pending_preg_list)): 
-                    $row['display_name'] = trim($row['client_fname'] . " " . $row['client_lname']);
-                ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($row['display_name']); ?></td>
-                    <td>
-                        <button type="button" class="btn-approve" onclick='openVerifyModal(<?php echo json_encode($row); ?>)'>VERIFY & ENROLL</button>
-                        <a href="?remove_preg_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this registration?')">REJECT</a>
-                    </td>
-                </tr>
-                <?php endwhile; else: echo "<tr><td colspan='2' align='center'>No pending maternal registration.</td></tr>"; endif; ?>
-            </tbody>
-        </table>
+            <!-- MATERNAL REGISTRATION TABLE -->
+            <div class="table-container">
+                <h3>Maternal Registration Approval</h3>
+                <table>
+                    <thead><tr><th>Patient Name</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <?php if (mysqli_num_rows($pending_preg_list) > 0): while($row = mysqli_fetch_assoc($pending_preg_list)): 
+                            $row['display_name'] = trim($row['client_fname'] . " " . $row['client_lname']);
+                        ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($row['display_name']); ?></td>
+                            <td>
+                                <button type="button" class="btn-approve" onclick='openVerifyModal(<?php echo json_encode($row); ?>)'>VERIFY & ENROLL</button>
+                                <a href="?remove_preg_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this registration?')">REJECT</a>
+                            </td>
+                        </tr>
+                        <?php endwhile; else: echo "<tr><td colspan='2' align='center'>No pending maternal registration.</td></tr>"; endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Upcoming Maternal & Infant Schedules (Card Style UI) -->
+        <div class="right-column">
+            
+            <!-- Upcoming Maternal Check-ups -->
+            <div class="table-container">
+                <h3>Upcoming Maternal Check-ups</h3>
+                <div class="schedule-card-list">
+                    <?php if (!empty($upcoming_maternal)): foreach($upcoming_maternal as $sched): 
+                        $patientName = $sched['full_name'] ?? $sched['client_name'] ?? 'N/A';
+                        $serviceType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
+                        $schedDate = $sched['schedule_date'] ?? date('Y-m-d');
+                        $schedId = $sched['id'] ?? '';
+                    ?>
+                    <div class="schedule-item maternal-border">
+                        <div class="sched-header-row">
+                            <span class="sched-date"><?php echo htmlspecialchars($schedDate); ?></span>
+                            <span class="status-badge">Pending</span>
+                        </div>
+                        <div class="sched-patient-name"><?php echo htmlspecialchars($patientName); ?></div>
+                        <div class="sched-type">Type: <?php echo htmlspecialchars($serviceType); ?></div>
+                        
+                        <form method="POST" class="sched-actions">
+                            <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
+                            <button type="submit" name="mark_done_maternal" class="btn-mark-done">Mark Done</button>
+                            <div class="resched-group">
+                                <input type="date" name="new_date" class="date-input" required>
+                                <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
+                            </div>
+                        </form>
+                    </div>
+                    <?php endforeach; else: ?>
+                        <p style="text-align: center; color: #777; font-size: 0.85rem; margin: 10px 0;">No upcoming maternal check-ups.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Upcoming Child Vaccinations -->
+            <div class="table-container">
+                <h3>Upcoming Child Vaccinations</h3>
+                <div class="schedule-card-list">
+                    <?php if (!empty($upcoming_infant)): foreach($upcoming_infant as $sched): 
+                        $infantName = $sched['full_name'] ?? $sched['child_name'] ?? $sched['baby_name'] ?? 'N/A';
+                        $vaccineType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
+                        $schedDateFull = ($sched['schedule_date'] ?? date('Y-m-d')) . (!empty($sched['schedule_time']) ? ' (' . $sched['schedule_time'] . ')' : '');
+                        $schedId = $sched['id'] ?? '';
+                    ?>
+                    <div class="schedule-item infant-border">
+                        <div class="sched-header-row">
+                            <span class="sched-date"><?php echo htmlspecialchars($schedDateFull); ?></span>
+                        </div>
+                        <div class="sched-patient-name"><?php echo htmlspecialchars($infantName); ?></div>
+                        <div class="sched-type">Vaccine: <?php echo htmlspecialchars($vaccineType); ?></div>
+                        
+                        <form method="POST" class="sched-actions">
+                            <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
+                            <button type="submit" name="mark_done_infant" class="btn-mark-done">Mark Done</button>
+                            <div class="resched-group">
+                                <input type="date" name="new_date" class="date-input" required>
+                                <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
+                            </div>
+                        </form>
+                    </div>
+                    <?php endforeach; else: ?>
+                        <p style="text-align: center; color: #777; font-size: 0.85rem; margin: 10px 0;">No upcoming infant schedules.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 </div>
 
-<!-- NEWBORN VERIFICATION MODAL (UPDATED WITH FULL FORM FIELDS) -->
+<!-- NEWBORN VERIFICATION MODAL -->
 <div id="newbornVerifyModal" class="modal">
     <div class="modal-content" style="width: 750px;">
         <h2 style="color:var(--dark-sage); margin-top:0; border-bottom:2px solid var(--border); padding-bottom:10px; font-size:1.2rem;">Infant Registration Review</h2>
@@ -428,7 +568,7 @@ if (check_table_exists($conn, 'schedules')) {
 
         <div class="section-tag">IMMUNIZATION RECORDS</div>
         <div id="nb_vaccines_container" class="checkbox-group" style="background: #F4F4ED; pointer-events: none;">
-            <!-- Dynamically populated to show only checked vaccines -->
+            <!-- Dynamically populated -->
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
@@ -534,7 +674,7 @@ if (check_table_exists($conn, 'schedules')) {
                 </div>
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Birth Attendant in Last Delivery</label>
-                    <input type="text" name="birth_attendant" id="p_birth_attendant" placeholder="e.g. Midwife, Physician, Hilot, etc.">
+                    <input type="text" name="birth_attendant" id="p_birth_attendant" placeholder="e.g. Midwife, Physician, etc.">
                 </div>
             </div>
 
@@ -549,88 +689,6 @@ if (check_table_exists($conn, 'schedules')) {
                 </div>
             </div>
 
-            <div class="form-grid-2" style="margin-top: 10px;">
-                <div class="form-group">
-                    <label>Past Menstrual Period</label>
-                    <input type="text" name="past_menstrual_period" placeholder="Past history details">
-                </div>
-                <div class="form-group">
-                    <label>Duration of Menstrual Bleeding</label>
-                    <input type="text" name="duration_menstrual_bleeding" placeholder="e.g. 3-5 days">
-                </div>
-                <div class="form-group" style="grid-column: span 2;">
-                    <label>Character of Menstrual Bleeding</label>
-                    <input type="text" name="character_menstrual_bleeding" placeholder="e.g. heavy">
-                </div>
-            </div>
-            <div class="checkbox-group" style="margin-top: 10px; max-height: 80px;">
-                <label class="checkbox-label"><input type="checkbox" name="history_ectopic" value="1"> History of Ectopic Pregnancy</label>
-                <label class="checkbox-label"><input type="checkbox" name="history_hydatidiform" value="1"> Hydatidiform mole (within the last 12 months)</label>
-            </div>
-
-            <div class="section-tag">II. MEDICAL HISTORY (REVIEW OF SYSTEM)</div>
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label>HEENT Findings</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Normal"> Normal / No significant findings</label>
-                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Epilepsy / Convulsions / Seizures"> Epilepsy / Convulsions / Seizures</label>
-                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Severe headache / dizziness"> Severe headache / dizziness</label>
-                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Visual disturbance / Blurring of Vision"> Visual disturbance / Blurring of Vision</label>
-                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Yellowish Conjunctiva"> Yellowish Conjunctiva / Pale</label>
-                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Enlarge Thyroid"> Enlarge Thyroid / Lymph Node</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Chest / Heart / Thorax</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Normal"> Normal / No significant findings</label>
-                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Severe chest pain"> Severe chest pain</label>
-                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Shortness of breath"> Shortness of breath and easy fatigability</label>
-                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Breast and axillary masses"> Breast and axillary masses / Masses</label>
-                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Nipple discharges"> Nipple discharges</label>
-                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Abnormal heart / breath sound"> Abnormal heart sound / breath sound</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Abdomen (Medical)</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="Normal"> Normal</label>
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="Mass in the abdomen"> Mass in the abdomen / Tenderness</label>
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="Enlarge Liver"> Enlarge Liver</label>
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="History of Gall Bladder disease"> History of Gall Bladder disease</label>
-                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="History of Liver disease"> History of Liver disease</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Genital / Vaginal Examination</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Normal"> Normal</label>
-                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Vaginal discharge"> Vaginal discharge / Discharges</label>
-                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Intermenstrual bleeding"> Intermenstrual / Postcoital bleeding</label>
-                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Cysts / mass / warts"> Cysts / mass / warts / Scars / Lacerations</label>
-                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Mass in the uterus"> Mass in the uterus</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Extremities</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="extremities_med[]" value="Normal"> Normal</label>
-                        <label class="checkbox-label"><input type="checkbox" name="extremities_med[]" value="Edema"> Edema</label>
-                        <label class="checkbox-label"><input type="checkbox" name="extremities_med[]" value="Varicosities"> Varicosities</label>
-                        <label class="checkbox-label"><input type="checkbox" name="extremities_med[]" value="Joint pains"> Joint pains / Pain on forced dorsiflexion</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Skin & Others</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="skin_med[]" value="Normal"> Normal</label>
-                        <label class="checkbox-label"><input type="checkbox" name="skin_med[]" value="Skin rashes / Lesions"> Skin rashes / Lesions</label>
-                        <label class="checkbox-label"><input type="checkbox" name="skin_med[]" value="Pallor"> Pallor (Paleness)</label>
-                    </div>
-                </div>
-            </div>
-
             <div style="margin-top: 25px; text-align: right;">
                 <button type="button" class="btn-reject" style="background: #95a5a6; padding: 10px 20px;" onclick="closeVerifyModal()">Cancel</button>
                 <button type="submit" name="submit_maternal_approval" class="btn-approve" style="padding: 10px 20px; font-size: 0.85rem;">APPROVE & ENROLL</button>
@@ -640,31 +698,20 @@ if (check_table_exists($conn, 'schedules')) {
 </div>
 
 <script>
-
-    // JS para sa Newborn Modal (Updated mapping)
     function openNewbornModal(data) {
         document.getElementById('nb_child_name').value = data.child_name || '';
         document.getElementById('nb_birth_date').value = data.birth_date || '';
         document.getElementById('nb_gender').value = data.gender || '';
-        
         document.getElementById('nb_weight').value = data.weight_kg || data.weight || data.baby_weight || '';
-        
         document.getElementById('nb_mother_name').value = data.mother_name || '';
         document.getElementById('nb_place_of_birth').value = data.place_of_birth || '';
-        
-        // Itugma ang family serial/no galing sa database column mo
         document.getElementById('nb_family_serial').value = data.family_no || data.family_serial || data.serial_no || '';
-        
         document.getElementById('nb_blood_type').value = data.blood_type || 'Unknown / N/A';
-        
-        // Itugma ang height galing sa database column mo (height_cm)
         document.getElementById('nb_height').value = data.height_cm || data.height || data.birth_height || '';
-        
         document.getElementById('nb_address_details').value = data.address || data.street || '';
         document.getElementById('nb_barangay').value = data.barangay || 'Alawihao';
         document.getElementById('nb_father_name').value = data.father_name || '';
 
-        // Dynamic Immunization Records display (Sinasalo ang vaccine_taken o immunization_records)
         let vaccinesStr = data.vaccine_taken || data.immunization_records || data.vaccines || '';
         let vaccinesArray = vaccinesStr ? vaccinesStr.split(',').map(v => v.trim()) : [];
         let container = document.getElementById('nb_vaccines_container');
@@ -678,7 +725,7 @@ if (check_table_exists($conn, 'schedules')) {
                 container.appendChild(label);
             });
         } else {
-            container.innerHTML = '<span style="font-size: 0.8rem; color: #777; font-style: italic;">No immunization records checked/provided.</span>';
+            container.innerHTML = '<span style="font-size: 0.80rem; color: #777; font-style: italic;">No immunization records checked/provided.</span>';
         }
 
         document.getElementById('confirmNewbornBtn').href = "?approve_id=" + data.id;
@@ -689,18 +736,23 @@ if (check_table_exists($conn, 'schedules')) {
         document.getElementById('newbornVerifyModal').style.display = 'none';
     }
 
-    // JS para sa Maternal Modal
     function openVerifyModal(data) {
         document.getElementById('modal_mother_id').value = data.id || '';
         document.getElementById('p_lname').value = data.client_lname || '';
         document.getElementById('p_fname').value = data.client_fname || '';
-        document.getElementById('p_mname').value = data.client_mi || '';
-        document.getElementById('p_birthdate').value = data.dob || '';
+        document.getElementById('p_mname').value = data.client_mname || data.client_mi || '';
+        document.getElementById('p_birthdate').value = data.birthdate || data.dob || '';
         document.getElementById('p_age').value = data.age || '';
         document.getElementById('p_blood').value = data.blood_type || '';
-        document.getElementById('p_contact').value = data.contact || '';
-        document.getElementById('p_address').value = data.street || '';
-        document.getElementById('p_spouse').value = (data.spouse_fname || '') + ' ' + (data.spouse_lname || '');
+        document.getElementById('p_contact').value = data.contact_no || data.contact || '';
+        document.getElementById('p_address').value = data.address || data.street || '';
+        document.getElementById('p_spouse').value = data.spouse_name || ((data.spouse_fname || '') + ' ' + (data.spouse_lname || '')).trim();
+        
+        if(document.getElementById('p_date_last_delivery')) document.getElementById('p_date_last_delivery').value = data.date_last_delivery || '';
+        if(document.getElementById('p_type_last_delivery')) document.getElementById('p_type_last_delivery').value = data.type_last_delivery || '';
+        if(document.getElementById('p_birth_attendant')) document.getElementById('p_birth_attendant').value = data.birth_attendant || '';
+        if(document.getElementById('p_lmp')) document.getElementById('p_lmp').value = data.lmp || '';
+        if(document.getElementById('p_edc')) document.getElementById('p_edc').value = data.edc || '';
 
         document.getElementById('verifyModal').style.display = 'block';
     }
@@ -709,18 +761,12 @@ if (check_table_exists($conn, 'schedules')) {
         document.getElementById('verifyModal').style.display = 'none';
     }
 
-    // Isara ang modals kapag na-click sa labas ng box
     window.onclick = function(event) {
         var nbModal = document.getElementById('newbornVerifyModal');
         var matModal = document.getElementById('verifyModal');
-        if (event.target == nbModal) {
-            nbModal.style.display = "none";
-        }
-        if (event.target == matModal) {
-            matModal.style.display = "none";
-        }
+        if (event.target == nbModal) nbModal.style.display = "none";
+        if (event.target == matModal) matModal.style.display = "none";
     }
-    
 </script>
 
 </body>
