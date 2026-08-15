@@ -82,9 +82,8 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             width: 100%;
         }
 
-        /* HAMBURGER BUTTON SA TOPBAR (Lilitaw lang kapag naka-close) */
+        /* HAMBURGER BUTTON SA TOPBAR */
         .hamburger-btn {
-            display: block !important;       
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -93,7 +92,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             padding: 5px 8px;
             border-radius: 6px;
             transition: background 0.2s;
-            display: none; 
+            display: none;
         }
         .hamburger-btn:hover {
             background: var(--bg);
@@ -102,14 +101,23 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             display: inline-block;
         }
 
+        /* Inayos ang margin para hindi matakpan ang logo kapag naka-close ang sidebar */
+        body.sidebar-closed .topbar img {
+            margin-left: 42px; 
+            transition: margin 0.3s ease;
+        }
+
+        .topbar img {
+            transition: margin 0.3s ease;
+        }
+
         .topbar .logo-text { display: flex; flex-direction: column; }
         .topbar .logo-text span { font-size: 0.72rem; color: var(--muted); font-weight: 500; letter-spacing: 0.5px; }
         .topbar .logo-text strong { font-size: 1rem; color: var(--green); font-weight: 700; font-family: 'Playfair Display', serif; }
 
         .container { 
-            max-width: 1200px; 
             width: 100%; 
-            padding: 28px 30px 0; 
+            padding: 24px 30px 0; 
             margin: 0 auto;
         }
 
@@ -126,6 +134,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             justify-content: space-between;
             margin-bottom: 24px;
             box-shadow: 0 4px 15px rgba(45,80,22,0.04);
+            width: 100%;
         }
         .welcome-banner .text h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 6px; color: var(--green); font-family: 'Playfair Display', serif; }
         .welcome-banner .text p { font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
@@ -134,6 +143,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         .search-wrapper {
             position: relative;
             margin-bottom: 28px;
+            width: 100%;
         }
         .search-wrapper input {
             width: 100%;
@@ -159,6 +169,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             margin: 28px 0 14px;
             border-bottom: 1px solid var(--card-border);
             padding-bottom: 8px;
+            width: 100%;
         }
         .section-header .left { display: flex; align-items: center; gap: 10px; }
         .section-header h2 { font-size: 1.1rem; font-weight: 700; font-family: 'Playfair Display', serif; }
@@ -169,9 +180,10 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         /* SCROLL WRAPPER */
         .scroll-wrapper {
             display: flex;
-            gap: 16px;
+            gap: 20px;
             overflow-x: auto;
             padding-bottom: 12px;
+            width: 100%;
             scrollbar-width: thin;
             scrollbar-color: var(--light) transparent;
         }
@@ -180,15 +192,16 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
 
         /* CARD */
         .info-card {
-            min-width: 160px;
-            max-width: 160px;
+            flex: 1 1 240px;
+            min-width: 240px;
+            max-width: 290px;
             background: var(--white);
             border-radius: 14px;
             overflow: hidden;
             cursor: pointer;
             transition: all 0.25s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 12px rgba(45, 80, 22, 0.08);
+            border: none;
             text-decoration: none;
             display: block;
             position: relative;
@@ -198,14 +211,11 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .info-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
-        .info-card.green:hover { border-color: var(--accent); }
-        .info-card.blue:hover { border-color: var(--blue); }
-        .info-card.orange:hover { border-color: var(--orange); }
+        .info-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(45, 80, 22, 0.15); }
         .info-card.hidden { display: none; }
 
         .card-icon {
-            height: 110px;
+            height: 180px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -224,9 +234,9 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
 
         .card-label {
             color: white;
-            padding: 10px 8px;
+            padding: 12px 10px;
             text-align: center;
-            font-size: 0.68rem;
+            font-size: 0.75rem;
             font-weight: 700;
             letter-spacing: 0.4px;
             line-height: 1.3;
@@ -282,7 +292,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         .site-footer hr { border: none; border-top: 1px solid var(--card-border); margin: 14px auto; width: 40px; }
     </style>
 </head>
-<body class="sidebar-closed"> <!-- Naka-set na sa sidebar-closed para nakatago agad sa umpisa -->
+<body class="sidebar-closed">
 
 <!-- SIDEBAR CONTAINER -->
 <div class="sidebar-container">
@@ -426,12 +436,10 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
 </div>
 
 <script>
-    // Toggle Function para buksan/isara ang sidebar mula sa topbar
     function toggleSidebar() {
         document.body.classList.toggle('sidebar-closed');
     }
 
-    // Real-time Search ng Health Topics
     function filterCards() {
         const query = document.getElementById('searchInput').value.toLowerCase();
         const cards = document.querySelectorAll('.info-card');
