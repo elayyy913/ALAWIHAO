@@ -67,14 +67,14 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             width: 100%;
         }
 
-        /* TOPBAR */
+        /* TOPBAR - Pinalaki ang padding para mas maging maluwag/makapal */
         .topbar {
             background: var(--white);
             border-bottom: 2px solid var(--card-border);
-            padding: 14px 24px;
+            padding: 18px 30px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 18px;
             position: sticky;
             top: 0;
             z-index: 200;
@@ -86,10 +86,10 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         .hamburger-btn {
             background: none;
             border: none;
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             color: var(--green);
             cursor: pointer;
-            padding: 5px 8px;
+            padding: 6px 10px;
             border-radius: 6px;
             transition: background 0.2s;
             display: none;
@@ -101,19 +101,18 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             display: inline-block;
         }
 
-        /* Inayos ang margin para hindi matakpan ang logo kapag naka-close ang sidebar */
+        /* Dynamic margin para sa logo kapag naka-close ang sidebar */
         body.sidebar-closed .topbar img {
-            margin-left: 42px; 
+            margin-left: 46px; 
             transition: margin 0.3s ease;
         }
-
         .topbar img {
             transition: margin 0.3s ease;
         }
 
         .topbar .logo-text { display: flex; flex-direction: column; }
-        .topbar .logo-text span { font-size: 0.72rem; color: var(--muted); font-weight: 500; letter-spacing: 0.5px; }
-        .topbar .logo-text strong { font-size: 1rem; color: var(--green); font-weight: 700; font-family: 'Playfair Display', serif; }
+        .topbar .logo-text span { font-size: 0.78rem; color: var(--muted); font-weight: 500; letter-spacing: 0.5px; }
+        .topbar .logo-text strong { font-size: 1.15rem; color: var(--green); font-weight: 700; font-family: 'Playfair Display', serif; }
 
         .container { 
             width: 100%; 
@@ -306,7 +305,8 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             <i class="fa fa-bars"></i>
         </button>
 
-        <img src="image/brgy.jpg" alt="Brgy Logo" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
+        <!-- Pinalaki ang sukat ng logo (50px) at ginamit ang tamang folder at file name na images/logo.png -->
+        <img src="images/logo.png" alt="Brgy Logo" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
         <div class="logo-text">
             <span>Barangay Alawihao Health Center</span>
             <strong>ALAWIHAO HEALTH HUB</strong>
@@ -339,32 +339,32 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         <div class="scroll-wrapper" id="maternal">
             <a class="info-card green" href="health_article.php?topic=warning-signs">
                 <span class="tooltip-text">Mga palatandaan na dapat pansinin habang buntis</span>
-                <div class="card-icon"><img src="image/MGA BABALA HABANG BUNTIS.jpg" alt="Mga Babala"></div>
+                <div class="card-icon"><img src="images/pic9.jpg" alt="Mga Babala"></div>
                 <div class="card-label green">MGA BABALA HABANG BUNTIS</div>
             </a>
             <a class="info-card green" href="health_article.php?topic=prenatal-checkup">
                 <span class="tooltip-text">Schedule at proseso ng pre-natal check-up</span>
-                <div class="card-icon"><img src="image/PRE-NATAL CHECK UP.jpg" alt="Pre-natal"></div>
+                <div class="card-icon"><img src="images/pic10.jpg" alt="Pre-natal"></div>
                 <div class="card-label green">PRE-NATAL CHECK-UP</div>
             </a>
             <a class="info-card green" href="health_article.php?topic=pregnancy-dos">
                 <span class="tooltip-text">Mga malusog na gawi para sa buntis</span>
-                <div class="card-icon"><img src="image/PREGNANCY DO'S.jpg" alt="Pregnancy Dos"></div>
+                <div class="card-icon"><img src="images/pic11.jpg" alt="Pregnancy Dos"></div>
                 <div class="card-label green">PREGNANCY DO'S</div>
             </a>
             <a class="info-card green" href="health_article.php?topic=pregnancy-donts">
                 <span class="tooltip-text">Mga dapat iwasan habang buntis</span>
-                <div class="card-icon"><img src="image/PREGNANCY DON'T.jpg" alt="Pregnancy Donts"></div>
+                <div class="card-icon"><img src="images/pic8.jpg" alt="Pregnancy Donts"></div>
                 <div class="card-label green">PREGNANCY DON'TS</div>
             </a>
             <a class="info-card green" href="health_article.php?topic=pamahiin">
                 <span class="tooltip-text">Totoo o hindi ang mga kilalang pamahiin?</span>
-                <div class="card-icon"><img src="image/SABI SABI.jpg" alt="Pamahiin"></div>
+                <div class="card-icon"><img src="images/pic12.webp" alt="Pamahiin"></div>
                 <div class="card-label green">SABI-SABI VS. TOTOO</div>
             </a>
             <a class="info-card green" href="health_article.php?topic=baby-growth">
                 <span class="tooltip-text">Buwanang paglaki ni baby sa sinapupunan</span>
-                <div class="card-icon"><img src="image/PAGLAKI NI BABY SA SINAPUPUNAN.jpg" alt="Baby Growth"></div>
+                <div class="card-icon"><img src="images/pic13.jpg" alt="Baby Growth"></div>
                 <div class="card-label green">PAGLAKI NI BABY SA SINAPUPUNAN</div>
             </a>
         </div>
@@ -378,27 +378,27 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         <div class="scroll-wrapper" id="newborn">
             <a class="info-card blue" href="health_article.php?topic=newborn-care">
                 <span class="tooltip-text">Tamang pag-aalaga sa bagong silang na sanggol</span>
-                <div class="card-icon"><img src="image/pic1.jpg" alt="Newborn Care"></div>
+                <div class="card-icon"><img src="images/pic6.jpg" alt="Newborn Care"></div>
                 <div class="card-label blue">PANGANGALAGA SA BAGONG SILANG</div>
             </a>
             <a class="info-card blue" href="health_article.php?topic=unang-linggo">
                 <span class="tooltip-text">Mga pangangailangan ni baby sa unang linggo</span>
-                <div class="card-icon"><img src="image/Unang linggo.jpg" alt="Unang Linggo"></div>
+                <div class="card-icon"><img src="images/pic3.jpg" alt="Unang Linggo"></div>
                 <div class="card-label blue">UNANG LINGGO NG PAGSILANG</div>
             </a>
             <a class="info-card blue" href="health_article.php?topic=breastfeeding">
                 <span class="tooltip-text">Benepisyo ng 6 na buwang eksklusibong pagpapasuso</span>
-                <div class="card-icon"><img src="image/PAGPAPASUSO.jpg" alt="Breastfeeding"></div>
+                <div class="card-icon"><img src="images/pic1.jpg" alt="Breastfeeding"></div>
                 <div class="card-label blue">EKSKLUSIBONG PAGPAPASUSO</div>
             </a>
             <a class="info-card blue" href="health_article.php?topic=baby-milestones">
                 <span class="tooltip-text">Mga bagong kakayahan ni baby sa bawat buwan</span>
-                <div class="card-icon"><img src="image/PAGLAKI NG SANGGOL.jpg" alt="Milestones"></div>
+                <div class="card-icon"><img src="images/pic7.webp" alt="Milestones"></div>
                 <div class="card-label blue">PAGLAKI NG SANGGOL</div>
             </a>
             <a class="info-card blue" href="health_article.php?topic=baby-safety">
                 <span class="tooltip-text">Mga gabay para sa kaligtasan ni baby sa tahanan</span>
-                <div class="card-icon"><img src="image/KALIGTASAN.jpg" alt="Baby Safety"></div>
+                <div class="card-icon"><img src="images/pic2.jpg" alt="Baby Safety"></div>
                 <div class="card-label blue">KALIGTASAN NI BABY</div>
             </a>
         </div>
@@ -412,12 +412,12 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         <div class="scroll-wrapper" id="programs">
             <a class="info-card orange" href="health_article.php?topic=philhealth">
                 <span class="tooltip-text">Mga benepisyo ng PhilHealth para sa ina at sanggol</span>
-                <div class="card-icon"><img src="image/pic4.jpg" alt="PhilHealth"></div>
+                <div class="card-icon"><img src="images/pic13.webp" alt="PhilHealth"></div>
                 <div class="card-label orange">PHILHEALTH BENEFITS</div>
             </a>
             <a class="info-card orange" href="health_article.php?topic=family-planning">
                 <span class="tooltip-text">Iba't ibang pamamaraan ng family planning</span>
-                <div class="card-icon"><img src="image/FAMILY PLANNING.jpg" alt="Family Planning"></div>
+                <div class="card-icon"><img src="images/pic14.webp" alt="Family Planning"></div>
                 <div class="card-label orange">FAMILY PLANNING</div>
             </a>
         </div>
