@@ -92,6 +92,39 @@ if (isset($_POST['submit_maternal_approval'])) {
     $fh = isset($_POST['family_history_details']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['family_history_details'])) : '';
     $phh = isset($_POST['past_health_details']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['past_health_details'])) : '';
     $sh = isset($_POST['social_history_details']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['social_history_details'])) : '';
+    $smoking_sticks = mysqli_real_escape_string($conn, $_POST['smoking_sticks_per_day'] ?? '');
+    $alcohol_amount = mysqli_real_escape_string($conn, $_POST['alcohol_amount_per_day'] ?? '');
+
+    // Obstetrical history checkboxes
+    $obstetric_findings = isset($_POST['obstetric_findings']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['obstetric_findings'])) : '';
+    $past_menstrual_period = mysqli_real_escape_string($conn, $_POST['past_menstrual_period'] ?? '');
+    $char_menstrual_bleeding = mysqli_real_escape_string($conn, $_POST['character_menstrual_bleeding_pads'] ?? '');
+
+    // Family Planning History
+    $fp_previous_method = mysqli_real_escape_string($conn, $_POST['fp_previous_method'] ?? '');
+    $fp_duration = mysqli_real_escape_string($conn, $_POST['fp_duration'] ?? '');
+
+    // Physical Examination - Vital Signs
+    $vs_bp = mysqli_real_escape_string($conn, $_POST['vs_bp'] ?? '');
+    $vs_weight = mysqli_real_escape_string($conn, $_POST['vs_weight'] ?? '');
+    $vs_pulse = mysqli_real_escape_string($conn, $_POST['vs_pulse'] ?? '');
+    $vs_height = mysqli_real_escape_string($conn, $_POST['vs_height'] ?? '');
+    $vs_muac = mysqli_real_escape_string($conn, $_POST['vs_muac'] ?? '');
+    $vs_bmi = mysqli_real_escape_string($conn, $_POST['vs_bmi'] ?? '');
+    $vs_bmi_category = mysqli_real_escape_string($conn, $_POST['vs_bmi_category'] ?? '');
+
+    // Physical Examination - checkbox groups
+    $pe_conjunctiva = isset($_POST['conjunctiva_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['conjunctiva_exam'])) : '';
+    $pe_neck = isset($_POST['neck_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['neck_exam'])) : '';
+    $pe_breast = isset($_POST['breast_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['breast_exam'])) : '';
+    $pe_breast_mass_left = mysqli_real_escape_string($conn, $_POST['breast_mass_left'] ?? '');
+    $pe_breast_mass_right = mysqli_real_escape_string($conn, $_POST['breast_mass_right'] ?? '');
+    $pe_thorax = isset($_POST['thorax_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['thorax_exam'])) : '';
+    $pe_abdomen = isset($_POST['abdomen_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['abdomen_exam'])) : '';
+    $pe_vaginal = isset($_POST['vaginal_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['vaginal_exam'])) : '';
+    $pe_vaginal_others = mysqli_real_escape_string($conn, $_POST['vaginal_others_specify'] ?? '');
+    $pe_extremities = isset($_POST['extremities_exam']) ? mysqli_real_escape_string($conn, implode(', ', $_POST['extremities_exam'])) : '';
+    $tt_status = mysqli_real_escape_string($conn, $_POST['tt_status'] ?? '');
 
     $gravida = mysqli_real_escape_string($conn, $_POST['gravida']);
     $para = mysqli_real_escape_string($conn, $_POST['para']);
@@ -116,6 +149,8 @@ if (isset($_POST['submit_maternal_approval'])) {
             family_history = '$fh', 
             past_health_history = '$phh', 
             social_history = '$sh',
+            smoking_sticks_per_day = '$smoking_sticks',
+            alcohol_amount_per_day = '$alcohol_amount',
             gravida = '$gravida', 
             para = '$para', 
             full_term = '$full_term', 
@@ -124,16 +159,43 @@ if (isset($_POST['submit_maternal_approval'])) {
             living_children = '$living_children',
             past_lmp = '$past_lmp',
             bleeding_duration_days = '$bleeding_duration',
-            last_delivery_attendant = '$last_attendant'
+            last_delivery_attendant = '$last_attendant',
+            obstetric_findings = '$obstetric_findings',
+            past_menstrual_period = '$past_menstrual_period',
+            character_menstrual_bleeding_pads = '$char_menstrual_bleeding',
+            fp_previous_method = '$fp_previous_method',
+            fp_duration = '$fp_duration',
+            vs_bp = '$vs_bp',
+            vs_weight = '$vs_weight',
+            vs_pulse = '$vs_pulse',
+            vs_height = '$vs_height',
+            vs_muac = '$vs_muac',
+            vs_bmi = '$vs_bmi',
+            vs_bmi_category = '$vs_bmi_category',
+            pe_conjunctiva = '$pe_conjunctiva',
+            pe_neck = '$pe_neck',
+            pe_breast = '$pe_breast',
+            pe_breast_mass_left = '$pe_breast_mass_left',
+            pe_breast_mass_right = '$pe_breast_mass_right',
+            pe_thorax = '$pe_thorax',
+            pe_abdomen = '$pe_abdomen',
+            pe_vaginal = '$pe_vaginal',
+            pe_vaginal_others = '$pe_vaginal_others',
+            pe_extremities = '$pe_extremities',
+            tt_status = '$tt_status'
             WHERE patient_id = '$mother_id'";
     } else {
         $history_sql = "INSERT INTO pregnancy_history 
-            (patient_id, heent_findings, chest_heart, abdomen_med, genital_med, extremities_med, skin_med, family_history, past_health_history, social_history, gravida, para, full_term, premature, abortion, living_children, past_lmp, bleeding_duration_days, last_delivery_attendant) 
-            VALUES ('$mother_id', '$heent', '$chest', '$abdomen', '$genital', '$extremities', '$skin', '$fh', '$phh', '$sh', '$gravida', '$para', '$full_term', '$premature', '$abortion', '$living_children', '$past_lmp', '$bleeding_duration', '$last_attendant')";
+            (patient_id, heent_findings, chest_heart, abdomen_med, genital_med, extremities_med, skin_med, family_history, past_health_history, social_history, smoking_sticks_per_day, alcohol_amount_per_day, gravida, para, full_term, premature, abortion, living_children, past_lmp, bleeding_duration_days, last_delivery_attendant, obstetric_findings, past_menstrual_period, character_menstrual_bleeding_pads, fp_previous_method, fp_duration, vs_bp, vs_weight, vs_pulse, vs_height, vs_muac, vs_bmi, vs_bmi_category, pe_conjunctiva, pe_neck, pe_breast, pe_breast_mass_left, pe_breast_mass_right, pe_thorax, pe_abdomen, pe_vaginal, pe_vaginal_others, pe_extremities, tt_status) 
+            VALUES ('$mother_id', '$heent', '$chest', '$abdomen', '$genital', '$extremities', '$skin', '$fh', '$phh', '$sh', '$smoking_sticks', '$alcohol_amount', '$gravida', '$para', '$full_term', '$premature', '$abortion', '$living_children', '$past_lmp', '$bleeding_duration', '$last_attendant', '$obstetric_findings', '$past_menstrual_period', '$char_menstrual_bleeding', '$fp_previous_method', '$fp_duration', '$vs_bp', '$vs_weight', '$vs_pulse', '$vs_height', '$vs_muac', '$vs_bmi', '$vs_bmi_category', '$pe_conjunctiva', '$pe_neck', '$pe_breast', '$pe_breast_mass_left', '$pe_breast_mass_right', '$pe_thorax', '$pe_abdomen', '$pe_vaginal', '$pe_vaginal_others', '$pe_extremities', '$tt_status')";
     }
 
     if (mysqli_query($conn, $history_sql)) {
         header("Location: super_admin_dashboard.php?msg=MaternalApproved"); 
+        exit();
+    } else {
+        // Dinagdag para madaling makita kung may database column error pa rin
+        echo "Database Error: " . mysqli_error($conn);
         exit();
     }
 }
@@ -626,6 +688,98 @@ if (check_table_exists($conn, 'schedules')) {
                 </div>
             </div>
 
+            <div class="section-tag">II. REVIEW OF SYSTEMS</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label>HEENT</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Epilepsy / Convulsions / Seizures"> Epilepsy / Convulsions / Seizures</label>
+                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Severe headache / dizziness"> Severe headache / dizziness</label>
+                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Visual disturbance Blurring of Vision"> Visual disturbance Blurring of Vision</label>
+                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Yellowish Conjunctiva"> Yellowish Conjunctiva</label>
+                        <label class="checkbox-label"><input type="checkbox" name="heent_findings[]" value="Enlarge Thyroid"> Enlarge Thyroid</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Chest / Heart</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Severe chest pain"> Severe chest pain</label>
+                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Shortness of breath and easy fatigability"> Shortness of breath and easy fatigability</label>
+                        <label class="checkbox-label"><input type="checkbox" name="chest_heart[]" value="Breast and axillary masses"> Breast and axillary masses</label>
+                        <label class="checkbox-label" style="flex-wrap: wrap;">
+                            <input type="checkbox" name="chest_heart[]" value="Nipple discharges"> Nipple discharges (specify if blood or pus)
+                        </label>
+                        <input type="text" name="nipple_discharge_specify" placeholder="Specify: blood or pus" style="padding:6px; border:1px solid #ccc; border-radius:4px; font-size:0.8rem;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Abdomen</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="Mass in the abdomen"> Mass in the abdomen</label>
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="History of Gall Bladder disease"> History of Gall Bladder disease</label>
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen_med[]" value="History of Liver disease"> History of Liver disease</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Genital</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Vaginal discharge"> Vaginal discharge</label>
+                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Intermenstrual bleeding"> Intermenstrual bleeding</label>
+                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Postcoital bleeding"> Postcoital bleeding</label>
+                        <label class="checkbox-label"><input type="checkbox" name="genital_med[]" value="Mass in the uterus"> Mass in the uterus</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Extremities</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="extremities_med[]" value="Severe varicosities"> Severe varicosities</label>
+                        <label class="checkbox-label"><input type="checkbox" name="extremities_med[]" value="Swelling or severe pain in the legs not related to injuries"> Swelling or severe pain in the legs not related to injuries</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Skin</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" name="skin_med[]" value="Yellowish"> Yellowish</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-tag">III. FAMILY HISTORY</div>
+            <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; max-height:none;">
+                <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="CVA (stroke)"> CVA (stroke)</label>
+                <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Hypertension"> Hypertension</label>
+                <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Asthma"> Asthma</label>
+                <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Heart Disease"> Heart Disease</label>
+                <label class="checkbox-label"><input type="checkbox" name="family_history_details[]" value="Diabetes"> Diabetes</label>
+            </div>
+
+            <div class="section-tag">IV. PAST HEALTH HISTORY</div>
+            <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; max-height:none;">
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Allergies"> Allergies</label>
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Drug intake (anti-TB, anti-diabetic, anti-convulsant)"> Drug intake (anti-TB, anti-diabetic, anti-convulsant)</label>
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Bleeding tendencies (nose, gums, etc.)"> Bleeding tendencies (nose, gums, etc.)</label>
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Anemia"> Anemia</label>
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Diabetes"> Diabetes</label>
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Itching or sores in or around the vagina"> Itching or sores in or around the vagina</label>
+                <label class="checkbox-label"><input type="checkbox" name="past_health_details[]" value="Pain or burning sensation on urination"> Pain or burning sensation on urination</label>
+            </div>
+
+            <div class="section-tag">V. SOCIAL HISTORY</div>
+            <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; max-height:none;">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="social_history_details[]" value="Smoking"> Smoking
+                    <input type="text" name="smoking_sticks_per_day" placeholder="# of sticks/day" style="width:110px; margin-left:6px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:0.75rem;">
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="social_history_details[]" value="Alcohol beverage"> Alcohol beverage
+                    <input type="text" name="alcohol_amount_per_day" placeholder="amount/day" style="width:110px; margin-left:6px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:0.75rem;">
+                </label>
+                <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Obesity"> Obesity</label>
+                <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="History of domestic violence or VAW"> History of domestic violence or VAW</label>
+                <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Unpleasant relationship with partner"> Unpleasant relationship with partner</label>
+                <label class="checkbox-label"><input type="checkbox" name="social_history_details[]" value="Treated STIs in the past"> Treated STIs in the past</label>
+            </div>
+
             <div class="section-tag">I. OBSTETRICAL & MENSTRUAL HISTORY</div>
             <div class="form-grid">
                 <div class="form-group">
@@ -652,6 +806,11 @@ if (check_table_exists($conn, 'schedules')) {
                     <label>Living Children</label>
                     <input type="number" name="living_children" value="0" min="0">
                 </div>
+            </div>
+
+            <div class="checkbox-group" style="display:flex; flex-direction:row; gap:20px; margin-top:8px; max-height:none;">
+                <label class="checkbox-label"><input type="checkbox" name="obstetric_findings[]" value="History of Ectopic Pregnancy"> History of Ectopic Pregnancy</label>
+                <label class="checkbox-label"><input type="checkbox" name="obstetric_findings[]" value="Hydatidiform mole (within the last 12 months)"> Hydatidiform mole (within the last 12 months)</label>
             </div>
 
             <div class="form-grid-2" style="margin-top: 10px;">
@@ -686,6 +845,145 @@ if (check_table_exists($conn, 'schedules')) {
                 <div class="form-group">
                     <label>EDC (Expected Date of Confinement)</label>
                     <input type="date" name="edc" id="p_edc">
+                </div>
+            </div>
+
+            <div class="form-grid" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Past Menstrual Period</label>
+                    <input type="date" name="past_menstrual_period">
+                </div>
+                <div class="form-group">
+                    <label>Duration of Menstrual Bleeding</label>
+                    <input type="text" name="duration_menstrual_bleeding" placeholder="e.g. 3-4 days">
+                </div>
+                <div class="form-group">
+                    <label>Character of Menstrual Bleeding (# of pads)</label>
+                    <input type="text" name="character_menstrual_bleeding_pads" placeholder="e.g. 3 pads/day">
+                </div>
+            </div>
+
+            <div class="section-tag">VII. FAMILY PLANNING HISTORY</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label>Previously Used Method</label>
+                    <input type="text" name="fp_previous_method" placeholder="e.g. Pills, IUD, Condom, None">
+                </div>
+                <div class="form-group">
+                    <label>Duration</label>
+                    <input type="text" name="fp_duration" placeholder="e.g. 2 years">
+                </div>
+            </div>
+            <p style="font-size: 0.75rem; color: #777; font-style: italic; margin: 4px 0 5px;">Kindly refer to PHYSICIAN for any checked (&#10003;) findings for further evaluation.</p>
+
+            <div class="section-tag">VIII. PHYSICAL EXAMINATION</div>
+
+            <div class="form-group"><label>Vital Signs</label></div>
+            <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="form-group">
+                    <label>Blood Pressure (mm/Hg)</label>
+                    <input type="text" name="vs_bp" placeholder="e.g. 110/70">
+                </div>
+                <div class="form-group">
+                    <label>Weight (kgs)</label>
+                    <input type="number" step="0.1" name="vs_weight">
+                </div>
+                <div class="form-group">
+                    <label>Pulse (bpm)</label>
+                    <input type="number" name="vs_pulse">
+                </div>
+                <div class="form-group">
+                    <label>Height (cm)</label>
+                    <input type="number" step="0.1" name="vs_height">
+                </div>
+                <div class="form-group">
+                    <label>MUAC</label>
+                    <input type="text" name="vs_muac">
+                </div>
+                <div class="form-group">
+                    <label>BMI</label>
+                    <input type="text" name="vs_bmi">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <input type="text" name="vs_bmi_category" placeholder="e.g. Normal, Underweight">
+                </div>
+            </div>
+
+            <div class="form-grid-2" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Conjunctiva</label>
+                    <div class="checkbox-group" style="display:flex; flex-direction:row; gap:15px; max-height:none;">
+                        <label class="checkbox-label"><input type="checkbox" name="conjunctiva_exam[]" value="Pale"> Pale</label>
+                        <label class="checkbox-label"><input type="checkbox" name="conjunctiva_exam[]" value="Yellowish"> Yellowish</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Neck</label>
+                    <div class="checkbox-group" style="display:flex; flex-direction:row; gap:15px; max-height:none;">
+                        <label class="checkbox-label"><input type="checkbox" name="neck_exam[]" value="Enlarged Thyroid"> Enlarged Thyroid</label>
+                        <label class="checkbox-label"><input type="checkbox" name="neck_exam[]" value="Enlarged Lymph Node"> Enlarged Lymph Node</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 10px;">
+                <label>Breast</label>
+                <div class="checkbox-group" style="max-height:none;">
+                    <label class="checkbox-label" style="flex-wrap: wrap; gap: 8px;">
+                        <input type="checkbox" name="breast_exam[]" value="Mass"> Mass —
+                        Left: <input type="text" name="breast_mass_left" placeholder="size/notes" style="width:110px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:0.75rem;">
+                        Right: <input type="text" name="breast_mass_right" placeholder="size/notes" style="width:110px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:0.75rem;">
+                    </label>
+                    <label class="checkbox-label"><input type="checkbox" name="breast_exam[]" value="Nipple discharge"> Nipple discharge</label>
+                    <label class="checkbox-label"><input type="checkbox" name="breast_exam[]" value="Skin - orange peel or dimpling"> Skin - orange peel or dimpling</label>
+                    <label class="checkbox-label"><input type="checkbox" name="breast_exam[]" value="Enlarged axillary lymph nodes"> Enlarged axillary lymph nodes</label>
+                </div>
+            </div>
+
+            <div class="form-grid-2" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Thorax</label>
+                    <div class="checkbox-group" style="max-height:none;">
+                        <label class="checkbox-label"><input type="checkbox" name="thorax_exam[]" value="Abnormal heart sound / cardiac rate"> Abnormal heart sound / cardiac rate</label>
+                        <label class="checkbox-label"><input type="checkbox" name="thorax_exam[]" value="Abnormal breath sound / respiratory rate"> Abnormal breath sound / respiratory rate</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Abdomen</label>
+                    <div class="checkbox-group" style="max-height:none;">
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen_exam[]" value="Enlarge Liver"> Enlarge Liver</label>
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen_exam[]" value="Mass"> Mass</label>
+                        <label class="checkbox-label"><input type="checkbox" name="abdomen_exam[]" value="Tenderness"> Tenderness</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 10px;">
+                <label>Vaginal Examination</label>
+                <div class="checkbox-group" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; max-height:none;">
+                    <label class="checkbox-label"><input type="checkbox" name="vaginal_exam[]" value="Bleeding"> Bleeding</label>
+                    <label class="checkbox-label"><input type="checkbox" name="vaginal_exam[]" value="Discharges"> Discharges</label>
+                    <label class="checkbox-label"><input type="checkbox" name="vaginal_exam[]" value="Cysts / mass"> Cysts / mass</label>
+                    <label class="checkbox-label"><input type="checkbox" name="vaginal_exam[]" value="Scars"> Scars</label>
+                    <label class="checkbox-label"><input type="checkbox" name="vaginal_exam[]" value="Warts"> Warts</label>
+                    <label class="checkbox-label"><input type="checkbox" name="vaginal_exam[]" value="Lacerations"> Lacerations</label>
+                </div>
+                <input type="text" name="vaginal_others_specify" placeholder="Others (specify)" style="margin-top:6px; padding:6px; border:1px solid #ccc; border-radius:4px; font-size:0.8rem;">
+            </div>
+
+            <div class="form-grid-2" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Extremities</label>
+                    <div class="checkbox-group" style="max-height:none;">
+                        <label class="checkbox-label"><input type="checkbox" name="extremities_exam[]" value="Edema"> Edema</label>
+                        <label class="checkbox-label"><input type="checkbox" name="extremities_exam[]" value="Varicosities"> Varicosities</label>
+                        <label class="checkbox-label"><input type="checkbox" name="extremities_exam[]" value="Pain on forced dorsiflexion"> Pain on forced dorsiflexion</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>TT Status</label>
+                    <input type="text" name="tt_status" placeholder="e.g. TT2, Complete">
                 </div>
             </div>
 

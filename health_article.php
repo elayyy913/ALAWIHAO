@@ -8,6 +8,7 @@ $slug = $_GET['topic'] ?? '';
 $articles = [
 'warning-signs' => [
     'title' => 'Mga Babala Habang Buntis',
+    'icon' => 'fa-triangle-exclamation',
     'intro' => 'Nanay, kung maramdaman o mapansin ang alin man sa mga ito, pumunta agad sa health center!',
     'sections' => [
         ['heading' => 'Mga Palatandaan na Dapat Pansinin', 'type' => 'list', 'items' => [
@@ -26,6 +27,7 @@ $articles = [
 ],
 'prenatal-checkup' => [
     'title' => 'Pre-natal Check-up',
+    'icon' => 'fa-stethoscope',
     'intro' => 'Alamin ang mga dapat mangyari sa bawat check-up at siguraduhing ito ay magagampanan ng iyong health service provider.',
     'sections' => [
         ['heading' => 'Schedule ng Check-up', 'type' => 'table', 'rows' => [
@@ -51,6 +53,7 @@ $articles = [
 ],
 'pregnancy-dos' => [
     'title' => "Pregnancy Do's",
+    'icon' => 'fa-thumbs-up',
     'intro' => 'Makinig sa mga payong makabubuti sa iyo at sa dinadalang anak.',
     'sections' => [
         ['heading' => 'Mga Dapat Gawin', 'type' => 'list', 'items' => [
@@ -65,6 +68,7 @@ $articles = [
 ],
 'pregnancy-donts' => [
     'title' => "Pregnancy Don'ts",
+    'icon' => 'fa-ban',
     'intro' => 'Iwasan ang mga bagay na maaaring makapinsala sa iyo at sa iyong sanggol.',
     'sections' => [
         ['heading' => 'Mga Dapat Iwasan', 'type' => 'list', 'items' => [
@@ -76,6 +80,7 @@ $articles = [
 ],
 'pamahiin' => [
     'title' => 'Mga Pamahiin: Sabi-sabi vs. Totoo',
+    'icon' => 'fa-book-open',
     'intro' => 'Huwag basta maniwala sa mga sabi-sabi tungkol sa pagbubuntis. Alamin ang totoo at kumonsulta sa mga health service providers.',
     'sections' => [
         ['heading' => 'Sabi-sabi #1', 'type' => 'myth', 'myth' => 'Kapag ang leeg at singit ni nanay ay maitim habang buntis, siguradong lalaki ang anak.', 'truth' => 'Ang pangingilim ng leeg, singit, o iba pang bahagi ng katawan ng buntis ay dahil sa mga hormones na nagbabago o mas dumarami habang buntis. Hindi ibig sabihin nito na lalaki ang magiging anak. Panatilihing malinis at maligo araw-araw.'],
@@ -88,6 +93,7 @@ $articles = [
 ],
 'baby-growth' => [
     'title' => 'Ang Paglaki ni Baby sa Sinapupunan ni Nanay',
+    'icon' => 'fa-baby',
     'intro' => 'Nanay, ito ang iyong buwanang patnubay sa paglaki ni baby sa loob ng iyong sinapupunan. Anuman ang iyong kainin at gawin ay maaaring makaapekto sa tamang paglaki at paghubog ni baby.',
     'sections' => [
         ['heading' => '0-4 na Linggo', 'type' => 'text', 'content' => 'Ang sukat ni baby ay 2 milimetro ang haba. Nagsisimula nang mahubog ang kanyang utak, gulugod, at mukha. Iwasan ang mga gamot na makakaapekto sa kanya. Tumingin sa magagandang larawan at tanawin.'],
@@ -97,6 +103,7 @@ $articles = [
 ],
 'newborn-care' => [
     'title' => 'Pangangalaga sa Bagong Silang na Sanggol',
+    'icon' => 'fa-hands-holding-child',
     'intro' => 'Ang mga sumusunod ay ang mga ibinigay na payo sa paraan ng pag-aalaga sa sanggol.',
     'sections' => [
         ['heading' => 'Mga Dapat Gawin', 'type' => 'list', 'items' => [
@@ -120,6 +127,7 @@ $articles = [
 ],
 'unang-linggo' => [
     'title' => 'Ang Mga Pangangailangan ni Baby sa Unang Linggo ng Pagsilang',
+    'icon' => 'fa-calendar-day',
     'intro' => 'Ang unang linggo ng buhay ni baby ay napakahalaga. Narito ang mga dapat malaman ng bawat nanay.',
     'sections' => [
         ['heading' => 'Pagpapanatili ng Init', 'type' => 'text', 'content' => 'Panatilihin ang init sa katawan ni baby sa pamamagitan ng skin-to-skin contact. Balutin sa kumot si baby upang di malamigan at mapanatili ang init ng kanyang katawan. Upang mapanatili ang init ng katawan ni baby, siya ay punasan at balutin agad at iantala ang paliligo nang mga 6 na oras matapos siyang isilang.'],
@@ -130,6 +138,7 @@ $articles = [
 ],
 'breastfeeding' => [
     'title' => 'Eksklusibong Pagpapasuso',
+    'icon' => 'fa-heart-pulse',
     'intro' => 'Nanay, alam mo ba na ang pagpapasuso ng anak ay nakabubuti hindi lang para kay baby, kundi para rin sa iyo? Kaya mahalagang paghandaan ang pagpapasuso.',
     'sections' => [
         ['heading' => 'Tandaan', 'type' => 'highlight', 'content' => 'Ang 6 na buwang eksklusibong pagpapasuso ng gatas ng ina lamang — walang milk formula, am, juice, tubig, o bitamina na hindi inireseta ng doktor kay baby — ay mahalaga sa kalusugan ni baby.'],
@@ -148,6 +157,7 @@ $articles = [
 ],
 'baby-milestones' => [
     'title' => 'Mga Kaganapan sa Paglaki ng Sanggol',
+    'icon' => 'fa-chart-line',
     'intro' => 'Ang bawat buwan ay may bagong kakayahan si baby. Alamin ang mga ito para masuportahan mo siya nang wasto.',
     'sections' => [
         ['heading' => '4 na Buwan', 'type' => 'text', 'content' => 'Kinagigiliwang tingnan ni baby ang mga matitingkad na kulay. Susundan ng kanyang mga mata ang gumagalaw na bagay, ngumingiti, at kikilalanin ang iyong boses at mukha. Gustung-gusto niyang mag-"gurgling" at gumawa ng ingay, i-angat ang kanyang ulo at tumawa. Ang pagngiti ni baby ay mahalaga para sa iyo at kay tatay. Pakitaan si baby ng matitingkad na bagay, kausapin siya, bigyan ng malalaking lugar upang makapaglaro at iunat ang kanyang mga binti at braso.'],
@@ -156,6 +166,7 @@ $articles = [
 ],
 'baby-safety' => [
     'title' => 'Mga Simpleng Gabay Para Matiyak ang Kaligtasan ni Baby',
+    'icon' => 'fa-shield-halved',
     'intro' => 'Ang iyong anak ay lumalaking bata. Kailangan niya ng tamang pangangalaga at patnubay upang makamit niya ang wastong kalusugan.',
     'sections' => [
         ['heading' => 'Mga Dapat Gawin para sa Kaligtasan ni Baby', 'type' => 'list', 'items' => [
@@ -178,6 +189,7 @@ $articles = [
 ],
 'philhealth' => [
     'title' => 'PhilHealth: Mga Benepisyo para sa Ina at Sanggol',
+    'icon' => 'fa-id-card',
     'intro' => 'Ang Philippine Health Insurance Corporation o PHILHEALTH ay isang ahensya ng gobyerno na bahagi ng Department of Health (DOH). Ang PHILHEALTH ay tumutulong para maisulong ang kalusugang pangkalahatan sa bansa.',
     'sections' => [
         ['heading' => 'Mga Package na Saklaw ng PhilHealth', 'type' => 'table', 'rows' => [
@@ -202,6 +214,7 @@ $articles = [
 ],
 'family-planning' => [
     'title' => 'Mga Pamamaraan ng Family Planning',
+    'icon' => 'fa-people-group',
     'intro' => 'Alamin ang iba\'t ibang pamamaraan ng family planning para mapag-usapan ninyong mabuti ng iyong partner at makapili ng method na gagamitin para sa tamang pag-aagwat sa tulong ng isang trained health service provider.',
     'sections' => [
         ['heading' => 'Standard Days Method (Cycle Beads)', 'type' => 'text', 'content' => 'Ito ay isang natural na pamamaraan kung saan ginagamit ang cycle beads upang matukoy ang panahong fertile ng babae. Ito ay angkop sa mga babaeng may regular na siklo (26-32 days ang haba).'],
@@ -236,6 +249,7 @@ if (!$article) { header("Location: vaccines.php"); exit(); }
             --white: #ffffff;
             --text: #333333;
             --muted: #666666;
+            --sidebar-width: 260px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
@@ -252,36 +266,102 @@ if (!$article) { header("Location: vaccines.php"); exit(); }
             transition: width 0.1s;
         }
 
+        /* SIDEBAR CONTAINER: naka-fixed, nakatago by default (matches dashboard convention) */
+        .sidebar-container {
+            width: var(--sidebar-width) !important;
+            min-width: var(--sidebar-width) !important;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 300;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+        body.sidebar-closed .sidebar-container {
+            transform: translateX(-100%);
+        }
+
+        /* TOPBAR: naka-flex, mag-a-adjust ang margin/width depende sa state ng sidebar */
         .topbar {
             background: var(--white);
             border-bottom: 3px solid var(--green);
-            padding: 15px 20px 15px 65px;
+            padding: 12px 20px;
             display: flex;
             align-items: center;
             gap: 15px;
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 200;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            transition: margin-left 0.3s ease, width 0.3s ease;
         }
-        .topbar .back-btn {
+        body.sidebar-closed .topbar {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex-shrink: 0;
+        }
+
+        .topbar .hamburger-btn {
             background: none;
             border: none;
             cursor: pointer;
             color: var(--green);
             font-size: 18px;
-            padding: 4px 8px;
+            padding: 6px 10px;
             border-radius: 8px;
             transition: background 0.2s;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
+            display: none;
+            flex-shrink: 0;
         }
-        .topbar .back-btn:hover { background: #f0f4f0; }
-        .topbar .hamburger { font-size: 24px; cursor: pointer; color: var(--green); }
-        .topbar .page-label { font-size: 1rem; font-weight: 600; color: var(--green); }
+        body.sidebar-closed .topbar .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
+        .topbar .hamburger-btn:hover { background: #f0f4f0; }
 
-        #main { transition: margin-left 0.3s; padding: 30px 24px 60px; max-width: 860px; margin: 0 auto; }
+        .topbar .logo-img {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--green);
+            background: #eef2ee;
+            flex-shrink: 0;
+        }
+
+        .topbar .page-label { 
+            font-size: 1rem; 
+            font-weight: 600; 
+            color: var(--green); 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* MAIN CONTENT: sumusunod din sa parehong margin/width transition ng topbar */
+        #main {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            transition: margin-left 0.3s ease, width 0.3s ease;
+            padding: 30px 24px 60px;
+        }
+        body.sidebar-closed #main {
+            margin-left: 0;
+            width: 100%;
+        }
+        #main > * {
+            max-width: 860px;
+            margin-left: auto;
+            margin-right: auto;
+        }
 
         .article-header {
             background: linear-gradient(135deg, var(--green), var(--accent));
@@ -364,19 +444,25 @@ if (!$article) { header("Location: vaccines.php"); exit(); }
         }
     </style>
 </head>
-<body>
+<body class="sidebar-closed">
 <div id="progressBar" class="progress-bar"></div>
-<?php include 'user_sidebar.php'; ?>
+<div class="sidebar-container">
+    <?php include 'user_sidebar.php'; ?>
+</div>
 
 <div class="topbar">
-    <a href="main_user.php" class="back-btn"><i class="fa fa-arrow-left"></i></a>
-    <img src="image/brgy.jpg" alt="Brgy Logo" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
+    <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <i class="fa fa-bars"></i>
+    </button>
+    <div class="topbar-brand">
+        <img src="image/brgy.jpg" alt="Brgy Logo" class="logo-img">
+    </div>
     <span class="page-label"><?= htmlspecialchars($article['title']) ?></span>
 </div>
 
 <div id="main">
     <div class="article-header">
-        <span class="icon"><?= $article['icon'] ?></span>
+        <span class="icon"><i class="fa <?= $article['icon'] ?? 'fa-book-medical' ?>"></i></span>
         <h1><?= htmlspecialchars($article['title']) ?></h1>
         <p><?= htmlspecialchars($article['intro']) ?></p>
     </div>
@@ -431,6 +517,11 @@ if (!$article) { header("Location: vaccines.php"); exit(); }
         const progress = (scrollTop / docHeight) * 100;
         document.getElementById('progressBar').style.width = progress + '%';
     });
+
+    // Toggle Function para buksan/isara ang sidebar mula sa topbar
+    function toggleSidebar() {
+        document.body.classList.toggle('sidebar-closed');
+    }
 </script>
 </body>
 </html>
