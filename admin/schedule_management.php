@@ -90,7 +90,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
         $new_date = $_POST['proposed_date'];
         $new_time = $_POST['proposed_time'];
         
-        // Kunin muna ang lumang data at notes para macheck kung may existing na 'Rescheduled (Orig:'
         $get_orig = $conn->prepare("SELECT schedule_date, notes FROM schedules WHERE id = ?");
         $get_orig->bind_param("i", $id);
         $get_orig->execute();
@@ -100,15 +99,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
         $current_notes = $orig_row['notes'] ?? '';
         $get_orig->close();
 
-        // I-check kung wala pang 'Rescheduled (Orig:' sa notes para hindi mag-stack
         if (strpos($current_notes, 'Rescheduled (Orig:') === false) {
             $updated_notes = trim($current_notes . ' | Rescheduled (Orig: ' . $old_date . ')');
         } else {
-            $updated_notes = $current_notes; // Huwag na dagdagan kung meron na
+            $updated_notes = $current_notes;
         }
 
-        // I-update ang schedule date/time at ibalik ang status sa Pending nang hindi nadodoble ang notes
-        $sql = "UPDATE schedules SET schedule_date=?, schedule_time=?, status='Pending', notes=? WHERE id=?";
+        // I-update ang schedule date/time, gawing 'Approved' ang status, at i-save ang bagong notes
+        $sql = "UPDATE schedules SET schedule_date=?, schedule_time=?, status='Approved', notes=? WHERE id=?";
         if ($stmt = $conn->prepare($sql)) {
             $stmt->bind_param("sssi", $new_date, $new_time, $updated_notes, $id);
             $stmt->execute();
@@ -149,10 +147,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
         $stmt->close();
     }
 }
-
-// --- SECURED QUERIES ---
-$result_child = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'child' AND status = 'Pending' ORDER BY schedule_date ASC, schedule_time ASC");
-$result_maternal = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'maternal' AND status = 'Pending' ORDER BY schedule_date ASC, schedule_time ASC");
+// SECURED QUERIES 
+$result_child = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'child' AND (status = 'Pending' OR status = 'Approved') ORDER BY schedule_date ASC, schedule_time ASC");
+$result_maternal = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'maternal' AND (status = 'Pending' OR status = 'Approved') ORDER BY schedule_date ASC, schedule_time ASC");
 $result_reschedule = $conn->query("SELECT * FROM schedules WHERE status = 'Reschedule Requested' ORDER BY schedule_date ASC");
 $result_completed = $conn->query("SELECT * FROM schedules WHERE status = 'Completed' ORDER BY schedule_date DESC, schedule_time DESC");
 

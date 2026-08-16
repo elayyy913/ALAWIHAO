@@ -2,11 +2,11 @@
 session_start();
 include '../db_connect.php';
 
-// 1. Database Connection - Siguraduhin na tama ang db name mo
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "finalcaps_db"; // Base sa screenshot mo kanina
+// Siguraduhing naka-login ang user at may session user_id
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 
@@ -15,7 +15,10 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // 2. Kunin ang Data mula sa Form
+    // 1. Kunin ang user_id galing sa session
+    $user_id = $_SESSION['user_id'];
+
+    // 2. Kunin ang Data mula sa Form[cite: 4]
     $family_serial = $_POST['family_serial'] ?? '';
     $lname = $_POST['client_lname'] ?? '';
     $fname = $_POST['client_fname'] ?? '';
@@ -48,15 +51,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $plan = $_POST['plan'] ?? '';
     $num_preg = $_POST['num_preg'] ?? 0;
 
-    // 3. I-save sa main table: maternal_registration
-    $sql_main = "INSERT INTO maternal_registration (family_serial, client_lname, client_fname, client_mi, client_ext, dob, age, blood_type, lmp, highest_educ, occupation, spouse_lname, spouse_fname, spouse_mi, spouse_ext, spouse_dob, spouse_blood, street, barangay, municipality, province, income, contact, phic_cat, philhealth_no, living_children, birth_plan, num_preg) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // 3. I-save sa main table: maternal_registration (Idinagdag ang user_id)
+    $sql_main = "INSERT INTO maternal_registration (user_id, family_serial, client_lname, client_fname, client_mi, client_ext, dob, age, blood_type, lmp, highest_educ, occupation, spouse_lname, spouse_fname, spouse_mi, spouse_ext, spouse_dob, spouse_blood, street, barangay, municipality, province, income, contact, phic_cat, philhealth_no, living_children, birth_plan, num_preg) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql_main);
     
-    // Bind 28 parameters
-    $stmt->bind_param("ssssssissssssssssssssssssiis", 
-        $family_serial, $lname, $fname, $mi, $ext, $dob, $age, $blood, $lmp, $educ, $job, 
+    // Bind 29 parameters na ngayon (Unang 'i' ay para sa user_id)
+    $stmt->bind_param("issssssissssssssssssssssssiis", 
+        $user_id, $family_serial, $lname, $fname, $mi, $ext, $dob, $age, $blood, $lmp, $educ, $job, 
         $s_lname, $s_fname, $s_mi, $s_ext, $s_dob, $s_blood, 
         $street, $barangay, $municipality, $province, 
         $income, $contact, $phic_cat, $philhealth, $living_children, $plan, $num_preg
@@ -65,7 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt->execute()) {
         $patient_id = $conn->insert_id; 
 
-        // 4. I-save ang Pregnancy History (Columns 1-6)
+        // 4. I-save ang Pregnancy History (Columns 1-6)[cite: 4]
         if (isset($_POST['h_date'])) {
             foreach ($_POST['h_date'] as $index => $date) {
                 if (!empty($date) && $index < $num_preg) {
@@ -82,10 +85,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
             }
         }
-    echo "<script>
-            alert('Maternal record registered successfully! Pending for admin review.');
-            window.location.href = '../user_dashboard.php';
-        </script>";
+        echo "<script>
+                alert('Maternal record registered successfully! Pending for admin review.');
+                window.location.href = '../user_dashboard.php';
+            </script>";
         exit();
     } else {
         echo "Error: " . $stmt->error;

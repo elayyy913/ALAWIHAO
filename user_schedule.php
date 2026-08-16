@@ -25,7 +25,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
 
     if ($stmt = $conn->prepare($update_query)) {
         $stmt->bind_param("sssi", $new_date, $new_time, $reason, $schedule_id);
-        
         if ($stmt->execute()) {
             $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
         } else {
@@ -38,14 +37,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
 $today = date('Y-m-d');
 $patient_names = [];
 
-// 1. Kunin ang buong pangalan ng nanay (Maternal) sa pamamagitan ng pag-concat ng First Name at Last Name
-$stmt_m = $conn->prepare("SELECT CONCAT(client_fname, ' ', client_lname) AS full_name FROM maternal_registration"); 
+// 1. Kunin ang buong pangalan ng nanay (Maternal) na pagmamay-ari ng kasalukuyang naka-login na user
+$stmt_m = $conn->prepare("SELECT CONCAT(client_fname, ' ', client_lname) AS full_name FROM maternal_registration WHERE user_id = ?"); 
+$stmt_m->bind_param("i", $user_id);
 $stmt_m->execute();
 $res_m = $stmt_m->get_result();
 while($row_m = $res_m->fetch_assoc()) {
     $patient_names[] = trim($row_m['full_name']);
 }
 $stmt_m->close();
+
 
 // 2. Kunin ang pangalan ng mga anak (Child)
 $stmt_c = $conn->prepare("SELECT child_name FROM children WHERE user_id = ?"); 
@@ -56,6 +57,7 @@ while($row_c = $res_c->fetch_assoc()) {
     $patient_names[] = $row_c['child_name'];
 }
 $stmt_c->close();
+
 
 $upcoming_schedules = [];
 $history_schedules = [];
@@ -92,9 +94,9 @@ if (count($patient_names) > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Child's Schedule | Alawihao Health Center</title>
+    <title>My Appointments | Alawihao Health Center</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
+<style>
         :root { 
             --green: #2d5016; 
             --sage: #718355; 
@@ -109,6 +111,7 @@ if (count($patient_names) > 0) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background-color: var(--bg); font-family: 'Segoe UI', sans-serif; color: var(--text); }
         
+        /* Sidebar: Nakabukas by default (transform: translateX(0)) */
         .sidebar-container {
             width: var(--sidebar-width) !important;
             min-width: var(--sidebar-width) !important;
@@ -118,9 +121,12 @@ if (count($patient_names) > 0) {
             z-index: 300;
             overflow-y: auto;
             transition: transform 0.3s ease;
+            transform: translateX(0); 
         }
+        /* Kapag sinara gamit ang hamburger button (nagdagdag ng .sidebar-closed sa body) */
         body.sidebar-closed .sidebar-container { transform: translateX(-100%); }
 
+        /* Topbar: Naka-indent by default dahil nakabukas ang sidebar */
         .topbar {
             background: var(--white);
             border-bottom: 3px solid var(--green);
@@ -135,17 +141,22 @@ if (count($patient_names) > 0) {
             width: calc(100% - var(--sidebar-width));
             transition: margin-left 0.3s ease, width 0.3s ease;
         }
+        /* Kapag naka-close ang sidebar, lumalawak ang topbar nang buo */
         body.sidebar-closed .topbar { margin-left: 0; width: 100%; }
 
         .topbar-brand { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
+        
+        /* Palaging kita ang hamburger button para ma-toggle */
         .topbar .hamburger-btn {
             background: none; border: none; cursor: pointer; color: var(--green);
-            font-size: 20px; padding: 4px 8px; border-radius: 8px; display: none;
+            font-size: 20px; padding: 4px 8px; border-radius: 8px; 
+            display: inline-flex; align-items: center; justify-content: center;
         }
-        body.sidebar-closed .topbar .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
+
         .topbar .logo-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid var(--green); background: #eef2ee; }
         .topbar .page-label { font-size: 1rem; font-weight: 600; color: var(--green); }
 
+        /* Main Content: Naka-indent din by default para hindi matakpan ng sidebar */
         #main { 
             margin-left: var(--sidebar-width); 
             width: calc(100% - var(--sidebar-width)); 
@@ -153,6 +164,7 @@ if (count($patient_names) > 0) {
             padding: 30px 24px 60px;
             min-height: calc(100vh - 70px);
         }
+        /* Kapag naka-close ang sidebar, sasakop sa buong screen ang main */
         body.sidebar-closed #main { margin-left: 0; width: 100%; }
 
         .content-container { max-width: 800px; margin: 0 auto; }
@@ -184,6 +196,7 @@ if (count($patient_names) > 0) {
 
         .status-pill { padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
         .pending { background: #fffcf0; color: #b7791f; border: 1px solid #ecc94b; }
+        .approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .completed { background: #f0f4e8; color: var(--green); border: 1px solid var(--light); }
         .reschedule-requested { background: #fef2f2; color: #b91c1c; border: 1px solid #f87171; }
 
@@ -203,23 +216,22 @@ if (count($patient_names) > 0) {
         .no-schedule { background: var(--white); padding: 40px; text-align: center; border-radius: 15px; color: var(--muted); border: 1px solid #eef2ee; }
     </style>
 </head>
-<body class="sidebar-closed">
+<body>
 
 <?php include 'user_sidebar.php'; ?>
-
 <div class="topbar">
     <div class="topbar-brand">
         <button class="hamburger-btn" onclick="toggleSidebar()"><i class="fa fa-bars"></i></button>
-        <img src="image/brgy.jpg" alt="Brgy Logo" class="logo-img">
+        <img src="images/logo.png" alt="Alawihao.jpg" class="logo-img">
     </div>
-    <span class="page-label">My Child's Schedule</span>
+    <span class="page-label">My Appointments</span>
 </div>
 
 <div id="main">
     <div class="content-container">
         <div class="header-box">
-            <h2 style="margin:0; color: var(--green); font-size: 1.3rem;"><i class="fa fa-syringe"></i> VACCINATION APPOINTMENTS</h2>
-            <p style="margin: 5px 0 0; color: var(--muted); font-size: 0.95rem;">Subaybayan ang mga nakatakdang bakuna ng inyong anak.</p>
+            <h2 style="margin:0; color: var(--green); font-size: 1.3rem;"><i class="fa fa-calendar-check"></i> HEALTH APPOINTMENTS</h2>
+            <p style="margin: 5px 0 0; color: var(--muted); font-size: 0.95rem;">Subaybayan ang iyong mga naka-schedule na bakuna at check-up.</p>
         </div>
 
         <?php echo $message; ?>
@@ -250,8 +262,8 @@ if (count($patient_names) > 0) {
                         
                         <div class="sched-right">
                             <?php 
-                                $status_raw = strtolower($row['status'] ?? 'pending');
-                                $display_status = strtoupper($row['status']);
+                                $status_raw = strtolower(trim($row['status'] ?? 'pending'));
+                                $display_status = strtoupper($row['status'] ?? 'Pending');
                                 $status_class = str_replace(' ', '-', $status_raw);
                             ?>
                             <div class="status-pill <?= $status_class ?>"><?= $display_status ?></div>
@@ -263,7 +275,7 @@ if (count($patient_names) > 0) {
                 <?php endforeach; ?>
             <?php else: ?>
                 <div class="no-schedule">
-                    <p>Wala pang kasalukuyang upcoming appointment o schedule para sa inyong mga nakarehistrong anak.</p>
+                    <p>Wala pang kasalukuyang appointment o schedule para sa inyo o sa inyong mga nakarehistrong anak.</p>
                 </div>
             <?php endif; ?>
         </div>
@@ -286,7 +298,7 @@ if (count($patient_names) > 0) {
                         </div>
                         <div class="sched-right">
                             <?php 
-                                $status_raw_h = strtolower($row['status'] ?? 'completed');
+                                $status_raw_h = strtolower(trim($row['status'] ?? 'completed'));
                                 $status_class_h = str_replace(' ', '-', $status_raw_h);
                             ?>
                             <div class="status-pill <?= $status_class_h ?>"><?= strtoupper($row['status']) ?></div>
@@ -338,7 +350,7 @@ if (count($patient_names) > 0) {
     }
     function openReschedModal(id, currentDate, childName) {
         document.getElementById('modalScheduleId').value = id;
-        document.getElementById('modalChildInfo').innerText = "Anak: " + childName + " (Kasalukuyang Petsa: " + currentDate + ")";
+        document.getElementById('modalChildInfo').innerText = "Pasyente: " + childName + " (Kasalukuyang Petsa: " + currentDate + ")";
         document.getElementById('reschedModal').style.display = 'flex';
     }
     function closeReschedModal() { document.getElementById('reschedModal').style.display = 'none'; }

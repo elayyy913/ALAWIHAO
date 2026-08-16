@@ -9,12 +9,9 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id']; 
 
-/**
- * SQL Logic:
- * Kinukuha natin ang basic info mula sa 'maternal_registrations'
- * at ang pinakabagong medical records mula sa 'maternal_records'
- */
 $query = "SELECT reg.*, 
+                 CONCAT(reg.client_fname, ' ', COALESCE(CONCAT(reg.client_mi, '. '), ''), reg.client_lname) AS full_name,
+                 reg.lmp AS edc,
                  rec.bp, rec.weight_kg, rec.temperature, rec.fetal_heart_rate, rec.checkup_date,
                  reg.id AS reg_id
           FROM maternal_registration reg

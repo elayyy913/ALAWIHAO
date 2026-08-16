@@ -1,15 +1,14 @@
 <?php 
 $current_page = basename($_SERVER['PHP_SELF']); 
 $is_home = ($current_page == 'user_dashboard.php');
-$sidebar_style = "transform: translateX(0%);";
 ?>
 
-<!-- HAMBURGER BUTTON (Lilitaw sa labas kapag naka-hide o nasa mobile) -->
+<!-- HAMBURGER BUTTON -->
 <button id="hamburgerBtn" class="hamburger-btn" onclick="toggleSidebar()">
     &#9776;
 </button>
 
-<nav class="sidebar" id="mySidebar" style="<?php echo $sidebar_style; ?>">
+<nav class="sidebar" id="mySidebar">
     <div class="sidebar-header">
         <button class="close-sidebar-x" onclick="toggleSidebar()">&times;</button>
         <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
@@ -71,23 +70,19 @@ $sidebar_style = "transform: translateX(0%);";
         background: none;
         border: none;
         cursor: pointer;
-        display: none; /* Naka-hide default sa desktop kapag open ang sidebar */
+        display: none; 
         color: var(--text-main);
     }
 
-    /* Ipakita ang hamburger kapag nasa mobile view o kaya naka-force show */
     @media (max-width: 768px) {
-        .hamburger-btn {
-            display: block;
-        }
+        .hamburger-btn { display: block; }
     }
 
-    /* Utility class para sa pagpapakita ng hamburger kahit sa desktop kapag naka-close ang sidebar */
     .hamburger-btn.show-hamburger {
         display: block !important;
     }
 
-    /* SIDEBAR CORE STYLE */
+    /* SIDEBAR CORE STYLE - Naka-open by default */
     .sidebar {
         width: var(--sidebar-width);
         height: 100vh;
@@ -103,6 +98,12 @@ $sidebar_style = "transform: translateX(0%);";
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         transition: transform 0.3s ease-in-out;
         box-shadow: 4px 0 15px rgba(0,0,0,0.03);
+        transform: translateX(0%);
+    }
+
+    /* Kapag ang body ay may class na sidebar-closed, dito siya papasok para magsara */
+    body.sidebar-closed .sidebar {
+        transform: translateX(-100%) !important;
     }
 
     /* CLOSE BUTTON (X) SA LOOB NG SIDEBAR */
@@ -241,24 +242,12 @@ $sidebar_style = "transform: translateX(0%);";
     }
 
     function toggleSidebar() {
-        const sidebar = document.getElementById('mySidebar');
-        const mainContent = document.getElementById('main');
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        // Dinadagdag/Tinatanggal ang class sa <body> para sumunod ang CSS
+        document.body.classList.toggle('sidebar-closed');
         
-        if (sidebar) {
-            const currentTransform = sidebar.style.transform;
-
-            // Kung naka-open (nasa 0%), isara natin
-            if (currentTransform === "translateX(0%)" || currentTransform === "") {
-                sidebar.style.transform = "translateX(-100%)";
-                if (mainContent) mainContent.style.marginLeft = "0px";
-                if (hamburgerBtn) hamburgerBtn.classList.add('show-hamburger'); // Ipakita ang hamburger
-            } else {
-                // Kung naka-close, buksan natin
-                sidebar.style.transform = "translateX(0%)";
-                if (mainContent && window.innerWidth > 768) mainContent.style.marginLeft = "260px";
-                if (hamburgerBtn) hamburgerBtn.classList.remove('show-hamburger'); // Itago ang hamburger sa desktop
-            }
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        if (hamburgerBtn) {
+            hamburgerBtn.classList.toggle('show-hamburger');
         }
     }
 
