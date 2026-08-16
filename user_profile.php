@@ -11,7 +11,6 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $message = "";
 
-
 // Handle Reschedule Request Form Submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule'])) {
     $schedule_id = intval($_POST['schedule_id']);
@@ -19,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
     $reason = mysqli_real_escape_string($conn, $_POST['reason']);
 
-// Update status to 'Reschedule Requested' at ilagay ang proposed details sa notes
+    // Update status to 'Reschedule Requested' at ilagay ang proposed details sa notes
     $update_query = "UPDATE schedules 
                      SET status = 'Reschedule Requested', 
                          notes = CONCAT(COALESCE(notes, ''), ' | Request: ', ?, ' ', ?, ' | Reason: ', ?)
@@ -36,6 +35,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
         }
         $stmt->close();
     }
+}
     
 $today = date('Y-m-d');
 
@@ -323,7 +323,6 @@ if (count($child_names) > 0) {
     }
     function openReschedModal(id, currentDate, childName) {
         document.getElementById('modalScheduleId').value = id;
-        document.getElementById('modalChildInfoinnerText'] = "";
         document.getElementById('modalChildInfo').innerText = "Anak: " + childName + " (Kasalukuyang Petsa: " + currentDate + ")";
         document.getElementById('reschedModal').style.display = 'flex';
     }
