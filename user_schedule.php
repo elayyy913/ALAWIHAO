@@ -18,14 +18,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
     $reason = mysqli_real_escape_string($conn, $_POST['reason']);
 
-    // Update status to 'Reschedule Requested' at ilagay ang proposed details sa notes
     $update_query = "UPDATE schedules 
                      SET status = 'Reschedule Requested', 
                          notes = CONCAT(COALESCE(notes, ''), ' | Request: ', ?, ' ', ?, ' | Reason: ', ?)
                      WHERE id = ?";
 
     if ($stmt = $conn->prepare($update_query)) {
-        $stmt->bind_param("ssssi", $new_date, $new_time, $reason, $schedule_id);
+        $stmt->bind_param("sssi", $new_date, $new_time, $reason, $schedule_id);
+        
         if ($stmt->execute()) {
             $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
         } else {
@@ -36,38 +36,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
 }
 
 $today = date('Y-m-d');
+$patient_names = [];
 
-$child_names = [];
-$stmt_c = $conn->prepare("SELECT child_name FROM children"); 
+// 1. Kunin ang buong pangalan ng nanay (Maternal) sa pamamagitan ng pag-concat ng First Name at Last Name
+$stmt_m = $conn->prepare("SELECT CONCAT(client_fname, ' ', client_lname) AS full_name FROM maternal_registration"); 
+$stmt_m->execute();
+$res_m = $stmt_m->get_result();
+while($row_m = $res_m->fetch_assoc()) {
+    $patient_names[] = trim($row_m['full_name']);
+}
+$stmt_m->close();
+
+// 2. Kunin ang pangalan ng mga anak (Child)
+$stmt_c = $conn->prepare("SELECT child_name FROM children WHERE user_id = ?"); 
+$stmt_c->bind_param("i", $user_id);
 $stmt_c->execute();
 $res_c = $stmt_c->get_result();
 while($row_c = $res_c->fetch_assoc()) {
-    $child_names[] = $row_c['child_name'];
+    $patient_names[] = $row_c['child_name'];
 }
 $stmt_c->close();
 
 $upcoming_schedules = [];
 $history_schedules = [];
 
-if (count($child_names) > 0) {
-    $placeholders = implode(',', array_fill(0, count($child_names), '?'));
-    $types = str_repeat('s', count($child_names));
+if (count($patient_names) > 0) {
+    $placeholders = implode(',', array_fill(0, count($patient_names), '?'));
+    $types = str_repeat('s', count($patient_names));
     
     $sched_query = "SELECT * FROM schedules WHERE patient_name IN ($placeholders) ORDER BY schedule_date ASC, schedule_time ASC";
-    $stmt = $conn->prepare($sched_query);
-    $stmt->bind_param($types, ...$child_names);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    if ($stmt = $conn->prepare($sched_query)) {
+        $bind_params = array_merge([$types], $patient_names);
+        $tmp = [];
+        foreach($bind_params as $key => $value) { $tmp[$key] = &$bind_params[$key]; }
+        call_user_func_array([$stmt, 'bind_param'], $tmp);
 
-    while ($row = $result->fetch_assoc()) {
-        $status = strtolower($row['status'] ?? '');
-        if ($status == 'completed' || $row['schedule_date'] < $today) {
-            $history_schedules[] = $row;
-        } else {
-            $upcoming_schedules[] = $row;
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        while ($row = $result->fetch_assoc()) {
+            $status = strtolower($row['status'] ?? '');
+            if ($status == 'completed' || $row['schedule_date'] < $today) {
+                $history_schedules[] = $row;
+            } else {
+                $upcoming_schedules[] = $row;
+            }
         }
+        $stmt->close();
     }
-    $stmt->close();
 }
 ?>
 
@@ -77,6 +93,7 @@ if (count($child_names) > 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Child's Schedule | Alawihao Health Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
             --green: #2d5016; 
@@ -145,7 +162,7 @@ if (count($child_names) > 0) {
             box-shadow: 0 4px 15px rgba(0,0,0,0.04);
         }
 
-        .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 20px; font-weight: 500; font-size: 0.95rem; }
+        .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 20px; font-weight: 500; font-size: 0.95rem; text-align: center; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 
@@ -232,8 +249,12 @@ if (count($child_names) > 0) {
                         </div>
                         
                         <div class="sched-right">
-                            <?php $status = strtolower($row['status'] ?? 'pending'); ?>
-                            <div class="status-pill <?= str_replace(' ', '-', $status) ?>"><?= strtoupper($row['status']) ?></div>
+                            <?php 
+                                $status_raw = strtolower($row['status'] ?? 'pending');
+                                $display_status = strtoupper($row['status']);
+                                $status_class = str_replace(' ', '-', $status_raw);
+                            ?>
+                            <div class="status-pill <?= $status_class ?>"><?= $display_status ?></div>
                             <button class="btn-resched" onclick="openReschedModal('<?= $row['id'] ?>', '<?= $row['schedule_date'] ?>', '<?= htmlspecialchars($row['patient_name']) ?>')">
                                 <i class="fa fa-calendar-days"></i> Request Resched
                             </button>
@@ -264,8 +285,11 @@ if (count($child_names) > 0) {
                             </div>
                         </div>
                         <div class="sched-right">
-                            <?php $status = strtolower($row['status'] ?? 'completed'); ?>
-                            <div class="status-pill <?= str_replace(' ', '-', $status) ?>"><?= strtoupper($row['status']) ?></div>
+                            <?php 
+                                $status_raw_h = strtolower($row['status'] ?? 'completed');
+                                $status_class_h = str_replace(' ', '-', $status_raw_h);
+                            ?>
+                            <div class="status-pill <?= $status_class_h ?>"><?= strtoupper($row['status']) ?></div>
                         </div>
                     </div>
                 <?php endforeach; ?>

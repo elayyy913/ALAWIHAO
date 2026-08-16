@@ -17,7 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
     $schedule_time = mysqli_real_escape_string($conn, $_POST['schedule_time']);
     $service_type = mysqli_real_escape_string($conn, $_POST['service_type']); 
     $notes = mysqli_real_escape_string($conn, $_POST['notes']);
-    $status = 'Pending'; // Nakaset na sa Pending para tugma sa dropdown mo
+    $status = 'Pending';
     $patient_ids = isset($_POST['patient_ids']) ? $_POST['patient_ids'] : [];
 
     if (empty($schedule_date) || empty($schedule_time) || empty($service_type) || empty($patient_ids)) {
@@ -81,7 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
     }
 }
 
-// Handle Reschedule Confirmation
+// Handle Reschedule Confirmation (Approve / Reject)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) {
     $id = intval($_POST['schedule_id']);
     $action = $_POST['reschedule_action']; 
@@ -89,15 +89,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
     if ($action == 'approve') {
         $new_date = $_POST['proposed_date'];
         $new_time = $_POST['proposed_time'];
-        $sql = "UPDATE schedules SET schedule_date=?, schedule_time=?, status='Pending', notes = CONCAT(notes, ' | Reschedule Approved') WHERE id=?";
+        
+        // Kunin muna ang lumang data at notes para macheck kung may existing na 'Rescheduled (Orig:'
+        $get_orig = $conn->prepare("SELECT schedule_date, notes FROM schedules WHERE id = ?");
+        $get_orig->bind_param("i", $id);
+        $get_orig->execute();
+        $res_orig = $get_orig->get_result();
+        $orig_row = $res_orig->fetch_assoc();
+        $old_date = $orig_row['schedule_date'] ?? '';
+        $current_notes = $orig_row['notes'] ?? '';
+        $get_orig->close();
+
+        // I-check kung wala pang 'Rescheduled (Orig:' sa notes para hindi mag-stack
+        if (strpos($current_notes, 'Rescheduled (Orig:') === false) {
+            $updated_notes = trim($current_notes . ' | Rescheduled (Orig: ' . $old_date . ')');
+        } else {
+            $updated_notes = $current_notes; // Huwag na dagdagan kung meron na
+        }
+
+        // I-update ang schedule date/time at ibalik ang status sa Pending nang hindi nadodoble ang notes
+        $sql = "UPDATE schedules SET schedule_date=?, schedule_time=?, status='Pending', notes=? WHERE id=?";
         if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("ssi", $new_date, $new_time, $id);
+            $stmt->bind_param("sssi", $new_date, $new_time, $updated_notes, $id);
             $stmt->execute();
             $stmt->close();
             $message = "Reschedule request approved successfully!";
         }
     } else {
-        $sql = "UPDATE schedules SET status='Pending', notes = CONCAT(notes, ' | Reschedule Rejected') WHERE id=?";
+        $sql = "UPDATE schedules SET status='Pending', notes = CONCAT(COALESCE(notes, ''), ' | Reschedule Rejected') WHERE id=?";
         if ($stmt = $conn->prepare($sql)) {
             $stmt->bind_param("i", $id);
             $stmt->execute();
@@ -107,7 +126,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
     }
 }
 
-// --- SECURED QUERIES (Sinigurong nakadeclare nang tama ang mga variables) ---
+// Handle Reschedule Request Form Submission
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule'])) {
+    $schedule_id = intval($_POST['schedule_id']);
+    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
+    $reason = mysqli_real_escape_string($conn, $_POST['reason']);
+
+    $update_query = "UPDATE schedules 
+                     SET status = 'Reschedule Requested', 
+                         notes = CONCAT(COALESCE(notes, ''), ' | Request: ', ?, ' ', ?, ' | Reason: ', ?)
+                     WHERE id = ?";
+
+    if ($stmt = $conn->prepare($update_query)) {
+        $stmt->bind_param("sssi", $new_date, $new_time, $reason, $schedule_id);
+        
+        if ($stmt->execute()) {
+            $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
+        } else {
+            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . $conn->error . "</div>";
+        }
+        $stmt->close();
+    }
+}
+
+// --- SECURED QUERIES ---
 $result_child = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'child' AND status = 'Pending' ORDER BY schedule_date ASC, schedule_time ASC");
 $result_maternal = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'maternal' AND status = 'Pending' ORDER BY schedule_date ASC, schedule_time ASC");
 $result_reschedule = $conn->query("SELECT * FROM schedules WHERE status = 'Reschedule Requested' ORDER BY schedule_date ASC");
@@ -122,7 +165,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Schedule Management | Alawihao Health</title>
+    <title>Schedule Management | Alawihao Health Center</title>
     <style>
         :root {
             --sage-green: #718355;
@@ -373,7 +416,16 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                             <tr>
                                 <td><strong><?= htmlspecialchars($row['patient_name']) ?></strong></td>
                                 <td><?= htmlspecialchars($row['service_type']) ?></td>
-                                <td><?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small></td>
+                                <td>
+                                    <?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small><br>
+                                    <small style="color: gray; font-size: 11px;">
+                                        <?php 
+                                            if (preg_match('/Rescheduled \(Orig: ([^)]+)\)/', $row['notes'], $matches)) {
+                                                echo 'Orig: ' . date('M d, Y', strtotime($matches[1]));
+                                            }
+                                        ?>
+                                    </small>
+                                </td>
                                 <td><span class="badge badge-active"><?= htmlspecialchars($row['status']) ?></span></td>
                                 <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
                                 <td>
@@ -417,7 +469,16 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                             <tr>
                                 <td><strong><?= htmlspecialchars($row['patient_name']) ?></strong></td>
                                 <td><?= htmlspecialchars($row['service_type']) ?></td>
-                                <td><?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small></td>
+                                <td>
+                                    <?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small><br>
+                                    <small style="color: gray; font-size: 11px;">
+                                        <?php 
+                                            if (preg_match('/Rescheduled \(Orig: ([^)]+)\)/', $row['notes'], $matches)) {
+                                                echo 'Orig: ' . date('M d, Y', strtotime($matches[1]));
+                                            }
+                                        ?>
+                                    </small>
+                                </td>
                                 <td><span class="badge badge-active"><?= htmlspecialchars($row['status']) ?></span></td>
                                 <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
                                 <td>
@@ -720,13 +781,15 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         document.getElementById('editModal').style.display = 'block';
     }
 
+    window.addEventListener('DOMContentLoaded', () => {
+        filterPatientsByCategory();
+    });
+
     function openReschedModal(id, patientName, scheduleDate, scheduleTime) {
         document.getElementById('resched_schedule_id').value = id;
         document.getElementById('resched_patient_name').value = patientName;
         document.getElementById('resched_proposed_date').value = scheduleDate;
         document.getElementById('resched_proposed_time').value = scheduleTime;
-        
-        document.getElementById('resched_patient_name').value = patientName;
         document.getElementById('reschedModal').style.display = 'block';
     }
 </script>
