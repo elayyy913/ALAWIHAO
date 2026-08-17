@@ -81,6 +81,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
     }
 }
 
+// Handle Delete Schedule
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
+    $id = intval($_POST['schedule_id']);
+    $sql = "DELETE FROM schedules WHERE id = ?";
+    if ($stmt = $conn->prepare($sql)) {
+        $stmt->bind_param("i", $id);
+        if ($stmt->execute()) {
+            $message = "Schedule deleted successfully!";
+        } else {
+            $message = "Error deleting schedule: " . $conn->error;
+        }
+        $stmt->close();
+    }
+}
+
 // Handle Reschedule Confirmation (Approve / Reject)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) {
     $id = intval($_POST['schedule_id']);
@@ -105,7 +120,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             $updated_notes = $current_notes;
         }
 
-        // I-update ang schedule date/time, gawing 'Approved' ang status, at i-save ang bagong notes
         $sql = "UPDATE schedules SET schedule_date=?, schedule_time=?, status='Approved', notes=? WHERE id=?";
         if ($stmt = $conn->prepare($sql)) {
             $stmt->bind_param("sssi", $new_date, $new_time, $updated_notes, $id);
@@ -218,6 +232,20 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             text-transform: uppercase;
             font-size: 0.8rem;
             font-weight: bold;
+        }
+
+        .btn-delete {
+            background-color: #991b1b;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-decoration: none;
         }
 
         .tabs {
@@ -426,17 +454,24 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                                 <td><span class="badge badge-active"><?= htmlspecialchars($row['status']) ?></span></td>
                                 <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
                                 <td>
-                                    <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
-                                       onclick="openEditModal(
-                                           '<?= $row['id'] ?>', 
-                                           '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                           '<?= $row['category'] ?>', 
-                                           '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
-                                           '<?= $row['schedule_date'] ?>', 
-                                           '<?= $row['schedule_time'] ?>', 
-                                           '<?= $row['status'] ?>',
-                                           '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
-                                       )">Edit</a>
+                                    <div style="display: flex; gap: 5px; align-items: center;">
+                                        <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
+                                           onclick="openEditModal(
+                                               '<?= $row['id'] ?>', 
+                                               '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
+                                               '<?= $row['category'] ?>', 
+                                               '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
+                                               '<?= $row['schedule_date'] ?>', 
+                                               '<?= $row['schedule_time'] ?>', 
+                                               '<?= $row['status'] ?>',
+                                               '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
+                                           )">Edit</a>
+                                        <span>|</span>
+                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
+                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
+                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -479,17 +514,24 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                                 <td><span class="badge badge-active"><?= htmlspecialchars($row['status']) ?></span></td>
                                 <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
                                 <td>
-                                    <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
-                                       onclick="openEditModal(
-                                           '<?= $row['id'] ?>', 
-                                           '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                           '<?= $row['category'] ?>', 
-                                           '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
-                                           '<?= $row['schedule_date'] ?>', 
-                                           '<?= $row['schedule_time'] ?>', 
-                                           '<?= $row['status'] ?>',
-                                           '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
-                                       )">Edit</a>
+                                    <div style="display: flex; gap: 5px; align-items: center;">
+                                        <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
+                                           onclick="openEditModal(
+                                               '<?= $row['id'] ?>', 
+                                               '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
+                                               '<?= $row['category'] ?>', 
+                                               '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
+                                               '<?= $row['schedule_date'] ?>', 
+                                               '<?= $row['schedule_time'] ?>', 
+                                               '<?= $row['status'] ?>',
+                                               '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
+                                           )">Edit</a>
+                                        <span>|</span>
+                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
+                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
+                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -523,13 +565,19 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                                 <td><span style="color: #92400e; font-weight: bold;"><?= htmlspecialchars($row['notes']) ?></span></td>
                                 <td><span class="badge badge-resched">Resched Requested</span></td>
                                 <td>
-                                    <button class="btn-add" style="padding: 4px 8px; font-size: 0.75rem;" 
-                                        onclick="openReschedModal(
-                                            '<?= $row['id'] ?>', 
-                                            '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                            '<?= $row['schedule_date'] ?>', 
-                                            '<?= $row['schedule_time'] ?>'
-                                        )">Review</button>
+                                    <div style="display: flex; gap: 5px; align-items: center;">
+                                        <button class="btn-add" style="padding: 4px 8px; font-size: 0.75rem;" 
+                                            onclick="openReschedModal(
+                                                '<?= $row['id'] ?>', 
+                                                '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
+                                                '<?= $row['schedule_date'] ?>', 
+                                                '<?= $row['schedule_time'] ?>'
+                                            )">Review</button>
+                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
+                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
+                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -565,17 +613,24 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                                 <td><span class="badge badge-completed"><?= htmlspecialchars($row['status']) ?></span></td>
                                 <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
                                 <td>
-                                    <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
-                                       onclick="openEditModal(
-                                           '<?= $row['id'] ?>', 
-                                           '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                           '<?= $row['category'] ?>', 
-                                           '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
-                                           '<?= $row['schedule_date'] ?>', 
-                                           '<?= $row['schedule_time'] ?>', 
-                                           '<?= $row['status'] ?>',
-                                           '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
-                                       )">Edit</a>
+                                    <div style="display: flex; gap: 5px; align-items: center;">
+                                        <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
+                                           onclick="openEditModal(
+                                               '<?= $row['id'] ?>', 
+                                               '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
+                                               '<?= $row['category'] ?>', 
+                                               '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
+                                               '<?= $row['schedule_date'] ?>', 
+                                               '<?= $row['schedule_time'] ?>', 
+                                               '<?= $row['status'] ?>',
+                                               '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
+                                           )">Edit</a>
+                                        <span>|</span>
+                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
+                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
+                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -694,7 +749,10 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                 <label>Notes / Remarks</label>
                 <textarea name="notes" id="edit_notes" rows="2"></textarea>
             </div>
-            <button type="submit" name="update_schedule" class="btn-submit">Update Schedule</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button type="submit" name="update_schedule" class="btn-submit" style="margin-top: 0; flex: 2;">Update Schedule</button>
+                <button type="submit" name="delete_schedule" class="btn-delete" style="flex: 1; padding: 10px; font-size: 0.8rem;" onclick="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');">Delete</button>
+            </div>
         </form>
     </div>
 </div>
@@ -777,10 +835,6 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         
         document.getElementById('editModal').style.display = 'block';
     }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        filterPatientsByCategory();
-    });
 
     function openReschedModal(id, patientName, scheduleDate, scheduleTime) {
         document.getElementById('resched_schedule_id').value = id;

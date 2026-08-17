@@ -455,7 +455,7 @@ if (!$article) { header("Location: vaccines.php"); exit(); }
         <i class="fa fa-bars"></i>
     </button>
     <div class="topbar-brand">
-        <img src="image/brgy.jpg" alt="Brgy Logo" class="logo-img">
+        <img src="images/logo.png" alt="Brgy Logo" class="logo-img">
     </div>
     <span class="page-label"><?= htmlspecialchars($article['title']) ?></span>
 </div>

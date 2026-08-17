@@ -12,6 +12,7 @@ $user_id = $_SESSION['user_id'];
 $query = "SELECT reg.*, 
                  CONCAT(reg.client_fname, ' ', COALESCE(CONCAT(reg.client_mi, '. '), ''), reg.client_lname) AS full_name,
                  reg.lmp AS edc,
+                 CONCAT(COALESCE(reg.street, ''), ', Brgy. ', COALESCE(reg.barangay, ''), ', ', COALESCE(reg.municipality, ''), ', ', COALESCE(reg.province, '')) AS current_address,
                  rec.bp, rec.weight_kg, rec.temperature, rec.fetal_heart_rate, rec.checkup_date,
                  reg.id AS reg_id
           FROM maternal_registration reg
@@ -36,10 +37,11 @@ $my_records = $stmt->get_result();
     <style>
         :root { 
             --primary-green: #718355; 
-            --bg-color: #f1f4ea; 
+            --bg-color: #f8faf5; 
             --white: #ffffff; 
             --dark-gray: #2d3436;
             --sage-light: #95AF7E;
+            --border-color: #e5eadc;
         }
 
         body { 
@@ -63,35 +65,36 @@ $my_records = $stmt->get_result();
             width: 100%; 
             background: var(--white); 
             padding: 25px 40px; 
-            border-bottom: 5px solid var(--primary-green); 
+            border-bottom: 3px solid var(--primary-green); 
             box-sizing: border-box; 
             margin-bottom: 40px; 
-            box-shadow: 0 2px 15px rgba(0,0,0,0.05); 
+            box-shadow: 0 2px 10px rgba(113, 131, 85, 0.05); 
         }
 
         .table-container { 
             background: var(--white); 
             width: 92%; 
             padding: 35px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.08); 
-            border-top: 10px solid var(--primary-green); 
+            border-radius: 16px; 
+            box-shadow: 0 10px 30px rgba(113, 131, 85, 0.06); 
+            border: 1px solid var(--border-color);
+            border-top: 8px solid var(--primary-green); 
             box-sizing: border-box; 
         }
 
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th { 
-            background: #f9fafb; 
+            background: #f4f7f0; 
             color: var(--primary-green); 
-            padding: 18px; 
+            padding: 16px; 
             text-align: left; 
-            border-bottom: 3px solid #eee; 
+            border-bottom: 2px solid var(--border-color); 
             text-transform: uppercase; 
             font-size: 0.7rem; 
             letter-spacing: 1.5px;
         }
-        td { padding: 18px; border-bottom: 1px solid #f0f0f0; color: var(--dark-gray); font-size: 0.9rem; }
-        tr:hover { background-color: #fcfdfa; }
+        td { padding: 16px; border-bottom: 1px solid #f2f5ee; color: var(--dark-gray); font-size: 0.9rem; }
+        tr:hover { background-color: #fafbf8; }
 
         /* STATUS BADGES */
         .status-badge { 
@@ -127,26 +130,29 @@ $my_records = $stmt->get_result();
             z-index: 3000;
             left: 0; top: 0;
             width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.6);
+            background-color: rgba(45, 52, 54, 0.5);
             backdrop-filter: blur(3px);
         }
         .modal-content {
             background-color: var(--white);
-            margin: 8% auto;
+            margin: 6% auto;
             padding: 40px;
-            width: 550px;
-            border-radius: 20px;
-            border-top: 10px solid var(--primary-green);
+            width: 500px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            border-top: 8px solid var(--primary-green);
             position: relative;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
         .close-modal {
             position: absolute;
             right: 25px; top: 20px;
             font-size: 28px;
             cursor: pointer;
-            color: #ccc;
+            color: #aaa;
+            transition: 0.2s;
         }
+        .close-modal:hover { color: var(--primary-green); }
     </style>
 </head>
 <body>
@@ -161,15 +167,14 @@ $my_records = $stmt->get_result();
     <div class="table-container">
         <div style="margin-bottom: 25px;">
             <h2 style="color: var(--primary-green); margin: 0; letter-spacing: 1px;">MATERNAL HEALTH RECORDS</h2>
-            <p style="color: #888; font-size: 0.8rem; margin-top: 5px;">View your pregnancy tracking and clinical checkup history.</p>
+            <p style="color: #777; font-size: 0.8rem; margin-top: 5px;">View your pregnancy tracking and clinical checkup history.</p>
         </div>
 
         <table>
             <thead>
                 <tr>
                     <th>Mother's Name</th>
-                    <th>Due Date (EDC)</th>
-                    <th>Latest BP</th>
+                    <th>Due Date (EDC / LMP)</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -179,8 +184,7 @@ $my_records = $stmt->get_result();
                     <?php while($row = $my_records->fetch_assoc()): ?>
                     <tr>
                         <td style="font-weight: bold; color: #444;"><?php echo htmlspecialchars($row['full_name']); ?></td>
-                        <td><?php echo date('M d, Y', strtotime($row['edc'])); ?></td>
-                        <td><?php echo $row['bp'] ? $row['bp'] : '<span style="color:#ccc">--</span>'; ?></td>
+                        <td><?php echo $row['edc'] ? date('M d, Y', strtotime($row['edc'])) : '<span style="color:#ccc">--</span>'; ?></td>
                         <td>
                             <span class="status-badge <?php echo ($row['status'] == 'Approved') ? 'status-verified' : 'status-pending'; ?>">
                                 <?php echo ($row['status'] == 'Approved') ? 'Verified' : 'Pending'; ?>
@@ -192,7 +196,7 @@ $my_records = $stmt->get_result();
                     </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="5" style="text-align:center; padding: 50px; color: #ccc;">Walang nahanap na records.</td></tr>
+                    <tr><td colspan="4" style="text-align:center; padding: 50px; color: #aaa;">Walang nahanap na records.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -202,12 +206,12 @@ $my_records = $stmt->get_result();
 <div id="detailsModal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeModal()">&times;</span>
-        <h3 id="modalTitle" style="color: var(--primary-green); border-bottom: 2px solid #f8faf5; padding-bottom: 15px; margin-bottom: 20px;">Patient Details</h3>
+        <h3 id="modalTitle" style="color: var(--primary-green); border-bottom: 2px solid #f4f7f0; padding-bottom: 15px; margin-bottom: 20px;">Patient Details</h3>
         
-        <div id="modalBody" style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+        <div id="modalBody" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             </div>
         
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.8rem; color: #aaa;">
+        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #f2f5ee; font-size: 0.8rem; color: #888;">
             *Ang impormasyong ito ay huling na-update noong <span id="lastUpdate">--</span>.
         </div>
     </div>
@@ -221,24 +225,23 @@ $my_records = $stmt->get_result();
         
         document.getElementById('modalTitle').innerText = data.full_name;
         
-        // I-set ang modal content base sa columns ng DB mo
         body.innerHTML = `
-            <div><small style="color:#aaa; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Age</small><br><b>${data.age} yrs old</b></div>
-            <div><small style="color:#aaa; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Contact Number</small><br><b>${data.contact_number}</b></div>
-            <div><small style="color:#aaa; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">LMP (Last Period)</small><br><b>${data.last_menstrual_period}</b></div>
-            <div><small style="color:#aaa; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">EDC (Estimated Due Date)</small><br><b style="color:var(--primary-green)">${data.edc}</b></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Age</small><br><b>${data.age || '--'} yrs old</b></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Contact Number</small><br><b>${data.contact || '--'}</b></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">LMP (Last Period)</small><br><b>${data.lmp || '--'}</b></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">EDC (Estimated Due Date)</small><br><b style="color:var(--primary-green)">${data.edc || '--'}</b></div>
             
-            <div style="grid-column: span 2; background: #fcfdfa; padding: 15px; border-radius: 10px; border-left: 4px solid var(--primary-green);">
-                <small style="color:var(--primary-green); font-weight:bold;">LATEST CLINICAL Vitals</small>
+            <div style="grid-column: span 2; background: #f4f7f0; padding: 15px; border-radius: 10px; border-left: 4px solid var(--primary-green);">
+                <small style="color:var(--primary-green); font-weight:bold; font-size:0.7rem; letter-spacing:1px;">LATEST CLINICAL VITALS</small>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                    <div><small>Weight:</small> <b>${data.weight_kg || '--'} kg</b></div>
-                    <div><small>BP:</small> <b>${data.bp || '--'}</b></div>
-                    <div><small>Temp:</small> <b>${data.temperature || '--'} °C</b></div>
-                    <div><small>Fetal Heart Rate:</small> <b>${data.fetal_heart_rate || '--'} bpm</b></div>
+                    <div><small style="color:#888;">Weight:</small> <b>${data.weight_kg || '--'} kg</b></div>
+                    <div><small style="color:#888;">BP:</small> <b>${data.bp || '--'}</b></div>
+                    <div><small style="color:#888;">Temp:</small> <b>${data.temperature || '--'} °C</b></div>
+                    <div><small style="color:#888;">Fetal Heart Rate:</small> <b>${data.fetal_heart_rate || '--'} bpm</b></div>
                 </div>
             </div>
             
-            <div style="grid-column: span 2"><small style="color:#aaa; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Current Address</small><br><b>${data.current_address}</b></div>
+            <div style="grid-column: span 2"><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Current Address</small><br><b>${data.current_address || '--'}</b></div>
         `;
         
         updateSpan.innerText = data.checkup_date || 'N/A';

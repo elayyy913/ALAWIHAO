@@ -156,8 +156,7 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
             <button type="submit" class="btn-register" id="submitBtn">Complete Registration</button>
         </form>
         
-        <!-- Naayos na ang pabalik na link papuntang admin folder -->
-        <a href="admin/admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
+        <a href="admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
     </div>
 </div>
 
