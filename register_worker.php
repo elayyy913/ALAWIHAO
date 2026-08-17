@@ -4,8 +4,7 @@ include('db_connect.php');
 // Security: Check if logged in and is Super Admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
     header("Location: admin/super_admin_dashboard.php?msg=Worker+successfully+registered");
-exit(); 
-    exit();
+    exit(); 
 }
 
 /** * LOGIC PARA SA AUTO-GENERATED ID **/
@@ -101,7 +100,6 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
 </head>
 <body>
 
-<!-- Naayos na ang path papunta sa loob ng admin folder -->
 <?php include(strtolower($_SESSION['role']) == 'super admin' ? 'admin/super_admin_sidebar.php' : 'admin/admin_sidebar.php'); ?>
 
 <div class="main-content">
@@ -132,16 +130,22 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
                 <input type="email" name="email" required>
             </div>
 
-            <div class="input-group">
-                <label>Set Password</label>
-                <input type="password" name="password" id="password" minlength="8" placeholder="Min. 8 characters" required>
-            </div>
+        <div class="input-group">
+                    <label>Set Password</label>
+                    <div style="position: relative;">
+                        <input type="password" name="password" id="password" minlength="8" placeholder="Min. 8 characters" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
+                        <span id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; font-size: 0.85rem; user-select: none;"></span>
+                    </div>
+                </div>
 
-            <div class="input-group">
-                <label>Confirm Password</label>
-                <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" required>
-                <div id="passwordError" class="match-error">Passwords do not match!</div>
-            </div>
+                <div class="input-group">
+                    <label>Confirm Password</label>
+                    <div style="position: relative;">
+                        <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
+                        <span id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; font-size: 0.85rem; user-select: none;"></span>
+                    </div>
+                    <div id="passwordError" class="match-error">Passwords do not match!</div>
+                </div>
 
             <div class="input-group">
                 <label>Home Address</label>
@@ -150,7 +154,8 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
 
             <div class="input-group">
                 <label>Contact Number</label>
-                <input type="text" name="contact_number" required>
+                <input type="text" name="contact_number" id="contact_number" placeholder="09123456789" maxlength="11" pattern="09[0-9]{9}" required>
+                <div id="contactError" class="match-error"></div>
             </div>
 
             <button type="submit" class="btn-register" id="submitBtn">Complete Registration</button>
@@ -163,26 +168,58 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
 <script>
     const password = document.getElementById('password');
     const confirm_password = document.getElementById('confirm_password');
-    const errorMsg = document.getElementById('passwordError');
+    const passwordErrorMsg = document.getElementById('passwordError');
+    
+    const contactInput = document.getElementById('contact_number');
+    const contactErrorMsg = document.getElementById('contactError');
     const submitBtn = document.getElementById('submitBtn');
 
-    function validatePassword() {
-        if (confirm_password.value === "") {
-            errorMsg.style.display = "none";
-            submitBtn.disabled = false;
-        } else if (password.value !== confirm_password.value) {
-            errorMsg.style.display = "block";
+    function validateForm() {
+        let isPasswordValid = true;
+        let isContactValid = true;
+
+        // Password matching check
+        if (confirm_password.value !== "" && password.value !== confirm_password.value) {
+            passwordErrorMsg.style.display = "block";
             confirm_password.style.borderColor = "#E53E3E";
-            submitBtn.disabled = true;
+            isPasswordValid = false;
         } else {
-            errorMsg.style.display = "none";
-            confirm_password.style.borderColor = "#8DAE74";
+            passwordErrorMsg.style.display = "none";
+            if(confirm_password.value !== "") confirm_password.style.borderColor = "#8DAE74";
+        }
+
+        // Contact number format check (must start with 09 and be exactly 11 digits)
+        const contactVal = contactInput.value;
+        if (contactVal.length > 0) {
+            if (!contactVal.startsWith('09') || contactVal.length !== 11) {
+                contactErrorMsg.style.display = "block";
+                contactInput.style.borderColor = "#E53E3E";
+                isContactValid = false;
+            } else {
+                contactErrorMsg.style.display = "none";
+                contactInput.style.borderColor = "#8DAE74";
+            }
+        } else {
+            contactErrorMsg.style.display = "none";
+            isContactValid = false;
+        }
+
+        // Enable or disable submit button based on both validations
+        if (isPasswordValid && isContactValid && password.value === confirm_password.value && confirm_password.value !== "") {
             submitBtn.disabled = false;
+        } else {
+            // Keep disabled if requirements aren't fully met
         }
     }
 
-    password.addEventListener('keyup', validatePassword);
-    confirm_password.addEventListener('keyup', validatePassword);
+    // Auto-filter contact input to numbers only and restrict length
+    contactInput.addEventListener('input', function (e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        validateForm();
+    });
+
+    password.addEventListener('keyup', validateForm);
+    confirm_password.addEventListener('keyup', validateForm);
 </script>
 
 </body>
