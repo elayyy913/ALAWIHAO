@@ -251,12 +251,45 @@ if (!isset($_SESSION['user_id'])) {
 
             <div class="section-header">HEALTH & SOCIO-ECONOMIC DETAILS</div>
 
-            <div class="row">
-                <div class="form-group"><label>AVERAGE MONTHLY INCOME:</label><input type="text" name="income"></div>
-                <div class="form-group"><label>CONTACT NUMBER:</label><input type="text" name="contact"></div>
-                <div class="form-group"><label>PHIC CAT:</label><input type="text" name="phic_cat"></div>
-                <div class="form-group"><label>PHILHEALTH #:</label><input type="text" name="philhealth"></div>
+        <div class="row">
+            <!-- Average Monthly Income -->
+            <div class="form-group">
+                <label>AVERAGE MONTHLY INCOME:</label>
+                <input type="number" name="income" step="0.01" placeholder="0.00" class="form-control">
             </div>
+
+            <!-- Contact Number (Numbers Only, 11 digits max) -->
+            <div class="form-group">
+                <label>CONTACT NUMBER:</label>
+                <input type="text" name="contact" id="contact_no" placeholder="09123456789" 
+                    pattern="^09\d{9}$" 
+                    title="Format: 09XXXXXXXXX (11 numbers only)" 
+                    maxlength="11" 
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '')" 
+                    class="form-control">
+            </div>
+
+            <!-- PHIC Cat -->
+            <div class="form-group">
+                <label>PHIC CAT:</label>
+                <select name="phic_cat" class="form-control">
+                    <option value="">-- Select PHIC Category --</option>
+                    <option value="Formal - Private">Formal Economy - Private</option>
+                    <option value="Formal - Government">Formal Economy - Government</option>
+                    <option value="Informal Sector">Informal Sector / Self-Earning</option>
+                    <option value="Indigent / 4Ps">Indigent / 4Ps Beneficiary</option>
+                    <option value="Sponsored">Sponsored (LGU / National)</option>
+                    <option value="Senior Citizen">Senior Citizen</option>
+                    <option value="Lifetime Member">Lifetime Member</option>
+                </select>
+            </div>
+
+            <!-- PhilHealth # -->
+            <div class="form-group">
+                <label>PHILHEALTH #:</label>
+                <input type="text" name="philhealth" placeholder="12-345678901-2" pattern="^\d{2}-\d{9}-\d{1}$" title="Format: XX-XXXXXXXXX-X" maxlength="14" class="form-control">
+            </div>
+        </div>
 
             <div class="row">
                 <div class="form-group"><label>NO. OF LIVING CHILDREN:</label><input type="number" name="living_children"></div>
