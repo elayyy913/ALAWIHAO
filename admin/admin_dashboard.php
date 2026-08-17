@@ -387,11 +387,11 @@ if (check_table_exists($conn, 'schedules')) {
         <!-- METRICS -->
         <div class="metrics-grid">
             <div class="metric-card">
-                <div class="metric-title">TOTAL MATERNAL</div>
+                <div class="metric-title">APPROVED MATERNAL</div>
                 <div class="metric-value"><?php echo $total_maternal; ?></div>
             </div>
             <div class="metric-card">
-                <div class="metric-title">REGISTERED INFANTS</div>
+                <div class="metric-title">APPROVED INFANTS</div>
                 <div class="metric-value"><?php echo $total_infant; ?></div>
             </div>
             <div class="metric-card" style="border-top-color: #D97706;">

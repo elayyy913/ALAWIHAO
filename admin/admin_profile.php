@@ -220,15 +220,15 @@ $admin = $stmt->get_result()->fetch_assoc();
                 <input type="text" name="last_name" id="lname" value="<?php echo htmlspecialchars($admin['last_name'] ?? ''); ?>" readonly required>
             </div>
 
-            <div class="form-group">
-                <label>Email Address</label>
-                <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($admin['email'] ?? ''); ?>" readonly required>
-            </div>
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($admin['email'] ?? ''); ?>" placeholder="example@gmail.com" required class="form-control">
+        </div>
 
-            <div class="form-group">
-                <label>Contact Number</label>
-                <input type="text" name="contact_number" id="contact" value="<?php echo htmlspecialchars($admin['contact_val'] ?? ''); ?>" readonly placeholder="e.g. 09123456789">
-            </div>
+        <div class="form-group">
+            <label>Contact Number</label>
+            <input type="text" name="contact_number" id="contact" value="<?php echo htmlspecialchars($admin['contact_val'] ?? ''); ?>" placeholder="09123456789" pattern="^09\d{9}$" title="Format: 09XXXXXXXXX (11 numbers only)" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required class="form-control">
+        </div>
 
             <div class="btn-container">
                 <button type="button" id="editBtn" class="edit-btn" onclick="enableEdit()">Edit Profile</button>
