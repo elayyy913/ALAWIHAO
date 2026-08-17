@@ -50,6 +50,8 @@ $total_maternal = $total_maternal_q ? mysqli_fetch_assoc($total_maternal_q)['cou
 $total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $inf_reg_table");
 $total_infant = $total_infant_q ? mysqli_fetch_assoc($total_infant_q)['count'] : 0;
 
+$total_patients = $total_maternal + $total_infant;
+
 $infant_pending = mysqli_query($conn, "SELECT * FROM $inf_reg_table WHERE status='Pending'");
 $maternal_pending = mysqli_query($conn, "SELECT *, 
     CONCAT(COALESCE(street,''), ' ', COALESCE(barangay,''), ' ', COALESCE(municipality,'')) AS computed_address,
@@ -87,7 +89,8 @@ $today_infant_count = 0;
 $upcoming_infant = [];
 
 if (check_table_exists($conn, 'schedules')) {
-    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM schedules WHERE category='Child' AND LOWER(status) != 'completed'");
+    // FIXED: Idinagdag ang AND schedule_date = CURDATE() para pareho sila ng maternal na count para ngayong araw
+    $today_inf_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM schedules WHERE category='Child' AND LOWER(status) != 'completed' AND schedule_date = CURDATE()");
     if ($today_inf_q) { 
         $today_infant_count = mysqli_fetch_assoc($today_inf_q)['count']; 
     }
@@ -384,27 +387,32 @@ if (check_table_exists($conn, 'schedules')) {
             <div class="success-alert"><?php echo $message; ?></div>
         <?php endif; ?>
 
-        <!-- METRICS -->
+<!-- METRICS -->
         <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">TOTAL PATIENTS</div>
+                <div class="metric-value"><?php echo $total_patients; ?></div>
+            </div>
+            
             <div class="metric-card">
                 <div class="metric-title">APPROVED MATERNAL</div>
                 <div class="metric-value"><?php echo $total_maternal; ?></div>
             </div>
+            
             <div class="metric-card">
                 <div class="metric-title">APPROVED INFANTS</div>
                 <div class="metric-value"><?php echo $total_infant; ?></div>
             </div>
+            
             <div class="metric-card" style="border-top-color: #D97706;">
                 <div class="metric-title">PENDING APPROVALS</div>
                 <div class="metric-value" style="color: #D97706;"><?php echo $pending_total; ?></div>
             </div>
+            
+            <!-- MERGED TODAY'S SCHEDULE CARD -->
             <div class="metric-card" style="border-top-color: #3B82F6;">
-                <div class="metric-title">TODAY'S MATERNAL</div>
-                <div class="metric-value" style="color: #3B82F6;"><?php echo $today_maternal_count; ?></div>
-            </div>
-            <div class="metric-card" style="border-top-color: #EF4444;">
-                <div class="metric-title">TODAY'S CHILD VACCINE</div>
-                <div class="metric-value" style="color: #EF4444;"><?php echo $today_infant_count; ?></div>
+                <div class="metric-title">TODAY'S SCHEDULES</div>
+                <div class="metric-value" style="color: #3B82F6;"><?php echo $today_maternal_count + $today_infant_count; ?></div>
             </div>
         </div>
 
