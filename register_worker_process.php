@@ -22,15 +22,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (mysqli_query($conn, $sql_worker)) {
         
         // 2. I-INSERT DIN SA USERS TABLE (Para sa Inventory mo)
-        // Dito natin sineset ang role as 'Admin' or 'Worker'
         $sql_user = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status) 
                      VALUES ('$generated_id', '$first_name', '$last_name', '$email', '$password', 'Admin', 'Approved')";
         
         if (mysqli_query($conn, $sql_user)) {
-            // Success sa dalawang table!
+            // Success sa dalawang table! 
+            // Palitan ang path depende kung nasaan folder ang admin_health_workers.php mo:
             echo "<script>
                     alert('Worker Registered Successfully and added to Users Inventory! ID: $generated_id');
-                    window.location.href='admin_health_workers.php';
+                    window.location.href='admin_health_workers.php'; 
                   </script>";
         } else {
             // Kung nag-fail sa users table pero pumasok sa workers

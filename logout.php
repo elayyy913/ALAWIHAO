@@ -1,24 +1,27 @@
 <?php
 session_start();
-include 'db_connect.php'; // 1. Kailangan ang connection para ma-update ang status
+// Gumamit ng tamang path papunta sa db_connect.php depende kung nasaan ang logout.php mo 
+include 'db_connect.php'; 
 
-// 2. REAL-TIME OFFLINE LOGIC
-if (isset($_SESSION['user_id'])) {
+// Sa logout.php
+if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
     $uid = $_SESSION['user_id'];
+    $role = trim(strtolower($_SESSION['role'])); // Gawing lowercase para ligtas sa typo
     
-    // I-set ang activity sa 1 hour ago. 
-    // Dahil ang dashboard ay naghahanap ng activity within the last 20 seconds,
-    // magmumukha ka agad na 'Offline' pagka-click ng logout.
-    mysqli_query($conn, "UPDATE users SET last_activity = DATE_SUB(NOW(), INTERVAL 1 HOUR) WHERE id = '$uid'");
+    // I-update ang tamang table depende sa role
+    if ($role === 'worker') {
+        mysqli_query($conn, "UPDATE health_workers SET last_activity = DATE_SUB(NOW(), INTERVAL 1 HOUR) WHERE worker_id = '$uid'");
+    } else {
+        mysqli_query($conn, "UPDATE users SET last_activity = DATE_SUB(NOW(), INTERVAL 1 HOUR) WHERE id = '$uid'");
+    }
 }
-
-// 3. Clear all session variables
+// Clear all session variables
 session_unset();
 
-// 4. Destroy the session on the server
+// Destroy the session on the server
 session_destroy();
 
-// 5. Clear the session cookie in the browser
+// Clear the session cookie in the browser
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
     setcookie(session_name(), '', time() - 42000,
@@ -27,12 +30,12 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// 6. Force browser to NOT cache the logout transition
+// Force browser to NOT cache the logout transition
 header("Cache-Control: no-cache, no-store, must-revalidate"); 
 header("Pragma: no-cache"); 
 header("Expires: 0"); 
 
-// 7. Redirect to login
+// Redirect to login
 header("Location: login.php");
 exit();
 ?>

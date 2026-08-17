@@ -4,6 +4,11 @@ include '../db_connect.php';
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
+// Mag-update ng activity para sa Admin/Super Admin kapag nagbubukas ng dashboard
+if (isset($_SESSION['user_id'])) {
+    $current_id = $_SESSION['user_id'];
+    mysqli_query($conn, "UPDATE users SET last_activity = NOW() WHERE id = '$current_id'");
+}
 // 1. SECURITY
 if (!isset($_SESSION['role']) && !isset($_SESSION['user_id'])) {
     header("Location: login.php");

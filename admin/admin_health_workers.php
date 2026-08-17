@@ -2,39 +2,43 @@
 session_start();
 include '../db_connect.php';
 
-// 1. SECURITY CHECK
+// 1. SECURITY CHECK (Admin & Super Admin lang ang pwedeng pumasok dito)
 if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'Super Admin' && $_SESSION['role'] !== 'Admin')) {
     header("Location: login.php");
     exit();
 }
 
-// 2. UPDATE ACTIVITY
+// 2. UPDATE ADMIN/SUPER ADMIN ACTIVITY (Ginagawang 'Online' ang kasalukuyang nagbubukas ng page)
 if (isset($_SESSION['user_id'])) {
     $current_id = $_SESSION['user_id'];
-    $stmt = ($_SESSION['role'] === 'Worker') 
-        ? $conn->prepare("UPDATE health_workers SET last_activity = NOW() WHERE worker_id = ?")
-        : $conn->prepare("UPDATE users SET last_activity = NOW() WHERE id = ?");
-    $stmt->bind_param("i", $current_id);
-    $stmt->execute();
+    $stmt = $conn->prepare("UPDATE users SET last_activity = NOW() WHERE id = ?");
+    if ($stmt) {
+        $stmt->bind_param("i", $current_id);
+        $stmt->execute();
+        $stmt->close();
+    }
 }
 
-// 3. FETCH PERSONNEL DATA
+// 3. FETCH PERSONNEL DATA (Deduplicated and Fixed Status)
 $query = "SELECT uid, generated_id, first_name, last_name, email, role_type, current_status, address, contact_number 
           FROM (
-            (SELECT id AS uid, generated_id, first_name, last_name, email, 'Admin' as role_type,
-             CASE WHEN last_activity >= NOW() - INTERVAL 2 MINUTE THEN 'Online' ELSE 'Offline' END as current_status,
-             address, contact_number
-             FROM users WHERE role IN ('Admin', 'Super Admin') AND status = 'Approved')
+            SELECT id AS uid, generated_id, first_name, last_name, email, 'Admin' as role_type,
+                   CASE WHEN last_activity >= NOW() - INTERVAL 2 MINUTE THEN 'Online' ELSE 'Offline' END as current_status,
+                   address, contact_number, last_activity
+            FROM users WHERE role IN ('Admin', 'Super Admin') AND status = 'Approved'
             UNION
-            (SELECT worker_id AS uid, generated_id, first_name, last_name, email, 'Worker' as role_type,
-             CASE WHEN last_activity >= NOW() - INTERVAL 2 MINUTE THEN 'Online' ELSE 'Offline' END as current_status,
-             address, contact_number
-             FROM health_workers WHERE status = 'approved')
+            SELECT worker_id AS uid, generated_id, first_name, last_name, email, 'Worker' as role_type,
+                   CASE WHEN last_activity >= NOW() - INTERVAL 2 MINUTE THEN 'Online' ELSE 'Offline' END as current_status,
+                   address, contact_number, last_activity
+            FROM health_workers WHERE status = 'approved'
           ) AS combined_workers 
           GROUP BY email 
-          ORDER BY current_status DESC, first_name ASC";
-
+          ORDER BY (current_status = 'Online') DESC, last_activity DESC, first_name ASC";
 $result = mysqli_query($conn, $query);
+
+if (!$result) {
+    die("SQL Error: " . mysqli_error($conn));
+}
 ?>
 
 <!DOCTYPE html>
@@ -176,7 +180,7 @@ $result = mysqli_query($conn, $query);
             <h3>Personnel Profile</h3>
             <p>Managing contact details and system access.</p>
         </div>
-        <form action="update_personnel_process.php" method="POST">
+            <form action="update_personnel_process.php" method="POST">
             <div class="modal-body">
                 <input type="hidden" name="uid" id="modal_uid">
                 <input type="hidden" name="role_type" id="modal_role_type">
@@ -205,7 +209,12 @@ $result = mysqli_query($conn, $query);
                 </div>
                 <div class="form-group">
                     <label>Contact Number</label>
-                    <input type="text" name="contact" id="modal_contact" required>
+                    <!-- Nilagyan ng maxlength, pattern, at JavaScript restriction para sumunod sa format ng register -->
+                    <input type="text" name="contact" id="modal_contact" required 
+                           maxlength="11" pattern="09[0-9]{9}" 
+                           placeholder="09XXXXXXXXX" 
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11);" 
+                           title="Must be 11 digits starting with 09 (e.g., 09123456789)">
                 </div>
             </div>
             <div class="modal-footer">
@@ -273,7 +282,6 @@ $result = mysqli_query($conn, $query);
             document.getElementById('alertTitle').innerText = 'Update Successful';
             document.getElementById('alertMsg').innerText = urlParams.get('msg');
             document.getElementById('alertModal').style.display = 'flex';
-            // Clean the URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
