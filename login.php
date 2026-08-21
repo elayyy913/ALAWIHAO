@@ -290,7 +290,7 @@ input:focus {
             <div class="form-group">
                 <label>Email or System ID</label>
                 <input type="text" name="field_user_id" required 
-                       placeholder="name@email.com or ALW-XXXX" 
+                       placeholder="name@email.com or worker code" 
                        autocomplete="off">
             </div>
 

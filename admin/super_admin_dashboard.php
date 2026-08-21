@@ -27,7 +27,9 @@ if (isset($_GET['remove_worker_id'])) {
 $pending_workers_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0;
 
 // --- FETCH COUNTS ---
+// Dito ay nilagyan natin ng WHERE status='Approved' para tumugma sa totoong bilang ng approved infants sa database mo
 $total_newborns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM infant_records"))['t'] ?? 0;
+
 $total_pregnant = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Approved'"))['t'] ?? 0;
 $total_patients = $total_newborns + $total_pregnant;
 $total_workers = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Approved'"))['t'] ?? 0;
@@ -239,7 +241,7 @@ if (check_table_exists($conn, 'schedules')) {
             
             <!-- Upcoming Maternal Check-ups -->
             <div class="table-container">
-                <h3>Upcoming Maternal Check-ups</h3>
+                <h3>Upcoming Maternal Check-ups & Vaccinations</h3>
                 <div class="schedule-card-list">
                     <?php if (!empty($upcoming_maternal)): foreach($upcoming_maternal as $sched): 
                         $patientName = $sched['full_name'] ?? $sched['client_name'] ?? 'N/A';
