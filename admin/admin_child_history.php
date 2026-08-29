@@ -34,7 +34,7 @@ if (!$child) {
 }
 
 // Fetch Immunization / Check-up History
-$history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_id' ORDER BY vaccine_date DESC, created_at DESC");
+$history_query = mysqli_query($conn, "SELECT * FROM children  WHERE child_id = '$child_id' ORDER BY vaccine_date DESC, created_at DESC");
 ?>
 
 <!DOCTYPE html>

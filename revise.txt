@@ -1,0 +1,68 @@
+log in/ sign up 
+
+fix all toogle notifications in here
+password cannot be copied in signing in
+background photo needed sa sign in same sa photo bg ng login at ng forgot pass page
+yung password if di nameet yung security di dapat makakapasok
+dapat may security ang history page hindi dapat nababalik sa page kapag tig press yung arrow in the upper left 
+
+
+super admin
+(OVERVIEW)
+the graph inventory not just card
+bg ui (its so empty)
+logo should always be there in every pages
+
+(WORKER)
+kapag magpapalit ng email sa personnel pf needed ng confirmation mismo sa email for security (innovation)
+
+(VACCINE)
+remove empty table button in vaccine inventory 
+dropdown to vaccine name ng diff vaccine accordingly for maternal and infant
+lalabas lang sa dropdown ng vaccine name ay depende sa category sa pag update
+dapat may card showing ng total vaccines, total na nabawas this month, total ng nadagdag this month
+fix toogle notification 
+
+(MATERNAL RECORD)
+fix fetching ng information from verification kulang kulang info ang naffetch
+fix check up visit history 
+
+(MATERNAL HEALTH RECORD)
+hindi dapat siya agad sa document but sa history record ng mga recent appointment then may button for report then dun na lalabas yung doc
+please check ang functionality ng add record 
+
+(INFANT HEALTH RECORD)
+hindi dapat siya agad sa document but sa history record ng mga recent appointment then may button for report then dun na lalabas yung doc
+i think dapat meron siyang immunization table as well like nung sa record siguro ito yung lalabas muna sa history bago ang docs
+
+(SCHEDULE MANAGEMENT)
+fix yung di paglabas ng sched sa user
+
+(SETTING)
+all ng need sa settings
+lalagay ddon lahat ng need sa setting pagpalit ng password tapos ng darkmode or hindi and so on
+
+
+(USER)
+make the booklet ui more good like more infos in there para magmukhang article 
+change ng details sa baba like real num and address
+
+(PROFILE)
+sa pag edit ng pf sa number part pls add ng security like need ng limit then dapat number lang not letters
+
+(RECORDS)
+should be kung anong nasa record nila from health record sa admin yung din ang nasa loob nito 
+
+(SCHEDULE)
+yung notification ng schedule nila 
+yung sms ng appointment 
+yung pag show ng current state ng resched request 
+sa history part nito mg sshow yung record nila ng health record full what i mean by full is yung lahat ng appointment nila na nagawa na include don yung record na nakuha sa kanila that time
+remove yung history sa sidebar palitan ng settings
+lalagay ddon lahat ng need sa setting pagpalit ng password tapos ng darkmode or hindi and so on
+yung sidebar at logo nag mmerge fix it make it flexible 
+
+(general)
+fix toogle 
+
+

@@ -24,7 +24,7 @@ $m_query = "SELECT * FROM maternal_logs WHERE mother_id = '$user_id' ORDER BY ch
 $m_result = mysqli_query($conn, $m_query);
 
 // 4. KUNIN ANG MGA ANAK (Infant Records) - Gamit ang parent_id base sa DB structure mo
-$c_query = "SELECT * FROM infant_records WHERE parent_id = '$user_id'";
+$c_query = "SELECT * FROM children  WHERE parent_id = '$user_id'";
 $c_result = mysqli_query($conn, $c_query);
 ?>
 

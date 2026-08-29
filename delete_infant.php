@@ -17,7 +17,7 @@ if (!$conn) {
 if (isset($_POST['child_id'])) {
     $child_id = mysqli_real_escape_string($conn, $_POST['child_id']);
 
-    mysqli_query($conn, "DELETE FROM infant_records WHERE child_id = '$child_id'");
+    mysqli_query($conn, "DELETE FROM children WHERE child_id = '$child_id'");
     $query = "DELETE FROM children WHERE id = '$child_id'";
     
     if (mysqli_query($conn, $query)) {

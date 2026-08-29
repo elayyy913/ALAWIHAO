@@ -34,8 +34,8 @@ if (isset($_POST['update_health'])) {
     $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']); 
     $hw_id = $_SESSION['user_id']; 
 
-    // I-update ang SQL para sa infant_records kasama ang administered_by
-    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at) 
+    // I-update ang SQL para sa children  kasama ang administered_by
+    $sql = "INSERT INTO children  (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at) 
             VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$administered_by', '$hw_id', NOW())";
     
     if (mysqli_query($conn, $sql)) {

@@ -27,7 +27,7 @@ if (!function_exists('check_table_exists')) {
 
 // EXACT REGISTRATION TABLES
 $mat_reg_table = check_table_exists($conn, 'maternal_registrations') ? 'maternal_registrations' : 'maternal_registration';
-$inf_reg_table = check_table_exists($conn, 'children') ? 'children' : 'infant_records';
+$inf_reg_table = check_table_exists($conn, 'children') ? 'children' : 'children ';
 
 // 2. HANDLE SCHEDULE ACTIONS (DONE / RESCHEDULE)
 if (isset($_POST['action_type']) && isset($_POST['sched_id'])) {

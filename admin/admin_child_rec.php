@@ -18,7 +18,7 @@ $query = "SELECT c.*,
          r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name, r.administered_by
          FROM children c
          LEFT JOIN (
-             SELECT * FROM infant_records WHERE id IN (SELECT MAX(id) FROM infant_records GROUP BY child_id)
+             SELECT * FROM children  WHERE id IN (SELECT MAX(id) FROM children  GROUP BY child_id)
          ) r ON c.id = r.child_id
          WHERE c.status = 'Approved' AND (c.child_name LIKE '%$search%' OR r.baby_name LIKE '%$search%')";
 // Age Filtering Logic gamit ang TIMESTAMPDIFF sa MySQL
@@ -140,7 +140,7 @@ $result = mysqli_query($conn, $query);
                         <?php while($row = mysqli_fetch_assoc($result)): ?>
                         <?php 
                             $child_current_id = $row['id'];
-                            $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
+                            $history_query = mysqli_query($conn, "SELECT * FROM children  WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
                             $history_arr = [];
                             while($hist = mysqli_fetch_assoc($history_query)) {
                                 $history_arr[] = $hist;

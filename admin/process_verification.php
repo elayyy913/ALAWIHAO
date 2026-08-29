@@ -46,7 +46,7 @@ if (isset($_GET['approve_id'])) {
         $parent_name = $baby['mother_name']; $parent_id = $baby['user_id']; 
         $address = $baby['place_of_birth'];
 
-        $insert_query = "INSERT INTO infant_records (baby_name, birth_date, gender, weight_kg, parent_guardian, address, parent_id, created_at) 
+        $insert_query = "INSERT INTO children (baby_name, birth_date, gender, weight_kg, parent_guardian, address, parent_id, created_at) 
                          VALUES ('$baby_name', '$birth_date', '$gender', '$weight', '$parent_name', '$address', '$parent_id', NOW())";
         
         if (mysqli_query($conn, $insert_query)) {
@@ -201,7 +201,7 @@ if (isset($_GET['remove_id'])) {
     $child = mysqli_fetch_assoc($get_name);
     if ($child) {
         $c_name = mysqli_real_escape_string($conn, $child['child_name']);
-        mysqli_query($conn, "DELETE FROM infant_records WHERE baby_name = '$c_name'");
+        mysqli_query($conn, "DELETE FROM children WHERE baby_name = '$c_name'");
     }
     mysqli_query($conn, "DELETE FROM children WHERE id = '$id'");
     header("Location: $redirect_page?msg=Removed"); 

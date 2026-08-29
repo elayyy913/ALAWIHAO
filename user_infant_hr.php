@@ -11,13 +11,13 @@ if (!isset($_GET['id']) || !isset($_SESSION['user_id'])) {
 $record_id = mysqli_real_escape_string($conn, $_GET['id']);
 $user_id = $_SESSION['user_id'];
 
-// 2. FETCH REAL DATA: Kinukuha natin lahat ng info sa infant_records table
+// 2. FETCH REAL DATA: Kinukuha natin lahat ng info sa children  table
 // Kasama na ang age calculation para accurate
 $query = "SELECT *, 
           TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) AS age_years, 
           TIMESTAMPDIFF(MONTH, birth_date, CURDATE()) % 12 AS age_months,
           TIMESTAMPDIFF(DAY, birth_date, CURDATE()) % 30 AS age_days
-          FROM infant_records 
+          FROM children 
           WHERE id = '$record_id' AND parent_id = '$user_id'";
 
 $res = mysqli_query($conn, $query);

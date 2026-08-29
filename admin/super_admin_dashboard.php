@@ -28,7 +28,7 @@ $pending_workers_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*)
 
 // --- FETCH COUNTS ---
 // Dito ay nilagyan natin ng WHERE status='Approved' para tumugma sa totoong bilang ng approved infants sa database mo
-$total_newborns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM infant_records"))['t'] ?? 0;
+$total_newborns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM children WHERE status='Approved'"))['t'] ?? 0;
 
 $total_pregnant = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Approved'"))['t'] ?? 0;
 $total_patients = $total_newborns + $total_pregnant;
