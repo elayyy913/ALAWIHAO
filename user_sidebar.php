@@ -18,7 +18,6 @@ $is_home = ($current_page == 'user_dashboard.php');
     <div class="nav-menu">
         <span class="nav-label">(overview)</span>
         <a href="user_dashboard.php" class="nav-link" id="link-home">Home</a>
-        <a href="user_profile.php" class="nav-link" id="link-profile">Profile</a>
 
         <span class="nav-label">(services)</span>
         <button class="dropdown-btn" onclick="toggleDropdown('regDrop', this)">
@@ -39,7 +38,7 @@ $is_home = ($current_page == 'user_dashboard.php');
 
         <span class="nav-label">(others)</span>
         <a href="user_schedule.php" class="nav-link" id="link-schedule">Schedule</a>
-        <a href="user_history.php" class="nav-link" id="link-history">History</a>
+        <a href="user_settings.php" class="nav-link" id="link-settings">Settings</a>
     </div>
 
     <div class="sidebar-footer">
@@ -256,13 +255,12 @@ $is_home = ($current_page == 'user_dashboard.php');
         const currentPath = window.location.pathname.split("/").pop();
         const links = {
             'user_dashboard.php': 'link-home',
-            'user_profile.php': 'link-profile',
             'user_maternal_reg.php': 'link-reg-pregnancy',
             'user_infant_reg.php': 'link-reg-newborn',
             'user_maternal_records.php': 'link-maternal-rec',
             'user_child_records.php': 'link-child-rec',
             'user_schedule.php': 'link-schedule',
-            'user_history.php': 'link-history'
+            'user_settings.php': 'link-settings'
         };
 
         if (links[currentPath]) {
