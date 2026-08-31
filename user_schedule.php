@@ -222,7 +222,7 @@ if (count($patient_names) > 0) {
 <div class="topbar">
     <div class="topbar-brand">
         <button class="hamburger-btn" onclick="toggleSidebar()"><i class="fa fa-bars"></i></button>
-        <img src="images/logo.png" alt="Alawihao.jpg" class="logo-img">
+        <img src="images/logo.jpg" alt="Alawihao.jpg" class="logo-img">
     </div>
     <span class="page-label">My Appointments</span>
 </div>

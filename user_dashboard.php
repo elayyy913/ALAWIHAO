@@ -305,8 +305,8 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             <i class="fa fa-bars"></i>
         </button>
 
-        <!-- Pinalaki ang sukat ng logo (50px) at ginamit ang tamang folder at file name na images/logo.png -->
-        <img src="images/logo.png" alt="Brgy Logo" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
+        <!-- Pinalaki ang sukat ng logo (50px) at ginamit ang tamang folder at file name na images/logo.jpg -->
+        <img src="images/logo.jpg" alt="Brgy Logo" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
         <div class="logo-text">
             <span>Barangay Alawihao Health Center</span>
             <strong>ALAWIHAO HEALTH HUB</strong>

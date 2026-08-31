@@ -275,7 +275,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
             <i class="fa fa-bars"></i>
         </button>
-        <img src="images/logo.png" alt="Brgy Logo" class="logo-img">
+        <img src="images/logo.jpg" alt="Brgy Logo" class="logo-img">
     </div>
     <span class="page-label">Account Settings & Profile</span>
 </div>
