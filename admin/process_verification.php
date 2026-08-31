@@ -34,23 +34,18 @@ if (isset($_GET['approve_worker_id'])) {
     }
 }
 
-// Infant Registration Approval
+// Infant Registration Approval (Naayos na base sa aktwal mong children table columns)
 if (isset($_GET['approve_id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_id']);
     $fetch_data = mysqli_query($conn, "SELECT * FROM children WHERE id = '$id'");
     $baby = mysqli_fetch_assoc($fetch_data);
 
     if ($baby) {
-        $baby_name = $baby['child_name']; $birth_date = $baby['birth_date'];
-        $gender = $baby['gender']; $weight = $baby['weight'];
-        $parent_name = $baby['mother_name']; $parent_id = $baby['user_id']; 
-        $address = $baby['place_of_birth'];
-
-        $insert_query = "INSERT INTO children (baby_name, birth_date, gender, weight_kg, parent_guardian, address, parent_id, created_at) 
-                         VALUES ('$baby_name', '$birth_date', '$gender', '$weight', '$parent_name', '$address', '$parent_id', NOW())";
+        // Update status to Approved directly para sa record na ito, 
+        // o kaya kung gusto mong i-update ang status column:
+        $update_query = "UPDATE children SET status = 'Approved' WHERE id = '$id'";
         
-        if (mysqli_query($conn, $insert_query)) {
-            mysqli_query($conn, "UPDATE children SET status = 'Approved' WHERE id = '$id'");
+        if (mysqli_query($conn, $update_query)) {
             header("Location: $redirect_page?msg=ApprovedAndRecorded");
             exit();
         }
@@ -197,12 +192,7 @@ if (isset($_POST['reschedule_infant'])) {
 // --- REMOVE LOGIC ---
 if (isset($_GET['remove_id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['remove_id']);
-    $get_name = mysqli_query($conn, "SELECT child_name FROM children WHERE id = '$id'");
-    $child = mysqli_fetch_assoc($get_name);
-    if ($child) {
-        $c_name = mysqli_real_escape_string($conn, $child['child_name']);
-        mysqli_query($conn, "DELETE FROM children WHERE baby_name = '$c_name'");
-    }
+    // Diretang ide-delete gamit ang tamang table id at child_name column
     mysqli_query($conn, "DELETE FROM children WHERE id = '$id'");
     header("Location: $redirect_page?msg=Removed"); 
     exit();

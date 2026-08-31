@@ -66,3 +66,29 @@ yung sidebar at logo nag mmerge fix it make it flexible
 fix toogle 
 
 
+
+che
+login/signup
+worker
+settings 
+included setting ng user sa schedule 
+user profile 
+
+
+
+riezza
+vaccine 
+user (booklet)
+schedule ng user (notification)
+
+
+me 
+superadmin
+maternal record
+mh record
+ih record
+sched management
+records ng user 
+schedule ng user  (sms)
+
+
