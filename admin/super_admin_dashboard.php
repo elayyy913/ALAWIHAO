@@ -338,7 +338,7 @@ if (check_table_exists($conn, 'schedules')) {
         .section-tag { background: #F4F4ED; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; color: var(--dark-sage); border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid var(--sage); }
 
         .page-header {
-        margin-left: 50px; /* Nagbibigay ng espasyo para hindi matakpan ng hamburger button */
+        margin-left: 50px; 
         border-bottom: 2px solid var(--border);
         padding-bottom: 15px;
         margin-bottom: 30px;
