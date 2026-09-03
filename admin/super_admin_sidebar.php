@@ -1,6 +1,6 @@
 <?php
 $current_page = basename($_SERVER['PHP_SELF']);
-// Direktang tinutukoy ang tamang path papunta sa admin folder para maiwasan ang dobleng folder
+// Direktang tinutukoy ang tamang path papunta sa admin folder para maiwasan ang dobleng folder[cite: 1]
 $base_url = "/FINAL_CAPSTONE/admin/";
 ?>
 
@@ -20,7 +20,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         --transition: all 0.3s ease-in-out;
     }
 
-    /* 1. HAMBURGER BUTTON - Floating sa labas */
+    /* 1. HAMBURGER BUTTON - Floating sa labas[cite: 1] */
     .open-sidebar-btn {
         position: fixed;
         top: 20px;
@@ -39,7 +39,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
     }
     .open-sidebar-btn:hover { background-color: var(--dark-sage); }
 
-    /* 2. SIDEBAR CORE STYLE */
+    /* 2. SIDEBAR CORE STYLE[cite: 1] */
     .sidebar {
         width: var(--sidebar-width);
         height: 100vh;
@@ -60,7 +60,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         transform: translateX(-100%);
     }
 
-    /* 3. CLOSE BUTTON (X) */
+    /* 3. CLOSE BUTTON (X)[cite: 1] */
     .close-sidebar-x {
         position: absolute;
         top: 15px;
@@ -75,21 +75,33 @@ $base_url = "/FINAL_CAPSTONE/admin/";
     }
     .close-sidebar-x:hover { color: #E53E3E; }
 
-    /* Header styling */
+    /* Header styling[cite: 1] */
     .sidebar-header {
-        padding: 40px 30px;
+        padding: 30px 20px;
         border-bottom: 1px solid var(--border-color);
         position: relative;
     }
+    /* Bagong CSS para sa pagtatabi ng Logo at Header Text */
+    .sidebar-header-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .sidebar-logo {
+        width: 45px;
+        height: 45px;
+        object-fit: contain;
+    }
     .brand-name {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 800;
         color: var(--text-main);
         letter-spacing: -0.5px;
         text-transform: uppercase;
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
     }
     .brand-name span { color: var(--sage); }
     .sidebar-header p {
@@ -101,7 +113,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         font-weight: 600;
     }
 
-    /* Menu styling */
+    /* Menu styling[cite: 1] */
     .nav-menu {
         flex-grow: 1;
         padding: 30px 15px;
@@ -144,7 +156,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         font-weight: 600;
     }
 
-    /* Dropdown container */
+    /* Dropdown container[cite: 1] */
     .dropdown-container {
         display: none;
         background-color: #f9fbf7;
@@ -182,7 +194,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
     }
     .logout-btn:hover { background: #FFF5F5; }
 
-    /* DYNAMIC ADJUSTMENT */
+    /* DYNAMIC ADJUSTMENT[cite: 1] */
     .main-content, #main {
         margin-left: var(--sidebar-width);
         transition: margin-left 0.3s ease-in-out;
@@ -201,8 +213,13 @@ $base_url = "/FINAL_CAPSTONE/admin/";
 <nav class="sidebar" id="mainSidebar">
     <div class="sidebar-header">
         <button class="close-sidebar-x" onclick="hideSidebar()">&times;</button>
-        <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
-        <p>Administrative Control</p>
+        <div class="sidebar-header-content">
+            <img src="../images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
+            <div>
+                <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
+                <p>Administrative Control</p>
+            </div>
+        </div>
     </div>
 
     <div class="nav-menu">
@@ -231,11 +248,10 @@ $base_url = "/FINAL_CAPSTONE/admin/";
             <a href="<?php echo $base_url; ?>admin_child_hr.php" id="id-child-health">Child Health Record</a>
         </div>
 
-        <!-- Dito yung pagbabago: Iisang link na lang para sa Schedule -->
         <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link" id="link-schedule">Schedule Management</a>
 
         <span class="nav-label">(others)</span>
-        <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link" id="link-settings">Setting</a>
+        <a href="<?php echo $base_url; ?>super_admin_setting.php" class="nav-link" id="link-settings">Setting</a>
     </div>
 
     <div class="sidebar-footer">
