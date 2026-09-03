@@ -3,15 +3,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
 // Active states para sa mga dropdown
 $is_reg_active   = in_array($current_page, ['admin_maternal_reg.php', 'admin_child_reg.php']);
-$is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_child_hr.php']); // Binago rito
+$is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_child_hr.php']);
 ?>
 
 <div id="mySidenav" class="side-nav-new">
     <span class="closebtn-new" onclick="closeNav()">&times;</span>
     
     <div class="sidebar-header-new">
-        <div class="brand-new">ALAWIHAO <span class="highlight-new">CENTER</span></div>
-        <div class="sub-brand-new">ADMINISTRATIVE CONTROL</div>
+        <!-- BRAND CONTAINER (Logo + Text Side-by-Side) -->
+        <div class="sidebar-brand-wrapper">
+            <img src="../images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
+            <div class="brand-text-group">
+                <div class="brand-new">ALAWIHAO <span class="highlight-new">CENTER</span></div>
+                <div class="sub-brand-new">ADMINISTRATIVE CONTROL</div>
+            </div>
+        </div>
     </div>
     
     <div class="menu-items-new">
@@ -35,7 +41,6 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
             <span>Records</span> <span class="caret-new <?php echo $is_rec_active ? 'rotate' : ''; ?>">▼</span>
         </button>
         <div id="dropRec" class="dropdown-container-new <?php echo $is_rec_active ? 'show' : ''; ?>">
-            <!-- Binago ang href mula _rec.php papuntang _hr.php -->
             <a href="admin_maternal_hr.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_maternal_hr.php') ? 'active-sub' : ''; ?>">Maternal Records</a>
             <a href="admin_child_hr.php" class="nav-item-sub-new <?php echo ($current_page == 'admin_child_hr.php') ? 'active-sub' : ''; ?>">Child Records</a>
         </div>
@@ -44,6 +49,7 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         <a href="schedule_management.php" class="nav-item-new <?php echo ($current_page == 'schedule_management.php') ? 'active' : ''; ?>">Schedule Management</a>
         <div class="menu-label-new">Others</div>
         <a href="admin_history.php" class="nav-item-new <?php echo ($current_page == 'admin_history.php') ? 'active' : ''; ?>">History</a>
+        <a href="admin_settings.php" class="nav-item-new <?php echo ($current_page == 'admin_settings.php') ? 'active' : ''; ?>">Settings</a>
     </div>
     <a href="/FINAL_CAPSTONE/logout.php" class="logout-link-new">Log out</a>
 </div>
@@ -91,10 +97,47 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
     }
     .open-btn-new:hover { background-color: #6B8E55 !important; }
 
-    .sidebar-header-new { padding: 30px 25px 20px 25px !important; }
-    .brand-new { font-size: 1.15rem !important; font-weight: 800 !important; color: #1E293B !important; letter-spacing: -0.5px !important; }
+    /* Header styling with Side-by-Side Logo & Text */
+    .sidebar-header-new { 
+        padding: 20px 20px 15px 20px !important; 
+        border-bottom: 1px solid #F1F5F9 !important;
+    }
+
+    .sidebar-brand-wrapper {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+
+    .sidebar-logo {
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 50% !important;
+        object-fit: cover !important;
+        border: 1.5px solid #8DAE74 !important;
+        flex-shrink: 0 !important;
+    }
+
+    .brand-text-group {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .brand-new { 
+        font-size: 0.95rem !important; 
+        font-weight: 800 !important; 
+        color: #1E293B !important; 
+        letter-spacing: -0.5px !important; 
+        line-height: 1.2 !important;
+    }
     .highlight-new { color: #8DAE74 !important; }
-    .sub-brand-new { font-size: 0.65rem !important; color: #94A3B8 !important; font-weight: 700 !important; margin-top: 4px !important; letter-spacing: 0.5px !important; }
+    .sub-brand-new { 
+        font-size: 0.58rem !important; 
+        color: #94A3B8 !important; 
+        font-weight: 700 !important; 
+        margin-top: 2px !important; 
+        letter-spacing: 0.5px !important; 
+    }
     
     .menu-items-new { padding: 0 12px !important; flex-grow: 1 !important; overflow-y: auto !important; }
     .menu-label-new { font-size: 0.68rem !important; font-weight: 700 !important; color: #94A3B8 !important; padding: 18px 15px 8px 15px !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; }
@@ -141,9 +184,9 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
     
     .closebtn-new { 
         position: absolute !important; 
-        top: 15px !important; 
-        right: 20px !important; 
-        font-size: 22px !important; 
+        top: 12px !important; 
+        right: 15px !important; 
+        font-size: 1.5rem !important; 
         color: #94A3B8 !important; 
         cursor: pointer !important; 
     }
