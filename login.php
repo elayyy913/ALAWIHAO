@@ -120,6 +120,7 @@ body {
     border: 1px solid var(--border-light);
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
     text-align: center;
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .logo-area { 
