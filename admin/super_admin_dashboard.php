@@ -137,7 +137,7 @@ if (check_table_exists($conn, 'schedules')) {
         :root { --sage: #8DAE74; --dark-sage: #5A6B47; --beige: #F9F9F4; --white: #FFFFFF; --text: #2D2D2D; --border: #E1E1D7; }
         body { font-family: 'Inter', sans-serif; margin: 0; background-color: var(--beige); color: var(--text); display: flex; }
         
-        .main-content { flex-grow: 1; padding: 40px; box-sizing: border-box; width: 100%; margin-left: 280px; transition: margin-left 0.3s ease-in-out; }
+        .main-content { flex-grow: 1; padding: 40px; padding-top: 70px; box-sizing: border-box; width: 100%; margin-left: 280px; transition: margin-left 0.3s ease-in-out; }
         .page-header { border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 30px; }
         .page-header h1 { color: var(--dark-sage); font-size: 1.8rem; margin: 0; }
         
@@ -233,7 +233,15 @@ if (check_table_exists($conn, 'schedules')) {
         .checkbox-label input { width: 15px; height: 15px; cursor: pointer; }
 
         .section-tag { background: #F4F4ED; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; color: var(--dark-sage); border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid var(--sage); }
+
+        .page-header {
+        margin-left: 50px; /* Nagbibigay ng espasyo para hindi matakpan ng hamburger button */
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 15px;
+        margin-bottom: 30px;
+    }
     </style>
+    
 </head>
 <body>
 
