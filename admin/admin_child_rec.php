@@ -7,20 +7,20 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// 1. Kunin muna ang mga parameters mula sa GET bago buuin ang query
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'newest';
 $age_filter = isset($_GET['age_filter']) ? $_GET['age_filter'] : 'all';
 
+// 2. Gamitin ang tamang query para sa single 'children' table nang walang child_id error
 $query = "SELECT c.*, 
-         COALESCE(NULLIF(r.weight_kg, 0), c.weight_kg, 0) AS weight_kg, 
-         COALESCE(NULLIF(r.height, 0), c.height_cm, 0) AS height, 
-         COALESCE(r.vaccine_taken, c.vaccine_taken, 'None') AS vaccine_taken,
-         r.vaccine_date, r.next_checkup, r.remarks, r.birth_date AS r_dob, r.baby_name, r.administered_by
+         c.weight_kg AS weight_kg, 
+         c.height_cm AS height, 
+         COALESCE(c.vaccine_taken, 'None') AS vaccine_taken,
+         NULL AS vaccine_date, NULL AS next_checkup, NULL AS remarks, c.birth_date AS r_dob, NULL AS baby_name, c.administered_by
          FROM children c
-         LEFT JOIN (
-             SELECT * FROM children  WHERE id IN (SELECT MAX(id) FROM children  GROUP BY child_id)
-         ) r ON c.id = r.child_id
-         WHERE c.status = 'Approved' AND (c.child_name LIKE '%$search%' OR r.baby_name LIKE '%$search%')";
+         WHERE c.status = 'Approved' AND c.child_name LIKE '%$search%'";
+
 // Age Filtering Logic gamit ang TIMESTAMPDIFF sa MySQL
 if ($age_filter == '0-1') {
     $query .= " AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) <= 1";
@@ -140,7 +140,7 @@ $result = mysqli_query($conn, $query);
                         <?php while($row = mysqli_fetch_assoc($result)): ?>
                         <?php 
                             $child_current_id = $row['id'];
-                            $history_query = mysqli_query($conn, "SELECT * FROM children  WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
+                           $history_query = mysqli_query($conn, "SELECT * FROM children WHERE id = '$child_current_id' ORDER BY created_at DESC");
                             $history_arr = [];
                             while($hist = mysqli_fetch_assoc($history_query)) {
                                 $history_arr[] = $hist;

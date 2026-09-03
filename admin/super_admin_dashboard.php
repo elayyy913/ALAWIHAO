@@ -141,16 +141,119 @@ if (check_table_exists($conn, 'schedules')) {
         .page-header { border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 30px; }
         .page-header h1 { color: var(--dark-sage); font-size: 1.8rem; margin: 0; }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: var(--white); padding: 20px; border-radius: 4px; border-top: 5px solid var(--sage); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .stat-card h4 { font-size: 0.7rem; color: #7f8c8d; margin-bottom: 10px; text-transform: uppercase; }
-        .stat-card h2 { margin: 0; font-size: 1.6rem; }
+.stats-grid { 
+        display: grid; 
+        grid-template-columns: repeat(5, 1fr); 
+        gap: 20px; 
+        margin-bottom: 30px; 
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .stat-card { 
+        background: var(--white); 
+        padding: 22px; 
+        border-radius: 10px; 
+        border: 1px solid var(--border);
+        border-top: 4px solid var(--sage); 
+        box-shadow: var(--shadow-subtle); 
+        transition: all 0.3s ease-in-out;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card { 
+        background: var(--white); 
+        padding: 22px; 
+        border-radius: 10px; 
+        border: 1px solid var(--border);
+        border-top: 4px solid var(--sage); 
+        box-shadow: var(--shadow-subtle); 
+        transition: all 0.25s ease-in-out;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-4px); /* Mag-aabang o mag-aangat pataas nang konti (pop-up effect) */
+        background: linear-gradient(135deg, #FFFFFF 0%, #F0F5EC 100%);
+        border: 2px solid var(--dark-sage); /* Mas makapal (2px) at mas matingkad na kulay sa lahat ng gilid */
+        box-shadow: 0 10px 25px rgba(90, 107, 71, 0.15);
+    }
+    
+    .stat-card h2 { 
+        margin: 0; 
+        font-size: 1.5rem; 
+        font-weight: 700;
+        color: var(--text);
+    }
+    .analytic-card { 
+        background: #FAFAF7; 
+        border: 1px solid #EBEBE3; 
+        border-radius: 8px; 
+        padding: 20px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px; 
+        position: relative;
+        overflow: hidden; /* Kailangan para hindi lumampas ang glow */
+        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease-in-out;
+    }
+    .analytic-card::before {
+        content: '';
+        position: absolute;
+        width: 180px;
+        height: 180px;
+        background: radial-gradient(circle, rgba(141, 174, 116, 0.25) 0%, rgba(141, 174, 116, 0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1;
+    }
+    .analytic-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--sage);
+        box-shadow: 0 8px 20px rgba(141, 174, 116, 0.12);
+    }
+    .analytic-card { 
+        background: #FAFAF7; 
+        border: 1px solid #EBEBE3; 
+        border-radius: 8px; 
+        padding: 20px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px; 
+        position: relative;
+        overflow: hidden; 
+        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease-in-out;
+    }
+
+    .analytic-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--sage);
+        box-shadow: 0 8px 22px rgba(141, 174, 116, 0.2);
+    }
+
+    .analytic-card > * {
+        position: relative;
+        z-index: 2;
+    }
+
+    .analytic-card:hover::before {
+        opacity: 1;
+    }
+
+    .analytic-card > * {
+        position: relative;
+        z-index: 2;
+    }
         
         /* DONUT GRAPHIC VISUAL PERCENTAGE SECTION */
         .analytics-section { background: var(--white); padding: 25px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .analytics-section h3 { font-size: 1.1rem; color: var(--dark-sage); border-left: 4px solid var(--sage); padding-left: 10px; margin-top: 0; margin-bottom: 20px; }
         .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        .analytic-card { background: #FAFAF7; border: 1px solid #EBEBE3; border-radius: 6px; padding: 20px; display: flex; align-items: center; gap: 20px; }
         
         /* DONUT CHART STYLING */
         .donut-chart {
@@ -967,6 +1070,25 @@ if (check_table_exists($conn, 'schedules')) {
     function closeNewbornModal() {
         document.getElementById('newbornVerifyModal').style.display = 'none';
     }
+    
+    document.addEventListener("DOMContentLoaded", () => {
+        const cards = document.querySelectorAll(".analytic-card");
+
+        cards.forEach(card => {
+            card.addEventListener("mousemove", (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Mas matingkad na sage spotlight effect (pinalakas ang opacity at radius)
+               card.style.background = `radial-gradient(circle 170px at ${x}px ${y}px, rgba(141, 174, 116, 0.38), #FAFAF7 70%)`;
+            });
+
+            card.addEventListener("mouseleave", () => {
+                card.style.background = "#FAFAF7"; // Babalik sa normal kapag lumabas ang cursor
+            });
+        });
+    });
 
     function openVerifyModal(data) {
         document.getElementById('modal_mother_id').value = data.id || '';
