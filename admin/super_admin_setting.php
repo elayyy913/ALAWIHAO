@@ -168,6 +168,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
         .btn-primary { background: var(--green); color: white; }
         .btn-primary:hover { background: var(--accent); }
 
+        .btn-backup {
+            background: #EDF2F7;
+            color: #2D3748;
+            border: 1px solid #cbd5e1;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-backup:hover { background: #E2E8F0; }
+
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     </style>
@@ -244,6 +261,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
                 </div>
                 <button type="submit" name="update_admin_profile" class="btn btn-primary"><i class="fa-solid fa-shield-halved"></i> Update Credentials</button>
             </form>
+        </div>
+
+        <!-- 3. DATABASE & SYSTEM MAINTENANCE -->
+        <div class="settings-card">
+            <div class="settings-section-title"><i class="fa-solid fa-database"></i> System Maintenance & Backup</div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Database Export / Backup</label>
+                <p style="font-size: 0.85rem; color: #666; margin-top: 0; margin-bottom: 15px;">
+                    Download a secure SQL backup copy of all health center records, schedules, and user accounts.
+                </p>
+                <a href="backup_db.php" class="btn-backup"><i class="fa-solid fa-download"></i> Download SQL Backup</a>
+            </div>
         </div>
 
     </div>
