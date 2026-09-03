@@ -11,8 +11,15 @@ $is_home = ($current_page == 'user_dashboard.php');
 <nav class="sidebar" id="mySidebar">
     <div class="sidebar-header">
         <button class="close-sidebar-x" onclick="toggleSidebar()">&times;</button>
-        <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
-        <p>Patient Access Portal</p>
+        
+        <!-- BRAND CONTAINER (Logo + Text Side-by-Side) -->
+        <div class="sidebar-brand-wrapper">
+            <img src="images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
+            <div class="brand-text-group">
+                <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
+                <p>Patient Access Portal</p>
+            </div>
+        </div>
     </div>
 
     <div class="nav-menu">
@@ -108,9 +115,9 @@ $is_home = ($current_page == 'user_dashboard.php');
     /* CLOSE BUTTON (X) SA LOOB NG SIDEBAR */
     .close-sidebar-x {
         position: absolute;
-        top: 15px;
-        right: 20px;
-        font-size: 1.8rem;
+        top: 12px;
+        right: 15px;
+        font-size: 1.5rem;
         color: var(--text-muted);
         cursor: pointer;
         background: none;
@@ -120,29 +127,55 @@ $is_home = ($current_page == 'user_dashboard.php');
     }
     .close-sidebar-x:hover { color: #E53E3E; }
 
-    /* Header styling */
+    /* Header styling (Side-by-Side Logo & Text) */
     .sidebar-header {
-        padding: 30px 20px;
+        padding: 20px 15px;
         border-bottom: 1px solid var(--border-color);
         position: relative;
     }
+
+    .sidebar-brand-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .sidebar-logo {
+        width: 42px; 
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1.5px solid var(--sage);
+        flex-shrink: 0;
+    }
+
+    .brand-text-group {
+        display: flex;
+        flex-direction: column;
+    }
+
     .brand-name {
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         font-weight: 800;
         color: var(--text-main);
         letter-spacing: -0.5px;
         text-transform: uppercase;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
+        line-height: 1.2;
     }
-    .brand-name span { color: var(--sage); }
+    
+    .brand-name span { 
+        color: var(--sage); 
+    }
+
     .sidebar-header p {
-        font-size: 0.65rem;
+        font-size: 0.58rem;
         color: var(--text-muted);
-        margin: 4px 0 0 0;
+        margin: 2px 0 0 0;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
+        letter-spacing: 1.2px;
         font-weight: 600;
     }
 
@@ -241,7 +274,6 @@ $is_home = ($current_page == 'user_dashboard.php');
     }
 
     function toggleSidebar() {
-        // Dinadagdag/Tinatanggal ang class sa <body> para sumunod ang CSS
         document.body.classList.toggle('sidebar-closed');
         
         const hamburgerBtn = document.getElementById('hamburgerBtn');
@@ -250,7 +282,6 @@ $is_home = ($current_page == 'user_dashboard.php');
         }
     }
 
-    // Auto-active link highlight based on current page
     document.addEventListener('DOMContentLoaded', function() {
         const currentPath = window.location.pathname.split("/").pop();
         const links = {
