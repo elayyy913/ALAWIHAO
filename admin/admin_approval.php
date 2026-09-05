@@ -136,6 +136,15 @@ if (isset($_POST['submit_maternal_approval'])) {
     // Update status sa maternal_registration patungong Approved
     mysqli_query($conn, "UPDATE maternal_registration SET status = 'Approved' WHERE id = '$mother_id'");
 
+    // ---- DIRECT ACTIVITY LOG INSERTION ----
+    $admin_name = isset($_SESSION['username']) ? $_SESSION['username'] : 'Admin';
+    $admin_role = isset($_SESSION['role']) ? $_SESSION['role'] : 'Admin';
+    $action_desc = "Verified and approved maternal registration for Patient ID: " . $mother_id;
+    $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
+
+    mysqli_query($conn, "INSERT INTO activity_logs (user_name, role, action_description, ip_address) VALUES ('$admin_name', '$admin_role', '$action_desc', '$ip_address')");
+    // ----------------------------------------
+
     // Alert at auto-refresh
     echo "<script>
             alert('Maternal record clinically verified & approved successfully!');

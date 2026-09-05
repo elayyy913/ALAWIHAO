@@ -5,6 +5,29 @@ include '../db_connect.php';
 $message = "";
 $message_type = "";
 
+// FUNCTION PARA SA ACTIVITY LOGS (Dapat nasa server-side PHP block)
+function logAction($conn, $userName, $role, $actionDesc) {
+    $userName = mysqli_real_escape_string($conn, $userName);
+    $role = mysqli_real_escape_string($conn, $role);
+    $actionDesc = mysqli_real_escape_string($conn, $actionDesc);
+    $ipAddress = $_SERVER['REMOTE_ADDR'];
+
+    // Siguraduhing may table para sa logs
+    $create_table = "CREATE TABLE IF NOT EXISTS activity_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_name VARCHAR(100),
+        role VARCHAR(50),
+        action_description TEXT,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
+    mysqli_query($conn, $create_table);
+
+    $sql = "INSERT INTO activity_logs (user_name, role, action_description, ip_address) 
+            VALUES ('$userName', '$role', '$actionDesc', '$ipAddress')";
+    @mysqli_query($conn, $sql);
+}
+
 // 1. HANDLE SYSTEM INFO UPDATE
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_system_info'])) {
     $sys_name = mysqli_real_escape_string($conn, $_POST['sys_name']);
@@ -19,6 +42,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_system_info']))
         $query = "UPDATE system_settings SET sys_name = '$sys_name', sys_contact = '$sys_contact', sys_address = '$sys_address' WHERE id = 1";
         mysqli_query($conn, $query);
     }
+
+    // RECORD TO ACTIVITY LOG
+    logAction($conn, "Super Admin", "Super Admin", "Updated health center system information.");
 
     $message = "System settings updated successfully!";
     $message_type = "success";
@@ -41,6 +67,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
             @mysqli_query($conn, $update_pwd);
         }
     }
+
+    // RECORD TO ACTIVITY LOG
+    logAction($conn, "Super Admin", "Super Admin", "Updated super admin profile & security credentials.");
 
     $message = "Admin profile & security credentials updated successfully!";
     $message_type = "success";

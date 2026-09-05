@@ -251,7 +251,9 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link" id="link-schedule">Schedule Management</a>
 
         <span class="nav-label">(others)</span>
+        <a href="<?php echo $base_url; ?>activity_logs.php" class="nav-link" id="link-settings">History</a>
         <a href="<?php echo $base_url; ?>super_admin_setting.php" class="nav-link" id="link-settings">Setting</a>
+
     </div>
 
     <div class="sidebar-footer">
