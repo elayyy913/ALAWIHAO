@@ -44,9 +44,14 @@ if (isset($_GET['fetch_patient_details'])) {
         $visits_data[] = $v;
     }
 
+    // Kunin ang pinakabagong check-up mula sa maternal_records para magsilbing backup o pangunahing paghugutan kung sakaling wala sa history table
+    $latest_visit_q = mysqli_query($conn, "SELECT * FROM maternal_records WHERE mother_id = '$mother_id' ORDER BY checkup_date DESC, id DESC LIMIT 1");
+    $latest_visit_data = mysqli_fetch_assoc($latest_visit_q) ?: [];
+
     echo json_encode([
         'registration_info' => $reg_data,
         'medical_history' => $history_data,
+        'latest_visit' => $latest_visit_data,
         'checkup_visits' => $visits_data
     ]);
     exit();
@@ -355,7 +360,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         </div>
     </div>
 
-    <script>
+ <script>
         let currentMotherId = null;
 
         function switchTab(evt, tabId) {
@@ -387,45 +392,76 @@ while ($row = mysqli_fetch_assoc($result)) {
                     document.getElementById('m_occupation').innerText = reg.occupation || "N/A";
 
                     const med = resData.medical_history || {};
-                    document.getElementById('m_g').innerText = med.gravida || 0;
-                    document.getElementById('m_p').innerText = med.para || 0;
-                    document.getElementById('m_ft').innerText = med.full_term || 0;
-                    document.getElementById('m_pre').innerText = med.premature || 0;
-                    document.getElementById('m_ab').innerText = med.abortion || 0;
-                    document.getElementById('m_lc').innerText = med.living_children || 0;
-                    
-                    document.getElementById('m_pe_vitals').innerText = med.physical_exam_vitals || med.vitals || "None specified";
-                    document.getElementById('m_pe_findings').innerText = med.physical_exam_findings || "None specified";
-                    document.getElementById('m_tt_status').innerText = med.tt_status || "None specified";
-                    document.getElementById('m_muac').innerText = med.muac || "None specified";
-                    document.getElementById('m_bmi').innerText = med.bmi || "None specified";
+                    const visit = resData.latest_visit || {};
 
-                    document.getElementById('m_heent').innerText = med.heent_findings || med.heent || "None specified";
-                    document.getElementById('m_neck').innerText = med.neck || "None specified";
-                    
-                    let breastFindings = med.breast || "None specified";
-                    let breastDisplay = breastFindings;
-                    if (med.breast_left_size || med.breast_right_size) {
-                        breastDisplay += ` — Left: ${med.breast_left_size || 'None'}, Right: ${med.breast_right_size || 'None'}`;
+                    // Pinagsasama ang med (pregnancy_history) at visit (maternal_records) para masigurong may masalo kahit saang table nakasave
+                    function getVal(key) {
+                        return (med[key] !== undefined && med[key] !== null && med[key] !== "" && med[key] !== "None specified") ? med[key] : 
+                               ((visit[key] !== undefined && visit[key] !== null && visit[key] !== "") ? visit[key] : null);
                     }
-                    document.getElementById('m_breast').innerText = breastDisplay;
+
+                    document.getElementById('m_g').innerText = getVal('gravida') || med.gravida || 0;
+                    document.getElementById('m_p').innerText = getVal('para') || med.para || 0;
+                    document.getElementById('m_ft').innerText = getVal('full_term') || med.full_term || 0;
+                    document.getElementById('m_pre').innerText = getVal('premature') || med.premature || 0;
+                    document.getElementById('m_ab').innerText = getVal('abortion') || med.abortion || 0;
+                    document.getElementById('m_lc').innerText = getVal('living_children') || med.living_children || 0;
                     
-                    document.getElementById('m_chest').innerText = med.chest_heart || med.chest || "None specified";
-                    document.getElementById('m_abdomen').innerText = med.abdomen_med || med.abdomen || "None specified";
-                    document.getElementById('m_genital').innerText = med.genital_med || med.genital || "None specified";
-                    document.getElementById('m_extremities').innerText = med.extremities_med || med.extremities || "None specified";
-                    document.getElementById('m_skin').innerText = med.skin_med || med.skin || "None specified";
+                    // Vitals Mapping
+                    let bp = getVal('vs_bp') || getVal('bp') || '';
+                    let wt = getVal('vs_weight') || getVal('weight_kg') || getVal('weight') || '';
+                    let pulse = getVal('vs_pulse') || getVal('pulse') || '';
+                    let height = getVal('vs_height') || getVal('height') || '';
+                    let muac = getVal('vs_muac') || getVal('muac') || '';
+                    let bmi = getVal('vs_bmi') || getVal('bmi') || '';
 
-                    document.getElementById('m_fh').innerText = med.family_history_details || med.family_history || "None specified";
-                    document.getElementById('m_phh').innerText = med.past_health_details || med.past_health_history || "None specified";
-                    document.getElementById('m_sh').innerText = med.social_history_details || med.social_history || "None specified";
+                    let vitalsArr = [];
+                    if (bp) vitalsArr.push(`BP: ${bp}`);
+                    if (wt) vitalsArr.push(`Wt: ${wt}kg`);
+                    if (pulse) vitalsArr.push(`Pulse: ${pulse}bpm`);
+                    if (height) vitalsArr.push(`Ht: ${height}cm`);
+                    if (muac) vitalsArr.push(`MUAC: ${muac}`);
+                    if (bmi) vitalsArr.push(`BMI: ${bmi}`);
 
-                    document.getElementById('m_prev_fp').innerText = med.prev_fp_method || "None specified";
-                    document.getElementById('m_fp_dur').innerText = med.fp_duration || "None specified";
+                    document.getElementById('m_pe_vitals').innerText = vitalsArr.length > 0 ? vitalsArr.join(', ') : (getVal('physical_exam_vitals') || getVal('vitals') || "None specified");
+                    document.getElementById('m_pe_findings').innerText = getVal('physical_exam_findings') || "None specified";
+                    document.getElementById('m_tt_status').innerText = getVal('tt_status') || "None specified";
+                    document.getElementById('m_muac').innerText = muac || "None specified";
+                    document.getElementById('m_bmi').innerText = bmi || "None specified";
 
-                    document.getElementById('m_past_lmp').innerText = med.past_lmp || "N/A";
-                    document.getElementById('m_bleeding').innerText = med.bleeding_duration_days ? med.bleeding_duration_days + ' days' : "N/A";
-                    document.getElementById('m_attendant').innerText = med.last_delivery_attendant || "N/A";
+                    // System Findings Mapping (HEENT, Neck, Breast, Thorax, Abdomen, Genital, Extremities, Skin)
+                    document.getElementById('m_heent').innerText = getVal('heent_findings') || getVal('pe_conjunctiva') || getVal('heent') || "None specified";
+                    document.getElementById('m_neck').innerText = getVal('neck') || getVal('pe_neck') || "None specified";
+                    
+                    // Breast Finding / Size dynamic handling
+                    let breastVal = getVal('breast') || getVal('pe_breast') || getVal('breast_findings');
+                    let leftSize = getVal('breast_left_size') || getVal('pe_breast_mass_left');
+                    let rightSize = getVal('breast_right_size') || getVal('pe_breast_mass_right');
+                    
+                    let breastDisplay = breastVal && breastVal !== "None specified" ? breastVal : "";
+                    if (leftSize || rightSize) {
+                        let sizes = `Left: ${leftSize || 'None'}, Right: ${rightSize || 'None'}`;
+                        breastDisplay = breastDisplay ? `${breastDisplay} — ${sizes}` : sizes;
+                    }
+                    document.getElementById('m_breast').innerText = breastDisplay || "None specified";
+                    
+                    document.getElementById('m_chest').innerText = getVal('chest_heart') || getVal('pe_thorax') || getVal('chest') || "None specified";
+                    document.getElementById('m_abdomen').innerText = getVal('abdomen_med') || getVal('pe_abdomen') || getVal('abdomen') || "None specified";
+                    document.getElementById('m_genital').innerText = getVal('genital_med') || getVal('pe_vaginal') || getVal('genital') || "None specified";
+                    document.getElementById('m_extremities').innerText = getVal('extremities_med') || getVal('pe_extremities') || getVal('extremities') || "None specified";
+                    document.getElementById('m_skin').innerText = getVal('skin_med') || getVal('skin') || "None specified";
+
+                    document.getElementById('m_fh').innerText = getVal('family_history_details') || getVal('family_history') || "None specified";
+                    document.getElementById('m_phh').innerText = getVal('past_health_details') || getVal('past_health_history') || "None specified";
+                    document.getElementById('m_sh').innerText = getVal('social_history_details') || getVal('social_history') || "None specified";
+
+                    document.getElementById('m_prev_fp').innerText = getVal('prev_fp_method') || getVal('fp_previous_method') || "None specified";
+                    document.getElementById('m_fp_dur').innerText = getVal('fp_duration') || "None specified";
+
+                    document.getElementById('m_past_lmp').innerText = getVal('past_lmp') || getVal('past_menstrual_period') || "N/A";
+                    let bleeding = getVal('bleeding_duration_days');
+                    document.getElementById('m_bleeding').innerText = bleeding ? bleeding + ' days' : "N/A";
+                    document.getElementById('m_attendant').innerText = getVal('last_delivery_attendant') || "N/A";
 
                     const tbody = document.getElementById('visits_table_body');
                     tbody.innerHTML = '';
