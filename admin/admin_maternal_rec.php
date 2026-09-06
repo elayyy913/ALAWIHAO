@@ -351,11 +351,11 @@ while ($row = mysqli_fetch_assoc($result)) {
     <!-- CUSTOM CONFIRMATION MODAL CARD -->
     <div id="confirmModal" class="modal">
         <div class="confirm-modal-content">
-            <h3>Kumpirmahin ang Pag-delete</h3>
-            <p>Sigurado ka ba na gusto mong tanggalin ang rekord na ito? Ang aksyong ito ay hindi na maibabalik.</p>
+            <h3>Confirmation </h3>
+            <p>Are you sure you want to delete this</p>
             <div class="confirm-actions">
-                <button type="button" class="btn-confirm-no" onclick="closeConfirmModal()">I-cancel</button>
-                <button type="button" class="btn-confirm-yes" onclick="executeDelete()">Oo, I-delete</button>
+                <button type="button" class="btn-confirm-no" onclick="closeConfirmModal()">Cancel</button>
+                <button type="button" class="btn-confirm-yes" onclick="executeDelete()">Delete</button>
             </div>
         </div>
     </div>
