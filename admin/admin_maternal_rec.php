@@ -453,7 +453,21 @@ while ($row = mysqli_fetch_assoc($result)) {
 
                     document.getElementById('m_fh').innerText = getVal('family_history_details') || getVal('family_history') || "None specified";
                     document.getElementById('m_phh').innerText = getVal('past_health_details') || getVal('past_health_history') || "None specified";
-                    document.getElementById('m_sh').innerText = getVal('social_history_details') || getVal('social_history') || "None specified";
+
+                    // Updated Social History Mapping with Sticks and Amount Support
+                    let shVal = getVal('social_history') || getVal('social_history_details') || '';
+                    let smokingSticks = getVal('smoking_sticks') || getVal('sticks') || getVal('smoking_qty') || '';
+                    let alcoholAmount = getVal('alcohol_amount') || getVal('alcohol') || getVal('alcohol_qty') || '';
+
+                    let shParts = [];
+                    if (shVal) shParts.push(shVal);
+                    if (smokingSticks && !shVal.includes(smokingSticks)) {
+                        shParts.push(`Smoking: ${smokingSticks} sticks/day`);
+                    }
+                    if (alcoholAmount && !shVal.includes(alcoholAmount)) {
+                        shParts.push(`Alcohol: ${alcoholAmount}`);
+                    }
+                    document.getElementById('m_sh').innerText = shParts.length > 0 ? shParts.join(', ') : "None specified";
 
                     document.getElementById('m_prev_fp').innerText = getVal('prev_fp_method') || getVal('fp_previous_method') || "None specified";
                     document.getElementById('m_fp_dur').innerText = getVal('fp_duration') || "None specified";
