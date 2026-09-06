@@ -171,7 +171,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
             letter-spacing: 0.5px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between;
         }
 
         .form-row {
@@ -190,12 +190,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
             font-family: inherit; 
             font-size: 0.95rem; 
             transition: all 0.2s; 
+            background-color: #f8fafc;
         }
+        .settings-input:disabled { background-color: #e2e8f0; cursor: not-allowed; }
         .settings-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1); }
 
         .btn { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; border: none; transition: 0.2s; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
         .btn-primary { background: var(--green); color: white; }
         .btn-primary:hover { background: var(--accent); }
+        .btn-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+        .btn-edit { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; transition: 0.2s; }
+        .btn-edit:hover { background: #bae6fd; }
 
         .btn-backup {
             background: #EDF2F7;
@@ -216,6 +222,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+
+        /* CUSTOM SECURITY MODAL STYLING */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: var(--white);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-top: 5px solid var(--green);
+            animation: modalFadeIn 0.3s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--green);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-desc {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #334155;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-cancel:hover { background: #cbd5e1; }
     </style>
 </head>
 <body>
@@ -226,6 +288,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 
 <div class="topbar">
     <span class="page-label">Administrative Settings</span>
+</div>
+
+<!-- CUSTOM SECURITY PIN MODAL -->
+<div id="securityModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title"><i class="fa-solid fa-lock"></i> Security Verification</div>
+        <div class="modal-desc">Enter your Security PIN or Password to unlock and modify these settings.</div>
+        <input type="password" id="modalPinInput" class="settings-input" placeholder="Enter PIN/Password" style="margin-bottom: 0;">
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" onclick="closeSecurityModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="verifySecurityPin()">Verify</button>
+        </div>
+    </div>
 </div>
 
 <div id="main">
@@ -239,38 +314,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 
         <!-- 1. SYSTEM INFORMATION -->
         <div class="settings-card card-header-accent">
-            <div class="settings-section-title"><i class="fa-solid fa-building-user"></i> System & Health Center Info</div>
-            <form method="POST">
+            <div class="settings-section-title">
+                <span><i class="fa-solid fa-building-user"></i> System & Health Center Info</span>
+                <button type="button" class="btn-edit" onclick="openSecurityModal('systemForm', this)"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+            </div>
+            <form id="systemForm" method="POST">
                 <div class="form-row">
                     <div class="form-group">
                         <label>System Name</label>
-                        <input type="text" name="sys_name" class="settings-input" value="Alawihao Center Admin Control" required>
+                        <input type="text" name="sys_name" class="settings-input" value="Alawihao Center Admin Control" disabled required>
                     </div>
                     <div class="form-group">
                         <label>Health Center Contact Number</label>
-                        <input type="text" name="sys_contact" class="settings-input" value="0912-345-6789" required>
+                        <input type="text" name="sys_contact" class="settings-input" value="0912-345-6789" disabled required>
                     </div>
                 </div>
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label>Official Address</label>
-                    <input type="text" name="sys_address" class="settings-input" value="Brgy. Alawihao, Daet, Camarines Norte" required>
+                    <input type="text" name="sys_address" class="settings-input" value="Brgy. Alawihao, Daet, Camarines Norte" disabled required>
                 </div>
-                <button type="submit" name="update_system_info" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save System Info</button>
+                <button type="submit" name="update_system_info" id="saveSystemBtn" class="btn btn-primary" disabled><i class="fa-solid fa-floppy-disk"></i> Save System Info</button>
             </form>
         </div>
 
         <!-- 2. SUPER ADMIN CREDENTIALS -->
         <div class="settings-card">
-            <div class="settings-section-title"><i class="fa-solid fa-user-shield"></i> Admin Profile & Security</div>
-            <form method="POST">
+            <div class="settings-section-title">
+                <span><i class="fa-solid fa-user-shield"></i> Admin Profile & Security</span>
+                <button type="button" class="btn-edit" onclick="openSecurityModal('adminForm', this)"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+            </div>
+            <form id="adminForm" method="POST">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Full Name</label>
-                        <input type="text" name="admin_name" class="settings-input" value="Super Admin" required>
+                        <input type="text" name="admin_name" class="settings-input" value="Super Admin" disabled required>
                     </div>
                     <div class="form-group">
                         <label>Email Address</label>
-                        <input type="email" name="admin_email" class="settings-input" value="admin@alawihaocenter.com" required>
+                        <input type="email" name="admin_email" class="settings-input" value="admin@alawihaocenter.com" disabled required>
                     </div>
                 </div>
                 
@@ -281,14 +362,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
                 <div class="form-row">
                     <div class="form-group">
                         <label>Current Password</label>
-                        <input type="password" name="current_pwd" class="settings-input" placeholder="••••••••">
+                        <input type="password" name="current_pwd" class="settings-input" placeholder="••••••••" disabled>
                     </div>
                     <div class="form-group">
                         <label>New Password</label>
-                        <input type="password" name="new_pwd" class="settings-input" placeholder="Enter new password">
+                        <input type="password" name="new_pwd" class="settings-input" placeholder="Enter new password" disabled>
                     </div>
                 </div>
-                <button type="submit" name="update_admin_profile" class="btn btn-primary"><i class="fa-solid fa-shield-halved"></i> Update Credentials</button>
+                <button type="submit" name="update_admin_profile" id="saveAdminBtn" class="btn btn-primary" disabled><i class="fa-solid fa-shield-halved"></i> Update Credentials</button>
             </form>
         </div>
 
@@ -314,6 +395,50 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
         const progress = (scrollTop / docHeight) * 100;
         document.getElementById('progressBar').style.width = progress + '%';
     });
+
+    let currentTargetFormId = '';
+    let currentEditBtn = null;
+
+    function openSecurityModal(formId, editBtn) {
+        currentTargetFormId = formId;
+        currentEditBtn = editBtn;
+        document.getElementById('modalPinInput').value = '';
+        document.getElementById('securityModal').style.display = 'flex';
+        document.getElementById('modalPinInput').focus();
+    }
+
+    function closeSecurityModal() {
+        document.getElementById('securityModal').style.display = 'none';
+    }
+
+    function verifySecurityPin() {
+        let pin = document.getElementById('modalPinInput').value;
+        
+        // Pwede mong palitan ang PIN dito (Halimbawa: '1234' o 'admin123')
+        if (pin === "1234" || pin === "admin123") {
+            closeSecurityModal();
+            const form = document.getElementById(currentTargetFormId);
+            const inputs = form.querySelectorAll('input');
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            inputs.forEach(input => {
+                input.removeAttribute('disabled');
+            });
+            
+            if(submitBtn) {
+                submitBtn.removeAttribute('disabled');
+            }
+
+            currentEditBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Unlocked';
+            currentEditBtn.style.background = '#dcfce7';
+            currentEditBtn.style.color = '#166534';
+            currentEditBtn.style.borderColor = '#bbf7d0';
+        } else {
+            alert("Incorrect Security PIN or Password!");
+            document.getElementById('modalPinInput').value = '';
+            document.getElementById('modalPinInput').focus();
+        }
+    }
 </script>
 
 </body>
