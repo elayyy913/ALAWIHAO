@@ -375,7 +375,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 
         <!-- 3. DATABASE & SYSTEM MAINTENANCE -->
         <div class="settings-card">
-            <div class="settings-section-title"><i class="fa-solid fa-database"></i> System Maintenance & Backup</div>
+            <!-- Naka-align na ang icon at ang title gamit ang span at flex -->
+            <div class="settings-section-title">
+                <span><i class="fa-solid fa-database"></i> System Maintenance & Backup</span>
+            </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Database Export / Backup</label>
                 <p style="font-size: 0.85rem; color: #666; margin-top: 0; margin-bottom: 15px;">
@@ -414,7 +417,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
     function verifySecurityPin() {
         let pin = document.getElementById('modalPinInput').value;
         
-        // Pwede mong palitan ang PIN dito (Halimbawa: '1234' o 'admin123')
         if (pin === "1234" || pin === "admin123") {
             closeSecurityModal();
             const form = document.getElementById(currentTargetFormId);
