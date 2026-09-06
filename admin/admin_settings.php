@@ -2,455 +2,335 @@
 session_start();
 include '../db_connect.php';
 
-if (!isset($_SESSION['admin_id']) && !isset($_SESSION['user_id'])) {
+// Allow both Admin and Super Admin
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['Admin', 'Super Admin'])) {
     header("Location: login.php");
     exit();
 }
 
-$admin_id = $_SESSION['admin_id'] ?? $_SESSION['user_id'];
-$message = "";
+$user_id  = $_SESSION['user_id'] ?? 0;
+$role     = $_SESSION['role'];
+$message  = "";
 
-// Default values para maiwasan ang undefined index/key error
-$admin = [
-    'first_name' => '',
-    'last_name' => '',
-    'email' => '',
-    'contact_number' => '',
-    'address' => '',
-    'password' => ''
-];
+// Determine which sidebar to include
+$sidebar_file = ($role === 'Super Admin') ? 'super_admin_sidebar.php' : 'admin_sidebar.php';
 
-$table_name = "users";
-$id_column = "id";
+// Handle password change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    $current  = $_POST['current_password'] ?? '';
+    $new_pass = $_POST['new_password']     ?? '';
+    $confirm  = $_POST['confirm_password'] ?? '';
 
-// Ligtas na paghahanap sa table gamit ang 'id' lang
-$result = $conn->query("SELECT * FROM users WHERE id = '$admin_id'");
-if ($result && $result->num_rows > 0) {
-    $table_name = "users";
-    $row = $result->fetch_assoc();
-    $admin = array_merge($admin, $row);
-    $id_column = 'id';
-} else {
-    $result = $conn->query("SELECT * FROM admins WHERE id = '$admin_id'");
-    if ($result && $result->num_rows > 0) {
-        $table_name = "admins";
-        $row = $result->fetch_assoc();
-        $admin = array_merge($admin, $row);
-        $id_column = 'id';
-    }
-}
+    $stmt = $conn->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
-// 1. FUNCTION PARA SA PAG-UPDATE NG PROFILE
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
-    $first_name = mysqli_real_escape_string($conn, $_POST['first_name']);
-    $last_name = mysqli_real_escape_string($conn, $_POST['last_name']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $contact = mysqli_real_escape_string($conn, $_POST['contact']);
-    $address = mysqli_real_escape_string($conn, $_POST['address']);
-
-    $update_sql = "UPDATE $table_name SET 
-                    first_name='$first_name', 
-                    last_name='$last_name', 
-                    email='$email', 
-                    contact_number='$contact', 
-                    address='$address' 
-                   WHERE $id_column='$admin_id'";
-    
-    if ($conn->query($update_sql) === TRUE) {
-        $message = "<div class='alert success'>Admin profile updated successfully!</div>";
-        $res_refresh = $conn->query("SELECT * FROM $table_name WHERE $id_column = '$admin_id'");
-        if ($res_refresh && $res_refresh->num_rows > 0) {
-            $admin = array_merge($admin, $res_refresh->fetch_assoc());
-        }
+    if (!$row || !password_verify($current, $row['password'])) {
+        $message = "<div class='alert alert-error'>Current password is incorrect.</div>";
+    } elseif (strlen($new_pass) < 6) {
+        $message = "<div class='alert alert-error'>New password must be at least 6 characters.</div>";
+    } elseif ($new_pass !== $confirm) {
+        $message = "<div class='alert alert-error'>New passwords do not match.</div>";
     } else {
-        $message = "<div class='alert error'>Update failed: " . $conn->error . "</div>";
-    }
-}
-
-// 2. FUNCTION PARA SA PAGPALIT NG PASSWORD
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_security'])) {
-    $current_password = $_POST['current_password'];
-    $new_password = $_POST['new_password'];
-
-    if (empty($current_password)) {
-        $message = "<div class='alert error'>Please enter your current password to make changes.</div>";
-    } else {
-        $db_pass = $admin['password'] ?? '';
-        $is_match = false;
-
-        if (password_verify($current_password, $db_pass) || $current_password === $db_pass) {
-            $is_match = true;
-        }
-
-        if ($is_match) {
-            if (!empty($new_password)) {
-                $hashed_new_pass = password_hash($new_password, PASSWORD_DEFAULT);
-                $pass_sql = "UPDATE $table_name SET password='$hashed_new_pass' WHERE $id_column='$admin_id'";
-                
-                if ($conn->query($pass_sql) === TRUE) {
-                    $message = "<div class='alert success'>Password updated successfully!</div>";
-                } else {
-                    $message = "<div class='alert error'>Password update failed: " . $conn->error . "</div>";
-                }
-            } else {
-                $message = "<div class='alert error'>New password cannot be blank if you wish to change it.</div>";
-            }
-        } else {
-            $message = "<div class='alert error'>Incorrect current password!</div>";
-        }
-    }
-}
-
-// 3. FUNCTION PARA SA PAG-DELETE NG ACCOUNT
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_account'])) {
-    $delete_password = $_POST['delete_password'];
-    $db_pass = $admin['password'] ?? '';
-    
-    $is_match = (password_verify($delete_password, $db_pass) || $delete_password === $db_pass);
-
-    if ($is_match) {
-        $del_sql = "DELETE FROM $table_name WHERE $id_column='$admin_id'";
-        if ($conn->query($del_sql) === TRUE) {
-            session_destroy();
-            header("Location: login.php?deleted=success");
-            exit();
-        } else {
-            $message = "<div class='alert error'>Deletion failed: " . $conn->error . "</div>";
-        }
-    } else {
-        $message = "<div class='alert error'>Incorrect password! Account deletion aborted.</div>";
+        $hashed = password_hash($new_pass, PASSWORD_DEFAULT);
+        $upd = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $upd->bind_param("si", $hashed, $user_id);
+        $upd->execute();
+        $upd->close();
+        $message = "<div class='alert alert-success'>Password updated successfully!</div>";
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="fil">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Account Settings & Profile | Alawihao Health Center</title>
+    <title>Settings | Alawihao Health Center</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --green: #2d5016;
-            --accent: #5a7c3a;
-            --light: #8fbf5a;
-            --bg: #f8fffb;
-            --white: #ffffff;
-            --text: #333333;
-            --muted: #666666;
-            --sidebar-width: 260px;
-            --border-color: #edf2ed;
+            --sage:         #8DAE74;
+            --dark-sage:    #6B8E55;
+            --light-bg:     #F8FAFC;
+            --card-bg:      #FFFFFF;
+            --text-main:    #1E293B;
+            --text-muted:   #64748B;
+            --border-color: #E2E8F0;
+            --sidebar-width: 280px;
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
 
-        .progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 4px;
-            background: var(--light);
-            width: 0%;
-            z-index: 9999;
-            transition: width 0.1s;
-        }
-
-        .sidebar-container {
-            width: var(--sidebar-width) !important;
-            min-width: var(--sidebar-width) !important;
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 300;
-            overflow-y: auto;
-            transition: transform 0.3s ease;
-        }
-        body.sidebar-closed .sidebar-container {
-            transform: translateX(-100%);
-        }
-
-        .topbar {
-            background: var(--white);
-            border-bottom: 3px solid var(--green);
-            padding: 12px 20px;
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-main);
             display: flex;
-            align-items: center;
-            gap: 15px;
-            position: sticky;
-            top: 0;
-            z-index: 200;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-left: var(--sidebar-width);
-            width: calc(100% - var(--sidebar-width));
-            transition: margin-left 0.3s ease, width 0.3s ease;
-        }
-        body.sidebar-closed .topbar {
-            margin-left: 0 !important;
-            width: 100% !important;
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
         }
 
-        .topbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            min-width: 0;
-            flex-shrink: 0;
+        /* ── Dark mode overrides ── */
+        body.dark-mode {
+            --light-bg:     #121212;
+            --card-bg:      #1e1e1e;
+            --text-main:    #e2e2e2;
+            --text-muted:   #9e9e9e;
+            --border-color: #2e2e2e;
+            --sage:         #5aab38;
+            --dark-sage:    #78c455;
+            background: #121212;
+            color: #e2e2e2;
         }
-
-        .topbar .hamburger-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--green);
-            font-size: 20px;
-            padding: 4px 8px;
-            border-radius: 8px;
-            transition: background 0.2s;
-            display: none;
-            flex-shrink: 0;
+        body.dark-mode .settings-card {
+            background: #1e1e1e;
+            border-color: #2e2e2e;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
-        body.sidebar-closed .topbar .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
-        .topbar .hamburger-btn:hover { background: #f0f4f0; }
-
-        .topbar .logo-img {
-            width: 42px;
-            height: 42px;
-            min-width: 42px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--green);
-            background: #eef2ee;
-            flex-shrink: 0;
+        body.dark-mode .section-title { color: #a8d880; border-bottom-color: #2e2e2e; }
+        body.dark-mode label { color: #9e9e9e; }
+        body.dark-mode input[type="password"] {
+            background: #2a2a2a;
+            color: #e2e2e2;
+            border-color: #444;
         }
-
-        .topbar .page-label { 
-            font-size: 1rem; 
-            font-weight: 600; 
-            color: var(--green); 
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        body.dark-mode input[type="password"]:focus { border-color: #5aab38; }
+        body.dark-mode .alert-success { background: #1a3a22; color: #86efac; border-color: #166534; }
+        body.dark-mode .alert-error   { background: #3a1a1a; color: #fca5a5; border-color: #991b1b; }
+        body.dark-mode .dark-mode-label strong { color: #e2e2e2; }
+        body.dark-mode .dark-mode-label span   { color: #9e9e9e; }
 
         #main {
+            flex: 1;
             margin-left: var(--sidebar-width);
-            width: calc(100% - var(--sidebar-width));
-            transition: margin-left 0.3s ease, width 0.3s ease;
-            padding: 30px 24px 60px;
+            padding: 40px;
+            overflow-y: auto;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: calc(100vh - 70px);
-        }
-        body.sidebar-closed #main {
-            margin-left: 0 !important;
-            width: 100% !important;
+            transition: margin-left 0.3s;
         }
 
-        .settings-container {
+        /* ── Page header ── */
+        .page-header {
             width: 100%;
-            max-width: 700px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-
-        .settings-card { 
-            background: var(--white); 
-            width: 100%; 
-            padding: 35px 40px; 
-            border-radius: 20px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.06); 
-            border: 1px solid #eef2ee;
-        }
-
-        .profile-card-header {
-            border-top: 6px solid var(--green);
-            margin-top: 0;
-        }
-
-        .settings-section-title {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--green);
-            margin-bottom: 20px;
-            padding-bottom: 8px;
+            max-width: 620px;
             border-bottom: 2px solid var(--border-color);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            width: 100%;
+            padding-bottom: 14px;
+            margin-bottom: 28px;
         }
-
-        .form-group { margin-bottom: 20px; width: 100%; }
-        label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--green); font-size: 0.95rem; }
-        .info-value { font-size: 1.05rem; color: #333; padding: 8px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; width: 100%; }
-        
-        .edit-input, .settings-input { 
-            width: 100%; 
-            padding: 12px; 
-            border: 1px solid #ccc; 
-            border-radius: 8px; 
-            box-sizing: border-box; 
-            font-family: inherit; 
-            font-size: 1rem; 
-            transition: border-color 0.2s; 
-        }
-        .edit-input { display: none; }
-        .edit-input:focus, .settings-input:focus { outline: none; border-color: var(--green); }
-
-        .checkbox-group {
+        .page-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark-sage);
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 0.9rem;
-            margin-bottom: 15px;
-            cursor: pointer;
-            color: var(--text);
-            font-weight: 500;
+        }
+
+        /* ── Cards ── */
+        .settings-container {
             width: 100%;
+            max-width: 620px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
-        .checkbox-group input {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--green);
+
+        .settings-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-top: 4px solid var(--sage);
+            border-radius: 12px;
+            padding: 28px 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--dark-sage);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ── Form elements ── */
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 6px;
+        }
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            background: var(--light-bg);
+            color: var(--text-main);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-group input[type="password"]:focus {
+            outline: none;
+            border-color: var(--sage);
+            box-shadow: 0 0 0 3px rgba(141,174,116,0.15);
+        }
+
+        /* ── Buttons ── */
+        .btn-save {
+            background: var(--dark-sage);
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 6px;
         }
+        .btn-save:hover { background: var(--sage); }
 
-        .button-group { display: flex; gap: 12px; margin-top: 25px; width: 100%; }
-        .btn { padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: 600; border: none; transition: 0.2s; text-align: center; font-size: 1rem; }
-        .btn-edit { background: var(--green); color: white; flex: 1; }
-        .btn-edit:hover { background: var(--accent); }
-        .btn-save { background: var(--accent); color: white; flex: 1; display: none; }
-        .btn-save:hover { background: var(--green); }
-        .btn-cancel { background: #e2e8f0; color: #475569; flex: 1; display: none; }
-        .btn-cancel:hover { background: #cbd5e1; }
-        
-        .btn-primary-action { background: var(--green); color: white; width: 100%; }
-        .btn-primary-action:hover { background: var(--accent); }
+        /* ── Alerts ── */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+        }
+        .alert-success { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .alert-error   { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
 
-        .danger-card { border: 1px solid #FED7D7; background-color: #FFF5F5; }
-        .danger-title { color: #E53E3E; border-bottom: 2px solid #FED7D7; }
-        .danger-text { font-size: 0.9rem; color: #718096; margin-bottom: 20px; line-height: 1.5; width: 100%; }
-        .btn-danger { background-color: #E53E3E; color: #FFFFFF; width: 100%; }
-        .btn-danger:hover { background-color: #C53030; }
+        /* ── Dark mode toggle row ── */
+        .dark-mode-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        .dark-mode-label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .dark-mode-label strong { font-size: 0.95rem; color: var(--text-main); }
+        .dark-mode-label span   { font-size: 0.82rem; color: var(--text-muted); }
 
-        .alert { padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: 500; width: 100%; max-width: 700px; margin-left: auto; margin-right: auto; }
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        /* Toggle switch */
+        .toggle-switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            background: #ccc;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-track::before {
+            content: '';
+            position: absolute;
+            width: 20px; height: 20px;
+            left: 4px; top: 4px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+        }
+        .toggle-switch input:checked + .toggle-track { background: var(--sage); }
+        .toggle-switch input:checked + .toggle-track::before { transform: translateX(24px); }
+
+        /* ── Role badge ── */
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #EEF2FF;
+            color: #3730A3;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 999px;
+            margin-left: auto;
+        }
+        body.dark-mode .role-badge { background: #1e1e3a; color: #a5b4fc; }
     </style>
 </head>
-<body class="sidebar-closed">
+<body>
 
-<div id="progressBar" class="progress-bar"></div>
-
-<div class="sidebar-container">
-    <?php include 'admin_sidebar.php'; ?>
-</div>
-
-<div class="topbar">
-    <div class="topbar-brand">
-        <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
-            <i class="fa fa-bars"></i>
-        </button>
-        <img src="../images/logo.jpg" alt="Brgy Logo" class="logo-img">
-    </div>
-    <span class="page-label">Account Settings & Profile</span>
-</div>
+<?php include $sidebar_file; ?>
 
 <div id="main">
+
+    <div class="page-header">
+        <h1 style="display:flex;align-items:center;gap:10px;">
+            <i class="fa fa-gear"></i> Settings
+            <span class="role-badge"><i class="fa fa-shield-halved"></i> <?= htmlspecialchars($role) ?></span>
+        </h1>
+    </div>
+
     <div class="settings-container">
-        
-        <?php echo $message; ?>
 
-        <!-- PROFILE INFORMATION CARD -->
-        <div class="settings-card profile-card-header">
-            <div class="settings-section-title"><i class="fa fa-user-circle"></i> ADMIN PROFILE INFORMATION</div>
-            <form id="profileForm" method="POST">
-                
-                <div class="form-group">
-                    <label>First Name</label>
-                    <div class="info-value"><?php echo htmlspecialchars($admin['first_name'] ?? ''); ?></div>
-                    <input type="text" name="first_name" class="edit-input" value="<?php echo htmlspecialchars($admin['first_name'] ?? ''); ?>">
-                </div>
+        <?php if ($message): ?>
+            <?= $message ?>
+        <?php endif; ?>
 
-                <div class="form-group">
-                    <label>Last Name</label>
-                    <div class="info-value"><?php echo htmlspecialchars($admin['last_name'] ?? ''); ?></div>
-                    <input type="text" name="last_name" class="edit-input" value="<?php echo htmlspecialchars($admin['last_name'] ?? ''); ?>">
+        <!-- 1. APPEARANCE -->
+        <div class="settings-card">
+            <div class="section-title"><i class="fa fa-moon"></i> Appearance</div>
+            <div class="dark-mode-row">
+                <div class="dark-mode-label">
+                    <strong>Dark Mode</strong>
+                    <span>Switch to a darker color scheme to reduce eye strain.</span>
                 </div>
-
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <div class="info-value"><?php echo htmlspecialchars($admin['email'] ?? ''); ?></div>
-                    <input type="email" name="email" class="edit-input" value="<?php echo htmlspecialchars($admin['email'] ?? ''); ?>">
-                </div>
-
-                <div class="form-group">
-                    <label>Contact Number</label>
-                    <div class="info-value"><?php echo htmlspecialchars($admin['contact_number'] ?? 'Not set'); ?></div>
-                    <input type="text" name="contact" class="edit-input" value="<?php echo htmlspecialchars($admin['contact_number'] ?? ''); ?>">
-                </div>
-
-                <div class="form-group">
-                    <label>Home Address</label>
-                    <div class="info-value"><?php echo htmlspecialchars($admin['address'] ?? 'Not set'); ?></div>
-                    <input type="text" name="address" class="edit-input" value="<?php echo htmlspecialchars($admin['address'] ?? ''); ?>">
-                </div>
-
-                <div class="button-group">
-                    <button type="button" id="editBtn" class="btn btn-edit" onclick="toggleEdit(true)"><i class="fa fa-pen-to-square"></i> Edit Profile</button>
-                    <button type="submit" name="update_profile" id="saveBtn" class="btn btn-save"><i class="fa fa-check"></i> Save Changes</button>
-                    <button type="button" id="cancelBtn" class="btn btn-cancel" onclick="toggleEdit(false)"><i class="fa fa-xmark"></i> Cancel</button>
-                </div>
-            </form>
+                <label class="toggle-switch" title="Toggle Dark Mode">
+                    <input type="checkbox" id="darkModeToggle">
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
         </div>
 
-        <!-- SECURITY & PASSWORD CARD -->
+        <!-- 2. SECURITY -->
         <div class="settings-card">
+            <div class="section-title"><i class="fa fa-lock"></i> Change Password</div>
             <form method="POST">
-                <div class="settings-section-title"><i class="fa fa-shield-halved"></i> Security Credentials</div>
-
                 <div class="form-group">
                     <label for="current_password">Current Password</label>
-                    <input type="password" id="current_password" name="current_password" class="settings-input" placeholder="Enter current password to change password" required>
+                    <input type="password" id="current_password" name="current_password"
+                           placeholder="Enter your current password" required>
                 </div>
-
                 <div class="form-group">
                     <label for="new_password">New Password</label>
-                    <input type="password" id="new_password" name="new_password" class="settings-input" placeholder="Enter new password">
+                    <input type="password" id="new_password" name="new_password"
+                           placeholder="At least 6 characters" required>
                 </div>
-
-                <div class="settings-section-title" style="margin-top: 30px;"><i class="fa fa-bell"></i> Notification Preferences</div>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="system_alerts" checked>
-                    Receive system alerts for new user registrations and requests
-                </label>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="email_reports">
-                    Receive daily summary email reports of health center activities
-                </label>
-
-                <div style="margin-top: 25px;">
-                    <button type="submit" name="update_security" class="btn btn-primary-action">Save Security & Preferences</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- DANGER ZONE / DELETE ACCOUNT CARD -->
-        <div class="settings-card danger-card">
-            <div class="settings-section-title danger-title"><i class="fa fa-triangle-exclamation"></i> Danger Zone</div>
-            <p class="danger-text">Once you delete this admin account, system administration access from this profile will be permanently revoked.</p>
-            
-            <form method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this admin account? This action cannot be undone.');">
                 <div class="form-group">
-                    <label for="delete_password" style="color: #E53E3E;">Enter Password to Confirm Deletion</label>
-                    <input type="password" id="delete_password" name="delete_password" class="settings-input" placeholder="Type your password here" required style="border-color: #FEB2B2;">
+                    <label for="confirm_password">Confirm New Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password"
+                           placeholder="Repeat new password" required>
                 </div>
-                <button type="submit" name="delete_account" class="btn btn-danger">Delete Admin Account</button>
+                <button type="submit" name="change_password" class="btn-save">
+                    <i class="fa fa-floppy-disk"></i> Update Password
+                </button>
             </form>
         </div>
 
@@ -458,39 +338,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_account'])) {
 </div>
 
 <script>
-    window.addEventListener('scroll', () => {
-        const scrollTop = window.scrollY;
-        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-        const progress = (scrollTop / docHeight) * 100;
-        document.getElementById('progressBar').style.width = progress + '%';
-    });
+    // ── Dark Mode ──────────────────────────────────────────────
+    const DARK_KEY = 'alawihao_dark_mode';
+    const dmToggle = document.getElementById('darkModeToggle');
 
-    function toggleSidebar() {
-        document.body.classList.toggle('sidebar-closed');
+    function applyDarkMode(isDark) {
+        document.body.classList.toggle('dark-mode', isDark);
+        if (dmToggle) dmToggle.checked = isDark;
     }
 
-    function toggleEdit(isEditing) {
-        const values = document.querySelectorAll('.info-value');
-        const inputs = document.querySelectorAll('.edit-input');
-        const editBtn = document.getElementById('editBtn');
-        const saveBtn = document.getElementById('saveBtn');
-        const cancelBtn = document.getElementById('cancelBtn');
+    // Apply saved preference (early-apply script in sidebar already did body class,
+    // this syncs the toggle checkbox state)
+    applyDarkMode(localStorage.getItem(DARK_KEY) === 'true');
 
-        if (isEditing) {
-            values.forEach(v => v.style.display = 'none');
-            inputs.forEach(i => i.style.display = 'block');
-            editBtn.style.display = 'none';
-            saveBtn.style.display = 'flex';
-            cancelBtn.style.display = 'flex';
-        } else {
-            values.forEach(v => v.style.display = 'block');
-            inputs.forEach(i => i.style.display = 'none');
-            editBtn.style.display = 'flex';
-            saveBtn.style.display = 'none';
-            cancelBtn.style.display = 'none';
-        }
+    if (dmToggle) {
+        dmToggle.addEventListener('change', () => {
+            const enabled = dmToggle.checked;
+            localStorage.setItem(DARK_KEY, enabled);
+            applyDarkMode(enabled);
+        });
     }
 </script>
-
+<?php include 'footer.php'; ?>
 </body>
 </html>
