@@ -8,6 +8,39 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'Admin' && $_SESSION[
     exit();
 }
 
+// ── Notification helper ───────────────────────────────────────────────────────
+// Resolves patient_name → user_id, then inserts a notification row.
+function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type = 'new_schedule') {
+    if (empty(trim($patient_name))) return;
+
+    // Try maternal_registration first
+    $uid = null;
+    $s = $conn->prepare("SELECT user_id FROM maternal_registration WHERE TRIM(CONCAT(client_fname,' ',client_lname)) = ? LIMIT 1");
+    $s->bind_param("s", $patient_name);
+    $s->execute();
+    $r = $s->get_result()->fetch_assoc();
+    $s->close();
+    if ($r) $uid = (int) $r['user_id'];
+
+    // Fall back to children table
+    if (!$uid) {
+        $s2 = $conn->prepare("SELECT user_id FROM children WHERE TRIM(child_name) = ? LIMIT 1");
+        $s2->bind_param("s", $patient_name);
+        $s2->execute();
+        $r2 = $s2->get_result()->fetch_assoc();
+        $s2->close();
+        if ($r2) $uid = (int) $r2['user_id'];
+    }
+
+    if (!$uid) return; // patient not linked to any user
+
+    $ins = $conn->prepare("INSERT INTO notifications (user_id, schedule_id, title, message, type) VALUES (?, ?, ?, ?, ?)");
+    $ins->bind_param("iisss", $uid, $schedule_id, $title, $message, $type);
+    $ins->execute();
+    $ins->close();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 $message = "";
 
 // Handle Batch Add Schedule
@@ -45,6 +78,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
                         $stmt->bind_param("sssssss", $category, $patient_name, $schedule_date, $schedule_time, $service_type, $notes, $status);
                         if ($stmt->execute()) {
                             $success_count++;
+                            // ── Notify the patient's user ──
+                            $new_schedule_id = $conn->insert_id;
+                            $date_fmt = date('F j, Y', strtotime($schedule_date));
+                            $time_fmt = date('g:i A', strtotime($schedule_time));
+                            notify_user(
+                                $conn,
+                                $patient_name,
+                                $new_schedule_id,
+                                "New Schedule: {$service_type}",
+                                "You have a new schedule for {$patient_name} — {$service_type} on {$date_fmt} at {$time_fmt}.",
+                                'new_schedule'
+                            );
                         }
                     }
                     $p_stmt->close();
@@ -69,11 +114,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
     $notes = mysqli_real_escape_string($conn, $_POST['notes']);
     $status = mysqli_real_escape_string($conn, $_POST['status']);
 
+    // Fetch old values to detect changes
+    $old_row = null;
+    $old_stmt = $conn->prepare("SELECT schedule_date, schedule_time, status FROM schedules WHERE id = ?");
+    $old_stmt->bind_param("i", $id);
+    $old_stmt->execute();
+    $old_row = $old_stmt->get_result()->fetch_assoc();
+    $old_stmt->close();
+
     $sql = "UPDATE schedules SET patient_name=?, category=?, schedule_date=?, schedule_time=?, service_type=?, notes=?, status=? WHERE id=?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("sssssssi", $patient_name, $category, $schedule_date, $schedule_time, $service_type, $notes, $status, $id);
         if ($stmt->execute()) {
             $message = "Schedule updated successfully!";
+
+            // ── Notify user of meaningful changes ──
+            $date_fmt = date('F j, Y', strtotime($schedule_date));
+            $time_fmt = date('g:i A', strtotime($schedule_time));
+
+            if ($status === 'Cancelled') {
+                notify_user($conn, $patient_name, $id,
+                    "Schedule Cancelled",
+                    "Your schedule for {$service_type} on {$date_fmt} has been cancelled. Please contact the health center for more information.",
+                    'cancelled_schedule'
+                );
+            } elseif ($old_row && ($old_row['schedule_date'] !== $schedule_date || $old_row['schedule_time'] !== $schedule_time)) {
+                notify_user($conn, $patient_name, $id,
+                    "Schedule Updated",
+                    "Your schedule for {$service_type} has been moved to {$date_fmt} at {$time_fmt}.",
+                    'updated_schedule'
+                );
+            } elseif ($old_row && $old_row['status'] !== $status && $status === 'Pending') {
+                notify_user($conn, $patient_name, $id,
+                    "Schedule Update",
+                    "Your schedule for {$service_type} on {$date_fmt} at {$time_fmt} has been updated.",
+                    'updated_schedule'
+                );
+            }
         } else {
             $message = "Error updating: " . $conn->error;
         }
@@ -126,6 +203,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             $stmt->execute();
             $stmt->close();
             $message = "Reschedule request approved successfully!";
+
+            // ── Notify user ──
+            $sched = $conn->query("SELECT patient_name, service_type FROM schedules WHERE id = $id")->fetch_assoc();
+            if ($sched) {
+                $date_fmt = date('F j, Y', strtotime($new_date));
+                $time_fmt = date('g:i A', strtotime($new_time));
+                notify_user($conn, $sched['patient_name'], $id,
+                    "Reschedule Request Approved",
+                    "Your reschedule request for {$sched['service_type']} has been approved. New date: {$date_fmt} at {$time_fmt}.",
+                    'updated_schedule'
+                );
+            }
         }
     } else {
         $sql = "UPDATE schedules SET status='Pending', notes = CONCAT(COALESCE(notes, ''), ' | Reschedule Rejected') WHERE id=?";
@@ -134,6 +223,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             $stmt->execute();
             $stmt->close();
             $message = "Reschedule request rejected.";
+
+            // ── Notify user ──
+            $sched = $conn->query("SELECT patient_name, service_type, schedule_date, schedule_time FROM schedules WHERE id = $id")->fetch_assoc();
+            if ($sched) {
+                $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
+                $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
+                notify_user($conn, $sched['patient_name'], $id,
+                    "Reschedule Request Rejected",
+                    "Your reschedule request for {$sched['service_type']} was not approved. The original schedule on {$date_fmt} at {$time_fmt} remains.",
+                    'updated_schedule'
+                );
+            }
         }
     }
 }
@@ -221,6 +322,8 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             letter-spacing: 0.5px;
         }
 
+        /* The sidebar's fixed bell handles notifications */
+
         .btn-add {
             background-color: var(--sage-green);
             color: white;
@@ -232,6 +335,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             text-transform: uppercase;
             font-size: 0.8rem;
             font-weight: bold;
+            margin-right: 56px; /* clear the fixed notification bell */
         }
 
         .btn-delete {
@@ -845,5 +949,6 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
     }
 </script>
 
+<?php include 'footer.php'; ?>
 </body>
 </html>

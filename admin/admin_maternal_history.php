@@ -73,6 +73,12 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
             font-weight: bold;
         }
 
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
         .btn-back {
             text-decoration: none;
             color: #4A5568;
@@ -82,11 +88,30 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
             align-items: center;
             gap: 6px;
             background: #EDF2F7;
-            padding: 6px 12px;
+            padding: 8px 16px;
             border-radius: 6px;
             transition: background 0.2s;
         }
         .btn-back:hover { background: #E2E8F0; color: #1A202C; }
+
+        .btn-print-modal {
+            background-color: #7A9A70;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .btn-print-modal:hover {
+            background-color: #63805B;
+        }
 
         /* Table Container Style */
         .table-container {
@@ -160,24 +185,6 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
 
         tr:hover {
             background-color: #FBFBFA;
-        }
-
-        .btn-print-record {
-            background-color: #7A9A70;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.8rem;
-            transition: background-color 0.2s;
-        }
-        .btn-print-record:hover {
-            background-color: #63805B;
         }
 
         .no-records {
@@ -389,13 +396,18 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
     <?php include $sidebar_file; ?>
 
     <div class="main-container">
-        <!-- Page Header Card -->
+        <!-- Page Header Card with Print & Back Buttons -->
         <div class="page-title-card">
             <h2>Maternal Health History & ANC Records</h2>
-            <a href="admin_maternal_hr.php" class="btn-back">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
-                Back to List
-            </a>
+            <div class="header-actions">
+                <button class="btn-print-modal" onclick="openPrintModal(0)">
+                    🖨️ Print Record
+                </button>
+                <a href="admin_maternal_hr.php" class="btn-back">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+                    Back to List
+                </a>
+            </div>
         </div>
 
         <div class="table-container">
@@ -438,29 +450,22 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
                         <th>AOG (Weeks)</th>
                         <th>Weight / BP</th>
                         <th>Remarks / Details</th>
-                        <th style="text-align: right;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if(!empty($checkups)): ?>
-                        <?php foreach($checkups as $index => $chk): ?>
+                        <?php foreach($checkups as $chk): ?>
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($chk['checkup_date']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($chk['trimester'] ?? 'N/A'); ?></td>
                                 <td><span style="color: #3182CE; font-weight: bold;"><?php echo htmlspecialchars($chk['gestational_age_weeks'] ?? 'Not specified'); ?> Weeks</span></td>
                                 <td><?php echo htmlspecialchars($chk['weight_kg'] ?? '0'); ?> kg / <?php echo htmlspecialchars($chk['bp'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars(substr($chk['remarks'] ?? 'Walang remarks', 0, 40)) . '...'; ?></td>
-                                <td style="text-align: right;">
-                                    <button class="btn-print-record" onclick="openPrintModal(<?php echo $index; ?>)">
-                                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"></path></svg>
-                                        Print Record
-                                    </button>
-                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" class="no-records">Wala pang naitalang session o check-up record ang pasyenteng ito mula sa Maternal Records.</td>
+                            <td colspan="5" class="no-records">Wala pang naitalang session o check-up record ang pasyenteng ito mula sa Maternal Records.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -499,8 +504,17 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
         const patientData = <?php echo json_encode($patient); ?>;
 
         function openPrintModal(index) {
-            const chk = checkupsData[index];
-            if (!chk) return;
+            // Kung walang check-up records, gamitin ang default na structure para hindi mag-error
+            const chk = checkupsData[index] || {
+                checkup_date: 'N/A',
+                trimester: 'N/A',
+                gestational_age_weeks: 'N/A',
+                weight_kg: 'N/A',
+                bp: 'N/A',
+                temperature: 'N/A',
+                remarks: 'Wala pang naitalang check-up.',
+                fetal_heart_rate: 'N/A'
+            };
 
             const fullName = ((patientData.client_fname || '') + ' ' + (patientData.client_mi || '') + ' ' + (patientData.client_lname || '')).trim();
             const fullAddress = patientData.full_address || 'N/A';
