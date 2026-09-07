@@ -12,7 +12,7 @@ $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['searc
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'newest';
 $age_filter = isset($_GET['age_filter']) ? $_GET['age_filter'] : 'all';
 
-// 2. Gamitin ang tamang query para sa single 'children' table nang walang child_id error
+// 2. Query para sa Master List (children table)
 $query = "SELECT c.*, 
          c.weight_kg AS weight_kg, 
          c.height_cm AS height, 
@@ -140,7 +140,9 @@ $result = mysqli_query($conn, $query);
                         <?php while($row = mysqli_fetch_assoc($result)): ?>
                         <?php 
                             $child_current_id = $row['id'];
-                           $history_query = mysqli_query($conn, "SELECT * FROM children WHERE id = '$child_current_id' ORDER BY created_at DESC");
+                            
+                            // BINAGO DITO: Kinukuha na ang history mula sa infant_records table sa halip na children table
+                            $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
                             $history_arr = [];
                             while($hist = mysqli_fetch_assoc($history_query)) {
                                 $history_arr[] = $hist;
@@ -236,10 +238,21 @@ $result = mysqli_query($conn, $query);
             let fullAddress = (data.address ? data.address + ", " : "") + (data.barangay || "");
             document.getElementById('m_address').innerText = fullAddress !== "" ? fullAddress : "N/A";
             
-            // Latest Health Data mapping
-            document.getElementById('last_weight').innerText = data.weight_kg || "--";
-            document.getElementById('last_height').innerText = data.height || "--";
-            document.getElementById('last_vaccine').innerText = data.vaccine_taken || "None";
+            // Kung may history galing sa infant_records, kunin ang pinakabagong entry para sa Latest Health Data boxes
+            let latestWeight = data.weight_kg || "--";
+            let latestHeight = data.height || "--";
+            let latestVaccine = data.vaccine_taken || "None";
+
+            if (data.history && data.history.length > 0) {
+                let latestRec = data.history[0]; // Kasi naka ORDER BY created_at DESC
+                if (latestRec.weight_kg) latestWeight = latestRec.weight_kg;
+                if (latestRec.height) latestHeight = latestRec.height;
+                if (latestRec.vaccine_taken) latestVaccine = latestRec.vaccine_taken;
+            }
+
+            document.getElementById('last_weight').innerText = latestWeight;
+            document.getElementById('last_height').innerText = latestHeight;
+            document.getElementById('last_vaccine').innerText = latestVaccine;
             
             // Standard Vaccines list with individual breakdown for multiple doses
             const standardVaccines = [
@@ -279,12 +292,8 @@ $result = mysqli_query($conn, $query);
 
                 if (matchedRecord) {
                     dateTaken = matchedRecord.vaccine_date || (matchedRecord.created_at ? matchedRecord.created_at.split(' ')[0] : '--');
-                    administeredBy = matchedRecord.administered_by || matchedRecord.staff_name || 'Health Worker';
+                    administeredBy = matchedRecord.administered_by || 'Health Worker';
                     remarksText = matchedRecord.remarks ? matchedRecord.remarks : '<span style="color:#a0aec0; font-style:italic;">No notes</span>';
-                } else if (vac.doseNum === "1" && data.vaccine_taken && data.vaccine_taken.toLowerCase().includes(vac.keyword)) {
-                    dateTaken = data.birth_date || '--';
-                    administeredBy = data.administered_by || 'Hospital / Registration';
-                    remarksText = data.remarks ? data.remarks : 'Given (Hospital)';
                 }
 
                 immHtml += `<tr>

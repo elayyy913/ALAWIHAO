@@ -22,7 +22,7 @@ if ($user_role == 'Super Admin') {
     $role_label = "Admin";
 }
 
-// Update Health Record
+// Update Health Record (Isinasave na ngayon sa infant_records table)
 if (isset($_POST['update_health'])) {
     $c_id = mysqli_real_escape_string($conn, $_POST['child_id']);
     $w = mysqli_real_escape_string($conn, $_POST['weight']);
@@ -34,18 +34,35 @@ if (isset($_POST['update_health'])) {
     $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']); 
     $hw_id = $_SESSION['user_id']; 
 
-    // I-update ang SQL para sa children  kasama ang administered_by
-    $sql = "INSERT INTO children  (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at) 
+    // Itinatapon na ang bagong check-up data sa infant_records table gamit ang child_id
+    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at) 
             VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$administered_by', '$hw_id', NOW())";
     
     if (mysqli_query($conn, $sql)) {
-        echo "<script>alert('Health Record Updated!'); window.location='admin_child_list.php';</script>";
+        echo "<script>alert('Health Record Updated!'); window.location='admin_child_hr.php';</script>";
     }
 }
 
-// Fetching child data 
+// Fetching child data galing sa master list (children table)
 $query = "SELECT * FROM children ORDER BY child_name ASC";
 $result = mysqli_query($conn, $query);
+
+// KUNIN DIN ANG LAHAT NG KASAYSAYAN NG VAKUNA BAWAT BATA MULA SA infant_records PARA MA-MAP SA JAVASCRIPT
+$history_query = mysqli_query($conn, "SELECT child_id, vaccine_taken FROM infant_records");
+$child_vaccines_map = [];
+while ($row_hist = mysqli_fetch_assoc($history_query)) {
+    $cid = $row_hist['child_id'];
+    $vac = trim($row_hist['vaccine_taken']);
+    if (!empty($vac)) {
+        if (!isset($child_vaccines_map[$cid])) {
+            $child_vaccines_map[$cid] = [];
+        }
+        // Iwasan ang duplicate kung sakaling na-encode ng paulit-ulit
+        if (!in_array($vac, $child_vaccines_map[$cid])) {
+            $child_vaccines_map[$cid][] = $vac;
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -163,13 +180,19 @@ $result = mysqli_query($conn, $query);
             </thead>
             <tbody>
                 <?php while($row = mysqli_fetch_assoc($result)): ?>
+                    <?php 
+                        $c_id = $row['id'];
+                        // Kunin ang mga bakuna ng batang ito mula sa ating map
+                        $taken_list = isset($child_vaccines_map[$c_id]) ? $child_vaccines_map[$c_id] : [];
+                        $taken_string = !empty($taken_list) ? implode(', ', $taken_list) : '';
+                    ?>
                 <tr>
                     <td><strong><?php echo htmlspecialchars($row['child_name']); ?></strong></td>
                     <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
                     <td><?php echo $row['gender']; ?></td>
                     <td>
-                        <a href="admin_child_history.php?id=<?php echo $row['id']; ?>" class="btn btn-view">Full History</a>
-                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($row['vaccine_taken'] ?? '', ENT_QUOTES); ?>')">Update Health</button>
+                        <a href="admin_child_history.php?id=<?php echo $c_id; ?>" class="btn btn-view">Full History</a>
+                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $c_id; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', <?php echo htmlspecialchars(json_encode($taken_list), ENT_QUOTES); ?>)">Update Health</button>
                     </td>
                 </tr>
                 <?php endwhile; ?>
@@ -204,7 +227,7 @@ $result = mysqli_query($conn, $query);
 
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
-                <select name="vaccine" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
+                <select name="vaccine" id="vaccineSelect" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
                     <option value="">-- Select Vaccine --</option>
                     <option value="BCG Vaccine">BCG Vaccine</option>
                     <option value="Hepatitis B Vaccine">Hepatitis B Vaccine</option>
@@ -274,14 +297,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function openEditModal(id, name, vaccineTaken) {
+function openEditModal(id, name, takenVaccinesArray) {
     document.getElementById('editModal').style.display = 'block';
     document.getElementById('modal_id').value = id;
     document.getElementById('modalTitle').innerText = "Update: " + name;
 
     let vaccinesContainer = document.getElementById('modal_previous_vaccines');
-    if (vaccineTaken && vaccineTaken.trim() !== '') {
-        vaccinesContainer.innerHTML = vaccineTaken;
+    let vaccineSelect = document.getElementById('vaccineSelect');
+
+    // 1. I-display ang listahan ng mga bakunang nakuha na
+    if (takenVaccinesArray && takenVaccinesArray.length > 0) {
+        vaccinesContainer.innerHTML = takenVaccinesArray.join(', ');
         vaccinesContainer.style.fontStyle = 'normal';
         vaccinesContainer.style.fontWeight = '600';
         vaccinesContainer.style.color = '#2B6CB0';
@@ -291,6 +317,22 @@ function openEditModal(id, name, vaccineTaken) {
         vaccinesContainer.style.fontWeight = 'normal';
         vaccinesContainer.style.color = '#718096';
     }
+
+    // 2. I-filter ang dropdown options (Huwag nang ipakita ang mga nakuha na)
+    for (let i = 0; i < vaccineSelect.options.length; i++) {
+        let optionVal = vaccineSelect.options[i].value;
+        if (optionVal === "") continue; // Hayaan ang default "-- Select Vaccine --"
+
+        if (takenVaccinesArray.includes(optionVal)) {
+            vaccineSelect.options[i].style.display = 'none'; // Itago ang nakuha na
+            vaccineSelect.options[i].disabled = true;        // I-disable para hindi mapili
+        } else {
+            vaccineSelect.options[i].style.display = 'block'; // Ipakita kung hindi pa nakuha
+            vaccineSelect.options[i].disabled = false;
+        }
+    }
+    // I-reset sa default selection bago buksan
+    vaccineSelect.value = "";
 }
 
 function closeModal() { document.getElementById('editModal').style.display = 'none'; }
