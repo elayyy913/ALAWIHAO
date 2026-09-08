@@ -27,7 +27,12 @@ if (isset($_POST['update_health'])) {
     $c_id = mysqli_real_escape_string($conn, $_POST['child_id']);
     $w = mysqli_real_escape_string($conn, $_POST['weight']);
     $h = mysqli_real_escape_string($conn, $_POST['height']);
-    $v = mysqli_real_escape_string($conn, $_POST['vaccine']);
+    $base_v = mysqli_real_escape_string($conn, $_POST['vaccine']);
+    $dose = mysqli_real_escape_string($conn, $_POST['dose']);
+    
+    // Pinagsama ang pangalan ng bakuna at ang dose para unique (Halimbawa: Pentavalent Vaccine (DPT-Hep B-HIB) - Dose 1)
+    $v = $base_v . ' - ' . $dose;
+
     $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); 
     $next_date = mysqli_real_escape_string($conn, $_POST['next_checkup']); 
     $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); 
@@ -151,7 +156,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
             background: white;
             margin: 5% auto;
             padding: 30px;
-            width: 450px;
+            width: 480px;
             border-radius: 15px;
             border-top: 8px solid var(--sage);
         }
@@ -225,18 +230,30 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                 <input type="number" name="height" step="0.1" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <div style="margin-bottom:12px;">
-                <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
-                <select name="vaccine" id="vaccineSelect" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
-                    <option value="">-- Select Vaccine --</option>
-                    <option value="BCG Vaccine">BCG Vaccine</option>
-                    <option value="Hepatitis B Vaccine">Hepatitis B Vaccine</option>
-                    <option value="Pentavalent Vaccine (DPT-Hep B-HIB)">Pentavalent Vaccine (DPT-Hep B-HIB)</option>
-                    <option value="Oral Polio Vaccine (OPV)">Oral Polio Vaccine (OPV)</option>
-                    <option value="Inactivated Polio Vaccine (IPV)">Inactivated Polio Vaccine (IPV)</option>
-                    <option value="Pneumococcal Conjugate Vaccine (PCV)">Pneumococcal Conjugate Vaccine (PCV)</option>
-                    <option value="Measles, Mumps, Rubella Vaccine (MMR)">Measles, Mumps, Rubella Vaccine (MMR)</option>
-                </select>
+            <!-- Vaccine Administered & Dose Selection Grouped -->
+            <div style="display: flex; gap: 10px; margin-bottom:12px;">
+                <div style="flex: 2;">
+                    <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
+                    <select name="vaccine" id="vaccineSelect" onchange="updateDoseOptions()" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
+                        <option value="">-- Select Vaccine --</option>
+                        <option value="BCG Vaccine">BCG Vaccine</option>
+                        <option value="Hepatitis B Vaccine">Hepatitis B Vaccine</option>
+                        <option value="Pentavalent Vaccine (DPT-Hep B-HIB)">Pentavalent Vaccine (DPT-Hep B-HIB)</option>
+                        <option value="Oral Polio Vaccine (OPV)">Oral Polio Vaccine (OPV)</option>
+                        <option value="Inactivated Polio Vaccine (IPV)">Inactivated Polio Vaccine (IPV)</option>
+                        <option value="Pneumococcal Conjugate Vaccine (PCV)">Pneumococcal Conjugate Vaccine (PCV)</option>
+                        <option value="Measles, Mumps, Rubella Vaccine (MMR)">Measles, Mumps, Rubella Vaccine (MMR)</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label style="display:block; font-size:0.8rem; font-weight:600;">Dose</label>
+                    <select name="dose" id="doseSelect" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
+                        <option value="">-- Dose --</option>
+                        <option value="Dose 1">Dose 1</option>
+                        <option value="Dose 2">Dose 2</option>
+                        <option value="Dose 3">Dose 3</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Administered By / Nagturok -->
@@ -272,6 +289,8 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
 </div>
 
 <script>
+let currentChildTakenVaccines = [];
+
 function toggleSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const content = document.getElementById('main');
@@ -302,12 +321,13 @@ function openEditModal(id, name, takenVaccinesArray) {
     document.getElementById('modal_id').value = id;
     document.getElementById('modalTitle').innerText = "Update: " + name;
 
+    currentChildTakenVaccines = takenVaccinesArray || [];
     let vaccinesContainer = document.getElementById('modal_previous_vaccines');
     let vaccineSelect = document.getElementById('vaccineSelect');
 
     // 1. I-display ang listahan ng mga bakunang nakuha na
-    if (takenVaccinesArray && takenVaccinesArray.length > 0) {
-        vaccinesContainer.innerHTML = takenVaccinesArray.join(', ');
+    if (currentChildTakenVaccines.length > 0) {
+        vaccinesContainer.innerHTML = currentChildTakenVaccines.join(', ');
         vaccinesContainer.style.fontStyle = 'normal';
         vaccinesContainer.style.fontWeight = '600';
         vaccinesContainer.style.color = '#2B6CB0';
@@ -318,21 +338,73 @@ function openEditModal(id, name, takenVaccinesArray) {
         vaccinesContainer.style.color = '#718096';
     }
 
-    // 2. I-filter ang dropdown options (Huwag nang ipakita ang mga nakuha na)
+    // 2. I-reset ang vaccine at dose selection
+    vaccineSelect.value = "";
+    document.getElementById('doseSelect').value = "";
+    
+    // I-enable lahat muna ng options sa vaccine
     for (let i = 0; i < vaccineSelect.options.length; i++) {
-        let optionVal = vaccineSelect.options[i].value;
-        if (optionVal === "") continue; // Hayaan ang default "-- Select Vaccine --"
+        vaccineSelect.options[i].style.display = 'block';
+        vaccineSelect.options[i].disabled = false;
+    }
 
-        if (takenVaccinesArray.includes(optionVal)) {
-            vaccineSelect.options[i].style.display = 'none'; // Itago ang nakuha na
-            vaccineSelect.options[i].disabled = true;        // I-disable para hindi mapili
-        } else {
-            vaccineSelect.options[i].style.display = 'block'; // Ipakita kung hindi pa nakuha
-            vaccineSelect.options[i].disabled = false;
+    // Suriin kung aling bakuna ang kompleto na ang doses para ganap na matanggal sa choices
+    // Halimbawa: Ang BCG at Hep B ay may 1 dose lang. Ang Pentavalent, OPV, PCV ay may 3 doses. Ang MMR ay 2 doses.
+    let maxDosesMap = {
+        "BCG Vaccine": 1,
+        "Hepatitis B Vaccine": 1,
+        "Pentavalent Vaccine (DPT-Hep B-HIB)": 3,
+        "Oral Polio Vaccine (OPV)": 3,
+        "Inactivated Polio Vaccine (IPV)": 2,
+        "Pneumococcal Conjugate Vaccine (PCV)": 3,
+        "Measles, Mumps, Rubella Vaccine (MMR)": 2
+    };
+
+    for (let vacName in maxDosesMap) {
+        let maxDose = maxDosesMap[vacName];
+        let takenCount = 0;
+        
+        currentChildTakenVaccines.forEach(item => {
+            if (item.startsWith(vacName)) {
+                takenCount++;
+            }
+        });
+
+        // Kung naabot na ang maximum dose ng bakunang ito, itago na sa dropdown
+        if (takenCount >= maxDose) {
+            for (let i = 0; i < vaccineSelect.options.length; i++) {
+                if (vaccineSelect.options[i].value === vacName) {
+                    vaccineSelect.options[i].style.display = 'none';
+                    vaccineSelect.options[i].disabled = true;
+                }
+            }
         }
     }
-    // I-reset sa default selection bago buksan
-    vaccineSelect.value = "";
+}
+
+// 3. Awtomatikong i-filter ang mga doses (KUNG Nakuha na ang Dose 1, huwag nang hayaang piliin ulit ang Dose 1)
+function updateDoseOptions() {
+    let selectedVaccine = document.getElementById('vaccineSelect').value;
+    let doseSelect = document.getElementById('doseSelect');
+    
+    // I-reset ang dose value
+    doseSelect.value = "";
+
+    for (let i = 0; i < doseSelect.options.length; i++) {
+        let opt = doseSelect.options[i];
+        if (opt.value === "") continue;
+
+        let combinationString = selectedVaccine + ' - ' + opt.value;
+        
+        // Kung nakuha na ang partikular na dose na ito, i-disable ito
+        if (currentChildTakenVaccines.includes(combinationString)) {
+            opt.style.display = 'none';
+            opt.disabled = true;
+        } else {
+            opt.style.display = 'block';
+            opt.disabled = false;
+        }
+    }
 }
 
 function closeModal() { document.getElementById('editModal').style.display = 'none'; }
