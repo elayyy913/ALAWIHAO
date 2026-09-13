@@ -142,7 +142,13 @@ if (!isset($_SESSION['user_id'])) {
 <div id="main">
     <div class="form-card">
         <h2>MATERNAL REGISTRATION</h2>
-    <<form method="POST" action="admin/save_maternal.php">
+        
+        <!-- FIX 1: Ayusin ang form tag mula sa '<<form' patungong '<form' -->
+        <form method="POST" action="admin/save_maternal.php">
+            
+            <!-- FIX 2: I-secure na mapapasa ang status na 'Pending' papunta sa backend processing -->
+            <input type="hidden" name="status" value="Pending">
+
             <div class="form-group" style="width: 250px; margin-bottom: 20px;">
                 <label>FAMILY SERIAL NUMBER:</label>
                 <input type="text" name="family_serial">
