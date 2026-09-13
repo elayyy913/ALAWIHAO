@@ -1,7 +1,7 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 include 'db_connect.php';
 
 if (isset($_POST['login'])) {
@@ -284,7 +284,7 @@ input:focus {
             <p>Access your health center account</p>
         </div>
 
-        <form method="POST" autocomplete="off">
+        <form method="POST" action="login.php" autocomplete="off">
             <input style="display:none" type="text" name="fake_user_field"/>
             <input style="display:none" type="password" name="fake_pass_field"/>
 

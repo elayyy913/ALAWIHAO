@@ -9,19 +9,28 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id']; 
 
+// 1. Kunin muna ang personal info at summary ng nanay mula sa users table
+$user_profile_query = "SELECT * FROM users WHERE id = ? LIMIT 1";
+$stmt_user = $conn->prepare($user_profile_query);
+$stmt_user->bind_param("s", $user_id);
+$stmt_user->execute();
+$user_profile = $stmt_user->get_result()->fetch_assoc();
+
+// 2. Kunin ang mga maternal records kasama ang pregnancy_order
 $query = "SELECT reg.*, 
                  CONCAT(reg.client_fname, ' ', COALESCE(CONCAT(reg.client_mi, '. '), ''), reg.client_lname) AS full_name,
                  reg.lmp AS edc,
                  CONCAT(COALESCE(reg.street, ''), ', Brgy. ', COALESCE(reg.barangay, ''), ', ', COALESCE(reg.municipality, ''), ', ', COALESCE(reg.province, '')) AS current_address,
                  rec.bp, rec.weight_kg, rec.temperature, rec.fetal_heart_rate, rec.checkup_date,
-                 reg.id AS reg_id
+                 reg.id AS reg_id,
+                 COALESCE(reg.pregnancy_order, 1) AS pregnancy_order
           FROM maternal_registration reg
           LEFT JOIN (
               SELECT * FROM maternal_records 
               WHERE id IN (SELECT MAX(id) FROM maternal_records GROUP BY mother_id)
           ) rec ON reg.id = rec.mother_id
           WHERE reg.user_id = ? 
-          ORDER BY reg.id DESC";
+          ORDER BY pregnancy_order ASC, reg.id DESC";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("s", $user_id);
@@ -67,9 +76,41 @@ $my_records = $stmt->get_result();
             padding: 25px 40px; 
             border-bottom: 3px solid var(--primary-green); 
             box-sizing: border-box; 
-            margin-bottom: 40px; 
+            margin-bottom: 30px; 
             box-shadow: 0 2px 10px rgba(113, 131, 85, 0.05); 
         }
+
+        /* PROFILE SUMMARY CARD */
+        .profile-card {
+            background: var(--white);
+            width: 92%;
+            padding: 25px 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(113, 131, 85, 0.06);
+            border: 1px solid var(--border-color);
+            margin-bottom: 25px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .profile-info h3 { margin: 0 0 5px 0; color: var(--primary-green); font-size: 1.2rem; }
+        .profile-info p { margin: 0; color: #666; font-size: 0.85rem; }
+        .profile-stats {
+            display: flex;
+            gap: 20px;
+        }
+        .stat-box {
+            background: #f4f7f0;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary-green);
+            text-align: center;
+        }
+        .stat-box small { display: block; color: var(--primary-green); font-size: 0.65rem; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        .stat-box span { font-size: 1rem; font-weight: bold; color: var(--dark-gray); }
 
         .table-container { 
             background: var(--white); 
@@ -106,6 +147,17 @@ $my_records = $stmt->get_result();
         }
         .status-verified { background: #f0f4e8; color: var(--primary-green); border: 1px solid var(--primary-green); }
         .status-pending { background: #fffcf0; color: #d4a017; border: 1px solid #d4a017; }
+
+        /* PREGNANCY ORDER BADGE */
+        .order-badge {
+            background: #e8ede3;
+            color: var(--primary-green);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            margin-right: 8px;
+        }
 
         /* ACTION BUTTONS */
         .action-btns { display: flex; gap: 8px; }
@@ -164,15 +216,34 @@ $my_records = $stmt->get_result();
         <h3 style="margin:0; letter-spacing: 4px; color: var(--primary-green); font-weight: 900;">ALAWIHAO HEALTH CENTER</h3>
     </div>
 
+    <!-- PERSONAL INFO & PARITY SUMMARY CARD -->
+    <div class="profile-card">
+        <div class="profile-info">
+            <h3><?php echo htmlspecialchars(($user_profile['first_name'] ?? '') . ' ' . ($user_profile['last_name'] ?? '')); ?></h3>
+            <p>Contact: <?php echo htmlspecialchars($user_profile['contact_number'] ?? 'Not provided'); ?> | Address: <?php echo htmlspecialchars($user_profile['address'] ?? 'Not provided'); ?></p>
+        </div>
+        <div class="profile-stats">
+            <div class="stat-box">
+                <small>Total Children</small>
+                <span><?php echo htmlspecialchars($user_profile['total_children'] ?? '0'); ?></span>
+            </div>
+            <div class="stat-box">
+                <small>Current Status</small>
+                <span><?php echo htmlspecialchars($user_profile['current_pregnancy_status'] ?? '1st Pregnancy'); ?></span>
+            </div>
+        </div>
+    </div>
+
     <div class="table-container">
         <div style="margin-bottom: 25px;">
             <h2 style="color: var(--primary-green); margin: 0; letter-spacing: 1px;">MATERNAL HEALTH RECORDS</h2>
-            <p style="color: #777; font-size: 0.8rem; margin-top: 5px;">View your pregnancy tracking and clinical checkup history.</p>
+            <p style="color: #777; font-size: 0.8rem; margin-top: 5px;">View your pregnancy tracking history sorted by pregnancy order (1st child, 2nd child, etc.).</p>
         </div>
 
         <table>
             <thead>
                 <tr>
+                    <th>Pregnancy / Child Order</th>
                     <th>Mother's Name</th>
                     <th>Due Date (EDC / LMP)</th>
                     <th>Status</th>
@@ -183,6 +254,18 @@ $my_records = $stmt->get_result();
                 <?php if ($my_records->num_rows > 0): ?>
                     <?php while($row = $my_records->fetch_assoc()): ?>
                     <tr>
+                        <td>
+                            <span class="order-badge">
+                                <?php 
+                                    $ord = $row['pregnancy_order'];
+                                    $suffix = 'th';
+                                    if ($ord == 1) $suffix = 'st';
+                                    elseif ($ord == 2) $suffix = 'nd';
+                                    elseif ($ord == 3) $suffix = 'rd';
+                                    echo $ord . $suffix . ' Child / Preg';
+                                ?>
+                            </span>
+                        </td>
                         <td style="font-weight: bold; color: #444;"><?php echo htmlspecialchars($row['full_name']); ?></td>
                         <td><?php echo $row['edc'] ? date('M d, Y', strtotime($row['edc'])) : '<span style="color:#ccc">--</span>'; ?></td>
                         <td>
@@ -196,7 +279,7 @@ $my_records = $stmt->get_result();
                     </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" style="text-align:center; padding: 50px; color: #aaa;">Walang nahanap na records.</td></tr>
+                    <tr><td colspan="5" style="text-align:center; padding: 50px; color: #aaa;">Walang nahanap na records.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

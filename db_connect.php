@@ -1,10 +1,10 @@
 <?php
-$host = "localhost";
+$host = "127.0.0.1"; // Pinalitan mula 'localhost' para maiwasan ang IPv6 hanging/loading issue
 $user = "root";
 $pass = "";
-$dbname = "finalcaps_db";
+$dbname = "capstone_db";
 
-$conn = mysqli_connect($host, $user, $pass, $dbname);
+$conn = mysqli_connect($host, $user, $pass, $dbname, 3306);
 
 if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
