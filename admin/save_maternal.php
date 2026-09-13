@@ -18,7 +18,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 1. Kunin ang user_id galing sa session
     $user_id = $_SESSION['user_id'];
 
-    // 2. Kunin ang Data mula sa Form
+    // 2. Kunin ang Data mula sa Form (Itakda ang status sa 'Pending' para dumaan sa admin approval)
+    $status          = 'Pending'; 
     $family_serial   = $_POST['family_serial'] ?? '';
     $lname           = $_POST['client_lname'] ?? '';
     $fname           = $_POST['client_fname'] ?? '';
@@ -51,13 +52,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $plan            = $_POST['plan'] ?? '';
     $num_preg        = !empty($_POST['num_preg']) ? $_POST['num_preg'] : 0;
 
-    // 3. I-save sa main table: maternal_registration
+    // 3. I-save sa main table: maternal_registration kasama ang status na 'Pending'
     $sql_main = "INSERT INTO maternal_registration (
         user_id, family_serial, client_lname, client_fname, client_mi, client_ext, 
         dob, age, blood_type, lmp, highest_educ, occupation, spouse_lname, spouse_fname, 
         spouse_mi, spouse_ext, spouse_dob, spouse_blood, street, barangay, municipality, 
-        province, income, contact, phic_cat, philhealth_no, living_children, birth_plan, num_preg
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        province, income, contact, phic_cat, philhealth_no, living_children, birth_plan, num_preg, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql_main);
     
@@ -65,12 +66,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("Prepare failed (Main): " . $conn->error);
     }
 
-    // Bind 29 parameters
-    $stmt->bind_param("issssssissssssssssssssssssiis", 
+    // Bind 30 parameters na ngayon (idinagdag ang 's' para sa status)
+    $stmt->bind_param("issssssissssssssssssssssssiiss", 
         $user_id, $family_serial, $lname, $fname, $mi, $ext, $dob, $age, $blood, $lmp, $educ, $job, 
         $s_lname, $s_fname, $s_mi, $s_ext, $s_dob, $s_blood, 
         $street, $barangay, $municipality, $province, 
-        $income, $contact, $phic_cat, $philhealth, $living_children, $plan, $num_preg
+        $income, $contact, $phic_cat, $philhealth, $living_children, $plan, $num_preg, $status
     );
 
     if ($stmt->execute()) {
@@ -99,19 +100,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
 
-        // 5. Tamang pag-redirect base sa role ng nag-login
-        $redirect_page = '../user_dashboard.php'; // Default para sa pasyente/user
-        
-        if (isset($_SESSION['role'])) {
-            if ($_SESSION['role'] === 'Admin') {
-                $redirect_page = 'admin_dashboard.php'; // Palitan ng tamang filename ng admin dashboard mo kung iba
-            } elseif ($_SESSION['role'] === 'Super Admin') {
-                $redirect_page = 'super_admin_dashboard.php'; // Palitan ng tamang filename ng super admin dashboard mo kung iba
-            }
-        }
+        // 5. Tamang pag-redirect papunta sa user dashboard o records
+        $redirect_page = '../user_maternal_records.php'; 
 
         echo "<script>
-                alert('Maternal record registered successfully!');
+                alert('Registration submitted successfully! Please wait for admin approval before it appears in your active records.');
                 window.location.href = '$redirect_page';
             </script>";
         exit();
