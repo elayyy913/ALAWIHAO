@@ -55,13 +55,21 @@ $my_records = $stmt->get_result();
             display: flex; 
         }
 
+        /* DEFAULT: Naka-open ang sidebar kaya may 260px margin sa kaliwa */
         #main { 
-            margin-left: 280px; 
-            width: calc(100% - 280px); 
+            margin-left: 260px; 
+            width: calc(100% - 260px); 
             padding-bottom: 50px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* KAPAG NAKASARA ANG SIDEBAR: Magiging full-width at mawawala ang margin sa kaliwa */
+        body.sidebar-closed #main {
+            margin-left: 0 !important;
+            width: 100% !important;
         }
 
         .header { 

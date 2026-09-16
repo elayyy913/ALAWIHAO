@@ -9,7 +9,6 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id']; 
 
-// AJAX Request Handler kung sakaling hiniling ang details ng isang record
 if (isset($_GET['ajax_id'])) {
     header('Content-Type: application/json');
     $reg_id = intval($_GET['ajax_id']);
@@ -24,7 +23,6 @@ if (isset($_GET['ajax_id'])) {
 
     if ($res_reg->num_rows > 0) {
         $record = $res_reg->fetch_assoc();
-
         $sql_chk = "SELECT * FROM maternal_records WHERE mother_id = ? ORDER BY checkup_date DESC";
         $stmt_chk = $conn->prepare($sql_chk);
         $stmt_chk->bind_param("i", $reg_id);
@@ -36,25 +34,19 @@ if (isset($_GET['ajax_id'])) {
             $checkups[] = $row_chk;
         }
 
-        echo json_encode([
-            'success' => true,
-            'record' => $record,
-            'checkups' => $checkups
-        ]);
+        echo json_encode(['success' => true, 'record' => $record, 'checkups' => $checkups]);
     } else {
         echo json_encode(['success' => false]);
     }
     exit();
 }
 
-// 1. Kunin ang info ng user mula sa 'users' table bilang fallback
 $user_fallback_query = "SELECT first_name, last_name, contact_number, address FROM users WHERE id = ? LIMIT 1";
 $stmt_fb = $conn->prepare($user_fallback_query);
 $stmt_fb->bind_param("i", $user_id);
 $stmt_fb->execute();
 $user_info = $stmt_fb->get_result()->fetch_assoc();
 
-// 2. Kunin mula sa maternal_registration para sa profile card
 $profile_query = "SELECT *, 
                          CONCAT(client_fname, ' ', COALESCE(CONCAT(client_mi, '. '), ''), client_lname) AS full_name,
                          contact AS contact_number,
@@ -79,7 +71,6 @@ if ($result_prof->num_rows > 0) {
     ];
 }
 
-// 3. Kunin ang LAHAT ng maternal registration records ng user para sa table
 $query = "SELECT reg.*, 
                  CONCAT(reg.client_fname, ' ', COALESCE(CONCAT(reg.client_mi, '. '), ''), reg.client_lname) AS full_name,
                  reg.lmp AS edc,
@@ -119,14 +110,21 @@ $my_records = $stmt->get_result();
             display: flex; 
         }
 
+/* FLEXIBLE MAIN CONTENT: Naka-open ang sidebar by default */
         #main { 
-            margin-left: 280px; 
-            width: calc(100% - 280px); 
+            margin-left: 260px; /* Tugma sa --sidebar-width ng sidebar mo */
+            width: calc(100% - 260px); 
             padding-bottom: 50px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: 0.5s;
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* KAPAG NAKASARA ANG SIDEBAR: Magiging full-width at mawawala ang margin sa kaliwa */
+        body.sidebar-closed #main {
+            margin-left: 0 !important;
+            width: 100% !important;
         }
 
         .header { 
@@ -361,6 +359,30 @@ $my_records = $stmt->get_result();
 </div>
 
 <script>
+    // UNIVERSAL CLICK LISTENER: Sasabayan nito ang anumang sidebar toggle button sa iyong sidebar file
+    document.addEventListener("DOMContentLoaded", function() {
+        // Humanap ng kahit anong button sa paligid (kabilang ang hamburger icon sa sidebar)
+        document.addEventListener('click', function(event) {
+            const target = event.target.closest('button, .toggle-btn, .menu-btn, #sidebarToggle, [onclick*="sidebar"]');
+            if (target) {
+                setTimeout(() => {
+                    // Susuriin kung ang sidebar ay lumiit o nawala base sa lapad o kaya ay i-toggle ang body class
+                    const sidebar = document.querySelector('aside, .sidebar, #sidebar, nav');
+                    if (sidebar) {
+                        const width = sidebar.getBoundingClientRect().width;
+                        if (width < 80) {
+                            document.body.classList.add('sidebar-collapsed');
+                        } else {
+                            document.body.classList.remove('sidebar-collapsed');
+                        }
+                    } else {
+                        document.body.classList.toggle('sidebar-collapsed');
+                    }
+                }, 100);
+            }
+        });
+    });
+
     function fetchDetails(regId, orderLabel) {
         const modal = document.getElementById('detailsModal');
         const body = document.getElementById('modalBody');
@@ -369,7 +391,6 @@ $my_records = $stmt->get_result();
         body.innerHTML = "<p style='text-align:center; padding:20px; color:#666;'>Loading pregnancy & check-up history...</p>";
         modal.style.display = "block";
 
-        // Kumokonekta ito sa sarili nitong file gamit ang ajax_id parameter
         fetch('user_maternal_records.php?ajax_id=' + regId)
             .then(response => response.json())
             .then(data => {
