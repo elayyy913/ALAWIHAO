@@ -52,17 +52,26 @@ if (isset($_POST['update_health'])) {
 $query = "SELECT * FROM children ORDER BY child_name ASC";
 $result = mysqli_query($conn, $query);
 
-// KUNIN DIN ANG LAHAT NG KASAYSAYAN NG VAKUNA BAWAT BATA MULA SA infant_records PARA MA-MAP SA JAVASCRIPT
-$history_query = mysqli_query($conn, "SELECT child_id, vaccine_taken FROM infant_records");
+// KUNIN ANG LAHAT NG KASAYSAYAN NG VAKUNA AT CHECK-UP BAWAT BATA MULA SA infant_records
+$history_query = mysqli_query($conn, "SELECT * FROM infant_records ORDER BY vaccine_date DESC, created_at DESC");
+$child_history_map = [];
 $child_vaccines_map = [];
+
 while ($row_hist = mysqli_fetch_assoc($history_query)) {
     $cid = $row_hist['child_id'];
     $vac = trim($row_hist['vaccine_taken']);
+    
+    // Para sa history modal / report card pad
+    if (!isset($child_history_map[$cid])) {
+        $child_history_map[$cid] = [];
+    }
+    $child_history_map[$cid][] = $row_hist;
+
+    // Para sa pag-filter ng nakuha nang bakuna
     if (!empty($vac)) {
         if (!isset($child_vaccines_map[$cid])) {
             $child_vaccines_map[$cid] = [];
         }
-        // Iwasan ang duplicate kung sakaling na-encode ng paulit-ulit
         if (!in_array($vac, $child_vaccines_map[$cid])) {
             $child_vaccines_map[$cid][] = $vac;
         }
@@ -107,19 +116,6 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
         .header-section { margin-bottom: 30px; }
         .header-section h1 { color: var(--dark-sage); margin: 0; }
         
-        /* Role Badge Style */
-        .role-badge {
-            display: inline-block;
-            background: var(--soft-sage);
-            color: var(--dark-sage);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            border: 1px solid var(--sage);
-        }
-
         .table-container {
             background: white;
             padding: 20px;
@@ -160,6 +156,28 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
             border-radius: 15px;
             border-top: 8px solid var(--sage);
         }
+
+        /* Print Styling para maging responsive at malinis kapag na-print o na-save */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printableArea, #printableArea * {
+                visibility: visible;
+            }
+            #printableArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 20px;
+                background: white;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -187,16 +205,16 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                 <?php while($row = mysqli_fetch_assoc($result)): ?>
                     <?php 
                         $c_id = $row['id'];
-                        // Kunin ang mga bakuna ng batang ito mula sa ating map
                         $taken_list = isset($child_vaccines_map[$c_id]) ? $child_vaccines_map[$c_id] : [];
-                        $taken_string = !empty($taken_list) ? implode(', ', $taken_list) : '';
+                        $history_list = isset($child_history_map[$c_id]) ? $child_history_map[$c_id] : [];
                     ?>
                 <tr>
                     <td><strong><?php echo htmlspecialchars($row['child_name']); ?></strong></td>
                     <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
                     <td><?php echo $row['gender']; ?></td>
                     <td>
-                        <a href="admin_child_history.php?id=<?php echo $c_id; ?>" class="btn btn-view">Full History</a>
+                        <!-- Pinalitan para magbukas ng Report Card Modal sa halip na redirect -->
+                        <button class="btn btn-view" onclick='openHistoryModal(<?php echo json_encode($row); ?>, <?php echo json_encode($history_list); ?>)'>Full History</button>
                         <button class="btn btn-edit" onclick="openEditModal('<?php echo $c_id; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', <?php echo htmlspecialchars(json_encode($taken_list), ENT_QUOTES); ?>)">Update Health</button>
                     </td>
                 </tr>
@@ -206,13 +224,56 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
     </div>
 </div>
 
+<!-- REPORT CARD / FULL HISTORY MODAL -->
+<div id="historyModal" class="modal">
+    <div class="modal-content" style="width: 700px; max-width: 90%; max-height: 85vh; overflow-y: auto;">
+        
+        <!-- Print Area Wrapper (Report Card Pad) -->
+        <div id="printableArea">
+            <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid var(--sage); padding-bottom: 10px;">
+                <h2 style="color: var(--dark-sage); margin: 0;">Alawihao Health Center</h2>
+                <p style="margin: 2px 0; font-size: 0.85rem; color: #666;">Child Immunization & Health Record Report Card</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; background: var(--soft-sage); padding: 12px; border-radius: 8px; font-size: 0.9rem;">
+                <div><strong>Child Name:</strong> <span id="rep_name">--</span></div>
+                <div><strong>Gender:</strong> <span id="rep_gender">--</span></div>
+                <div><strong>Mother's Name:</strong> <span id="rep_mother">--</span></div>
+                <div><strong>Birthdate:</strong> <span id="rep_dob">--</span></div>
+            </div>
+
+            <h4 style="color: var(--dark-sage); margin-bottom: 8px; text-transform: uppercase; font-size: 0.8rem;">Monthly Check-up & Vaccination History</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 20px;" id="historyTable">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #cbd5e0; padding: 8px;">Date</th>
+                        <th style="border: 1px solid #cbd5e0; padding: 8px;">Wt (kg) / Ht (cm)</th>
+                        <th style="border: 1px solid #cbd5e0; padding: 8px;">Vaccine / Dose</th>
+                        <th style="border: 1px solid #cbd5e0; padding: 8px;">Next Appt</th>
+                        <th style="border: 1px solid #cbd5e0; padding: 8px;">Remarks / Health Worker</th>
+                    </tr>
+                </thead>
+                <tbody id="rep_history_rows">
+                    <!-- Dynamic rows -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Modal Actions (Hidden kapag nagpa-print) -->
+        <div class="no-print" style="text-align: right; margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <button onclick="printReportCard()" class="btn" style="background: #2b6cb0; color: white;">🖨️ Print / Save as PDF</button>
+            <button onclick="closeHistoryModal()" class="btn" style="background: #e2e8f0; color: #2d3748;">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- UPDATE HEALTH MODAL -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <h3 id="modalTitle" style="color: var(--dark-sage); margin-top: 0;">Update Health Data</h3>
         <form method="POST">
             <input type="hidden" name="child_id" id="modal_id">
             
-            <!-- Previous Vaccines Display Box -->
             <div style="background: #F8FAFC; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #E2E8F0;">
                 <label style="display:block; font-size:0.75rem; font-weight:700; color: #4A5568; margin-bottom: 5px; text-transform: uppercase;">Previously Taken Vaccines:</label>
                 <div id="modal_previous_vaccines" style="font-size: 0.85rem; color: #2D3748; font-style: italic;">
@@ -230,7 +291,6 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                 <input type="number" name="height" step="0.1" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <!-- Vaccine Administered & Dose Selection Grouped -->
             <div style="display: flex; gap: 10px; margin-bottom:12px;">
                 <div style="flex: 2;">
                     <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
@@ -256,25 +316,21 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                 </div>
             </div>
 
-            <!-- Administered By / Nagturok -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Administered By (Nagturok)</label>
                 <input type="text" name="administered_by" placeholder="Enter health worker or midwife name..." required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <!-- Date of Vaccination -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Date of Vaccination</label>
                 <input type="date" name="vaccine_date" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <!-- Next Check-up / Vaccination Schedule -->
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Next Check-up Schedule</label>
                 <input type="date" name="next_checkup" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
-            <!-- Remarks / Notes -->
             <div style="margin-bottom:15px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Remarks / Notes</label>
                 <textarea name="remarks" rows="3" placeholder="Optional notes or observations..." style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; resize: vertical;"></textarea>
@@ -316,6 +372,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// --- REPORT CARD MODAL FUNCTIONS ---
+function openHistoryModal(childData, historyList) {
+    document.getElementById('historyModal').style.display = 'block';
+    
+    document.getElementById('rep_name').innerText = childData.child_name || '--';
+    document.getElementById('rep_gender').innerText = childData.gender || '--';
+    document.getElementById('rep_mother').innerText = childData.mother_name || '--';
+    document.getElementById('rep_dob').innerText = childData.birth_date || '--';
+
+    let tbody = document.getElementById('rep_history_rows');
+    tbody.innerHTML = '';
+
+    if (historyList && historyList.length > 0) {
+        historyList.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="border: 1px solid #cbd5e0; padding: 8px;">${item.vaccine_date || item.created_at || '--'}</td>
+                <td style="border: 1px solid #cbd5e0; padding: 8px;">${item.weight_kg || '--'} kg / ${item.height || '--'} cm</td>
+                <td style="border: 1px solid #cbd5e0; padding: 8px; font-weight: 600; color: var(--dark-sage);">${item.vaccine_taken || 'None'}</td>
+                <td style="border: 1px solid #cbd5e0; padding: 8px;">${item.next_checkup || '--'}</td>
+                <td style="border: 1px solid #cbd5e0; padding: 8px; font-size: 0.75rem;">${item.remarks || '--'}<br><em style="color:#718096;">By: ${item.administered_by || 'N/A'}</em></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } else {
+        tbody.innerHTML = `<tr><td colspan="5" style="border: 1px solid #cbd5e0; text-align: center; padding: 15px; color: #718096; font-style: italic;">No check-up or vaccination history recorded yet.</td></tr>`;
+    }
+}
+
+function closeHistoryModal() {
+    document.getElementById('historyModal').style.display = 'none';
+}
+
+function printReportCard() {
+    window.print();
+}
+
+// --- UPDATE HEALTH MODAL FUNCTIONS ---
 function openEditModal(id, name, takenVaccinesArray) {
     document.getElementById('editModal').style.display = 'block';
     document.getElementById('modal_id').value = id;
@@ -325,7 +419,6 @@ function openEditModal(id, name, takenVaccinesArray) {
     let vaccinesContainer = document.getElementById('modal_previous_vaccines');
     let vaccineSelect = document.getElementById('vaccineSelect');
 
-    // 1. I-display ang listahan ng mga bakunang nakuha na
     if (currentChildTakenVaccines.length > 0) {
         vaccinesContainer.innerHTML = currentChildTakenVaccines.join(', ');
         vaccinesContainer.style.fontStyle = 'normal';
@@ -338,18 +431,14 @@ function openEditModal(id, name, takenVaccinesArray) {
         vaccinesContainer.style.color = '#718096';
     }
 
-    // 2. I-reset ang vaccine at dose selection
     vaccineSelect.value = "";
     document.getElementById('doseSelect').value = "";
     
-    // I-enable lahat muna ng options sa vaccine
     for (let i = 0; i < vaccineSelect.options.length; i++) {
         vaccineSelect.options[i].style.display = 'block';
         vaccineSelect.options[i].disabled = false;
     }
 
-    // Suriin kung aling bakuna ang kompleto na ang doses para ganap na matanggal sa choices
-    // Halimbawa: Ang BCG at Hep B ay may 1 dose lang. Ang Pentavalent, OPV, PCV ay may 3 doses. Ang MMR ay 2 doses.
     let maxDosesMap = {
         "BCG Vaccine": 1,
         "Hepatitis B Vaccine": 1,
@@ -370,7 +459,6 @@ function openEditModal(id, name, takenVaccinesArray) {
             }
         });
 
-        // Kung naabot na ang maximum dose ng bakunang ito, itago na sa dropdown
         if (takenCount >= maxDose) {
             for (let i = 0; i < vaccineSelect.options.length; i++) {
                 if (vaccineSelect.options[i].value === vacName) {
@@ -382,12 +470,10 @@ function openEditModal(id, name, takenVaccinesArray) {
     }
 }
 
-// 3. Awtomatikong i-filter ang mga doses (KUNG Nakuha na ang Dose 1, huwag nang hayaang piliin ulit ang Dose 1)
 function updateDoseOptions() {
     let selectedVaccine = document.getElementById('vaccineSelect').value;
     let doseSelect = document.getElementById('doseSelect');
     
-    // I-reset ang dose value
     doseSelect.value = "";
 
     for (let i = 0; i < doseSelect.options.length; i++) {
@@ -396,7 +482,6 @@ function updateDoseOptions() {
 
         let combinationString = selectedVaccine + ' - ' + opt.value;
         
-        // Kung nakuha na ang partikular na dose na ito, i-disable ito
         if (currentChildTakenVaccines.includes(combinationString)) {
             opt.style.display = 'none';
             opt.disabled = true;
