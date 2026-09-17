@@ -9,24 +9,28 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id']; 
 
-// Logic para sa Delete/Remove
+// Logic para sa Delete/Remove (Puwede lang i-delete ng user ang sarili niyang pending na in-add)
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
     $del_query = "DELETE FROM children WHERE id = ? AND user_id = ? AND status != 'Approved'";
     $del_stmt = $conn->prepare($del_query);
-    $del_stmt->bind_param("is", $delete_id, $user_id);
+    $del_stmt->bind_param("ii", $delete_id, $user_id);
     $del_stmt->execute();
-    header("Location: " . $_SERVER['PHP_SELF']);
+    header("Location: " . strtok($_SERVER['REQUEST_URI'], '?'));
     exit();
 }
 
-// Kunin ang mga anak ng user mula sa 'children' table kasama ang kalkulasyon ng edad
+// FIX: Naka-filter na ngayon sa pamamagitan ng user_id para makita lamang ng kasalukuyang user ang kanyang mga anak (Approved at Pending man).
 $query = "SELECT c.*, 
+                 c.weight_kg AS weight_kg, 
+                 c.height_cm AS height, 
+                 COALESCE(c.vaccine_taken, 'None') AS vaccine_taken,
+                 c.birth_date AS r_dob, c.administered_by,
                  TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) AS age_years, 
                  TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) % 12 AS age_months 
           FROM children c
-          WHERE c.user_id = ? 
-          ORDER BY c.id DESC";
+          WHERE c.user_id = ?
+          ORDER BY c.created_at DESC";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $user_id);
@@ -36,14 +40,17 @@ $result_children = $stmt->get_result();
 $my_records = [];
 while ($row = $result_children->fetch_assoc()) {
     $child_current_id = $row['id'];
-    $child_name = $row['child_name'];
-    
+
     $history_arr = [];
-    
-    // 1. Kunin ang history mula sa infant_records table gamit ang child_id
-    $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
-    while($hist = mysqli_fetch_assoc($history_query)) {
-        // I-format para sumakto sa istruktura na hinahanap ng JS
+
+    // Kunin ang history mula sa infant_records table lang
+    $hist_query = "SELECT * FROM infant_records WHERE child_id = ? ORDER BY created_at DESC";
+    $hist_stmt = $conn->prepare($hist_query);
+    $hist_stmt->bind_param("i", $child_current_id);
+    $hist_stmt->execute();
+    $hist_result = $hist_stmt->get_result();
+
+    while($hist = $hist_result->fetch_assoc()) {
         $history_arr[] = [
             'vaccine_name' => $hist['vaccine_taken'] ?? '',
             'date_administered' => $hist['vaccine_date'] ?? ($hist['created_at'] ? date('Y-m-d', strtotime($hist['created_at'])) : '-- / -- / ----'),
@@ -51,20 +58,8 @@ while ($row = $result_children->fetch_assoc()) {
             'remarks' => $hist['remarks'] ?? 'No notes yet'
         ];
     }
-    
-    // 2. Kunin din ang records mula sa vaccination_records table gamit ang pangalan
-    $vax_q = "SELECT * FROM vaccination_records WHERE TRIM(LOWER(patient_name)) = TRIM(LOWER('$child_name'))";
-    $vax_result = mysqli_query($conn, $vax_q);
-    while($vax = mysqli_fetch_assoc($vax_result)) {
-        $history_arr[] = [
-            'vaccine_name' => $vax['vaccine_name'] . (isset($vax['dose_number']) ? ' - Dose ' . $vax['dose_number'] : ''),
-            'date_administered' => $vax['date_administered'] ?? '-- / -- / ----',
-            'health_worker_id' => $vax['health_worker_id'] ?? 'Health Worker',
-            'remarks' => $vax['remarks'] ?? 'No notes yet'
-        ];
-    }
-    
-    // 3. Siguruhing nakasama ang vaccine galing sa main 'children' table kung mayroon man
+
+    // Siguruhing nakasama ang vaccine galing sa main 'children' table kung mayroon man
     if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
         $found_in_history = false;
         foreach($history_arr as $h) {
@@ -83,7 +78,6 @@ while ($row = $result_children->fetch_assoc()) {
         }
     }
     
-    // I-pasa ito sa pangalang 'vaccinations' para direktang basahin ng JavaScript mo
     $row['vaccinations'] = $history_arr;
     $my_records[] = $row;
 }
@@ -332,20 +326,30 @@ while ($row = $result_children->fetch_assoc()) {
             footerDelete.innerHTML = ``;
         }
 
-        function getVaccineDetails(vaxKeyword, doseNum) {
+    function getVaccineDetails(vaxKeyword, doseNum) {
             if (!data.vaccinations || data.vaccinations.length === 0) {
                 return { date: '-- / -- / ----', worker: '--', notes: 'No notes yet' };
             }
             
-            const match = data.vaccinations.find(v => 
-                v.vaccine_name && v.vaccine_name.toLowerCase().includes(vaxKeyword.toLowerCase()) && 
-                (v.vaccine_name.toLowerCase().includes('dose ' + doseNum) || doseNum === 1)
-            );
+            const match = data.vaccinations.find(v => {
+                if (!v.vaccine_name) return false;
+                let vName = v.vaccine_name.toLowerCase();
+                let keyword = vaxKeyword.toLowerCase();
+                
+                // Special handling for BCG and Hep B at birth
+                if (keyword.includes('bcg') && vName.includes('bcg')) return true;
+                if (keyword.includes('hep b') && (vName.includes('hep') || vName.includes('hepatitis'))) return true;
+                
+                let matchesKeyword = vName.includes(keyword);
+                let matchesDose = vName.includes('dose ' + doseNum) || vName.includes('d' + doseNum) || vName.includes('dos' + doseNum);
+                
+                return matchesKeyword && (matchesDose || doseNum === 1);
+            });
 
             if (match) {
                 return {
-                    date: match.date_administered || '-- / -- / ----',
-                    worker: match.health_worker_id ? match.health_worker_id : '--',
+                    date: match.date_administered && match.date_administered !== '0000-00-00' ? match.date_administered : '-- / -- / ----',
+                    worker: match.health_worker_id ? match.health_worker_id : 'Health Worker',
                     notes: match.remarks || 'No notes yet'
                 };
             }
@@ -416,7 +420,7 @@ while ($row = $result_children->fetch_assoc()) {
                         <div style="font-weight: bold; font-size: 0.9rem; color: var(--primary-green); margin-top: 4px;">
                             ${(() => {
                                 if (data.vaccinations && data.vaccinations.length > 0) {
-                                    let takenVaxs = data.vaccinations.filter(v => v.date_administered && v.date_administered !== '-- / -- / ----');
+                                    let takenVaxs = data.vaccinations.filter(v => v.date_administered && v.date_administered !== '-- / -- / ----' && v.date_administered !== '0000-00-00');
                                     if (takenVaxs.length > 0) {
                                         takenVaxs.sort((a, b) => new Date(b.date_administered) - new Date(a.date_administered));
                                         return takenVaxs[0].vaccine_name;
