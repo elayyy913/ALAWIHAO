@@ -7,10 +7,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// 1. Kunin muna ang mga parameters mula sa GET bago buuin ang query
+// 1. Kunin ang mga parameters mula sa GET
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'newest';
 $age_filter = isset($_GET['age_filter']) ? $_GET['age_filter'] : 'all';
+$dose_filter = isset($_GET['dose_filter']) ? $_GET['dose_filter'] : 'all'; // Bagong filter para sa doses
 
 // 2. Query para sa Master List (children table)
 $query = "SELECT c.*, 
@@ -21,7 +22,7 @@ $query = "SELECT c.*,
          FROM children c
          WHERE c.status = 'Approved' AND c.child_name LIKE '%$search%'";
 
-// Age Filtering Logic gamit ang TIMESTAMPDIFF sa MySQL
+// Age Filtering Logic
 if ($age_filter == '0-1') {
     $query .= " AND TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) <= 1";
 } elseif ($age_filter == '1-6') {
@@ -41,6 +42,61 @@ if ($filter == 'newest') {
 }
 
 $result = mysqli_query($conn, $query);
+
+// Ipunin muna ang records at i-filter base sa doses kung kinakailangan sa PHP level
+$all_records = [];
+while($row = mysqli_fetch_assoc($result)) {
+    $child_current_id = $row['id'];
+    
+    // Kunin ang history mula sa infant_records table
+    $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
+    $history_arr = [];
+    while($hist = mysqli_fetch_assoc($history_query)) {
+        $history_arr[] = $hist;
+    }
+    
+    if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
+        $found_in_history = false;
+        foreach($history_arr as $h) {
+            if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
+                $found_in_history = true;
+                break;
+            }
+        }
+        if(!$found_in_history) {
+            $history_arr[] = [
+                'vaccine_taken' => $row['vaccine_taken'],
+                'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
+                'administered_by' => $row['administered_by'] ?? 'Health Worker',
+                'remarks' => 'Registered record',
+                'weight_kg' => $row['weight_kg'],
+                'height' => $row['height']
+            ];
+        }
+    }
+    
+    $row['history'] = $history_arr;
+
+    // Bilangin ang total doses
+    $valid_doses = array_filter($history_arr, function($h) {
+        return !empty($h['vaccine_taken']) && strtolower($h['vaccine_taken']) != 'none';
+    });
+    $row['total_doses'] = count($valid_doses);
+
+    // Dose Filtering Condition
+    $matches_dose = true;
+    if ($dose_filter == '0') {
+        $matches_dose = ($row['total_doses'] == 0);
+    } elseif ($dose_filter == '1-2') {
+        $matches_dose = ($row['total_doses'] >= 1 && $row['total_doses'] <= 2);
+    } elseif ($dose_filter == '3_plus') {
+        $matches_dose = ($row['total_doses'] >= 3);
+    }
+
+    if ($matches_dose) {
+        $all_records[] = $row;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -56,7 +112,7 @@ $result = mysqli_query($conn, $query);
         .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         h2 { color: var(--sage-green); font-size: 1.8rem; margin: 0; }
         .search-box, .filter-select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; background: white; font-size: 0.9rem; }
-        .search-box { width: 200px; }
+        .search-box { width: 180px; }
         .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         thead { background-color: var(--sage-green); }
@@ -64,6 +120,15 @@ $result = mysqli_query($conn, $query);
         td { padding: 15px; border-bottom: 1px solid #eee; }
         .view-btn { background: transparent; color: var(--sage-green); border: 1.5px solid var(--sage-green); padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; }
         
+        .vax-badge {
+            background: #eef3ec;
+            color: var(--sage-green);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
         /* Modal Styles */
         .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
         .modal-content { background: white; margin: 2% auto; padding: 30px; border-radius: 20px; width: 750px; position: relative; max-height: 90vh; overflow-y: auto; }
@@ -110,7 +175,7 @@ $result = mysqli_query($conn, $query);
             <div class="header-section">
                 <h2>Infant Health Records</h2>
                 <div style="display:flex; gap:10px; align-items: center; flex-wrap: wrap;">
-                    <form method="GET" style="display:flex; gap:10px; align-items:center;">
+                    <form method="GET" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                         <!-- Age Filter Dropdown -->
                         <select name="age_filter" class="filter-select" onchange="this.form.submit()">
                             <option value="all" <?= $age_filter == 'all' ? 'selected' : ''; ?>>All Ages</option>
@@ -120,11 +185,18 @@ $result = mysqli_query($conn, $query);
                             <option value="1-2" <?= $age_filter == '1-2' ? 'selected' : ''; ?>>1 - 2 Years Old</option>
                             <option value="2_above" <?= $age_filter == '2_above' ? 'selected' : ''; ?>>2 Years Old & Above</option>
                         </select>
+
+                        <!-- Dose Filter Dropdown (Bago) -->
+                        <select name="dose_filter" class="filter-select" onchange="this.form.submit()">
+                            <option value="all" <?= $dose_filter == 'all' ? 'selected' : ''; ?>>All Doses</option>
+                            <option value="0" <?= $dose_filter == '0' ? 'selected' : ''; ?>>0 Dose (None)</option>
+                            <option value="1-2" <?= $dose_filter == '1-2' ? 'selected' : ''; ?>>1 - 2 Doses</option>
+                            <option value="3_plus" <?= $dose_filter == '3_plus' ? 'selected' : ''; ?>>3+ Doses</option>
+                        </select>
                         
                         <!-- Search Box -->
                         <input type="text" name="search" class="search-box" placeholder="Search baby..." value="<?= htmlspecialchars($search); ?>">
                         
-                        <!-- Panatilihin ang sorting filter kung meron man -->
                         <input type="hidden" name="filter" value="<?= htmlspecialchars($filter); ?>">
                     </form>
                     
@@ -138,55 +210,33 @@ $result = mysqli_query($conn, $query);
                         <th>Baby Name</th>
                         <th>Mother</th>
                         <th>Birthday</th>
+                        <th>Vaccination Status</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(mysqli_num_rows($result) > 0): ?>
-                        <?php while($row = mysqli_fetch_assoc($result)): ?>
-                        <?php 
-                            $child_current_id = $row['id'];
-                            
-                            // Kunin ang history mula sa infant_records table
-                            $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
-                            $history_arr = [];
-                            while($hist = mysqli_fetch_assoc($history_query)) {
-                                $history_arr[] = $hist;
-                            }
-                            
-                            // SIGURADUHING NAKASAMA ang vaccine galing sa main 'children' table kung mayroon man
-                            if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
-                                $found_in_history = false;
-                                foreach($history_arr as $h) {
-                                    if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
-                                        $found_in_history = true;
-                                        break;
-                                    }
-                                }
-                                if(!$found_in_history) {
-                                    $history_arr[] = [
-                                        'vaccine_taken' => $row['vaccine_taken'],
-                                        'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
-                                        'administered_by' => $row['administered_by'] ?? 'Health Worker',
-                                        'remarks' => 'Registered record',
-                                        'weight_kg' => $row['weight_kg'],
-                                        'height' => $row['height']
-                                    ];
-                                }
-                            }
-                            
-                            $row['history'] = $history_arr;
-                        ?>
+                    <?php if(!empty($all_records)): ?>
+                        <?php foreach($all_records as $row): ?>
                         <tr id="row_<?= $row['id']; ?>">
                             <td style="font-weight:600;"><?= htmlspecialchars($row['child_name'] ?? $row['baby_name']); ?></td>
                             <td><?= htmlspecialchars($row['mother_name'] ?? 'N/A'); ?></td>
                             <td><?= $row['birth_date'] ? date('M d, Y', strtotime($row['birth_date'])) : 'N/A'; ?></td>
+                            <td>
+                                <?php 
+                                    $doses = $row['total_doses'] ?? 0;
+                                    if ($doses > 0) {
+                                        echo '<span class="vax-badge">Vaccinated (' . $doses . ' dose' . ($doses > 1 ? 's' : '') . ')</span>';
+                                    } else {
+                                        echo '<span class="vax-badge" style="background: #f1f2f6; color: #718096;">None (0 dose)</span>';
+                                    }
+                                ?>
+                            </td>
                             <td><button class="view-btn" onclick='openModal(<?= json_encode($row); ?>)'>View Record</button></td>
                         </tr>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="4" style="text-align: center; color: #888; padding: 30px;">No infant records found matching the criteria.</td>
+                            <td colspan="5" style="text-align: center; color: #888; padding: 30px;">No infant records found matching the criteria.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
