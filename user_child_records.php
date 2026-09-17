@@ -20,7 +20,7 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// Kunin ang mga anak mula sa 'children' table kasama ang kalkulasyon ng edad
+// Kunin ang mga anak ng user mula sa 'children' table kasama ang kalkulasyon ng edad
 $query = "SELECT c.*, 
                  TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) AS age_years, 
                  TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) % 12 AS age_months 
@@ -35,20 +35,56 @@ $result_children = $stmt->get_result();
 
 $my_records = [];
 while ($row = $result_children->fetch_assoc()) {
+    $child_current_id = $row['id'];
     $child_name = $row['child_name'];
     
-    // Kunin ang vaccination records para sa batang ito gamit ang child_name
-    $vax_q = "SELECT * FROM vaccination_records WHERE patient_name = ?";
-    $vax_stmt = $conn->prepare($vax_q);
-    $vax_stmt->bind_param("s", $child_name);
-    $vax_stmt->execute();
-    $vax_result = $vax_stmt->get_result();
+    $history_arr = [];
     
-    $row['vaccinations'] = [];
-    while ($vax = $vax_result->fetch_assoc()) {
-        $row['vaccinations'][] = $vax;
+    // 1. Kunin ang history mula sa infant_records table gamit ang child_id
+    $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
+    while($hist = mysqli_fetch_assoc($history_query)) {
+        // I-format para sumakto sa istruktura na hinahanap ng JS
+        $history_arr[] = [
+            'vaccine_name' => $hist['vaccine_taken'] ?? '',
+            'date_administered' => $hist['vaccine_date'] ?? ($hist['created_at'] ? date('Y-m-d', strtotime($hist['created_at'])) : '-- / -- / ----'),
+            'health_worker_id' => $hist['administered_by'] ?? 'Health Worker',
+            'remarks' => $hist['remarks'] ?? 'No notes yet'
+        ];
     }
     
+    // 2. Kunin din ang records mula sa vaccination_records table gamit ang pangalan
+    $vax_q = "SELECT * FROM vaccination_records WHERE TRIM(LOWER(patient_name)) = TRIM(LOWER('$child_name'))";
+    $vax_result = mysqli_query($conn, $vax_q);
+    while($vax = mysqli_fetch_assoc($vax_result)) {
+        $history_arr[] = [
+            'vaccine_name' => $vax['vaccine_name'] . (isset($vax['dose_number']) ? ' - Dose ' . $vax['dose_number'] : ''),
+            'date_administered' => $vax['date_administered'] ?? '-- / -- / ----',
+            'health_worker_id' => $vax['health_worker_id'] ?? 'Health Worker',
+            'remarks' => $vax['remarks'] ?? 'No notes yet'
+        ];
+    }
+    
+    // 3. Siguruhing nakasama ang vaccine galing sa main 'children' table kung mayroon man
+    if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
+        $found_in_history = false;
+        foreach($history_arr as $h) {
+            if(isset($h['vaccine_name']) && strtolower($h['vaccine_name']) == strtolower($row['vaccine_taken'])) {
+                $found_in_history = true;
+                break;
+            }
+        }
+        if(!$found_in_history) {
+            $history_arr[] = [
+                'vaccine_name' => $row['vaccine_taken'],
+                'date_administered' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
+                'health_worker_id' => $row['administered_by'] ?? 'Health Worker',
+                'remarks' => 'Registered record'
+            ];
+        }
+    }
+    
+    // I-pasa ito sa pangalang 'vaccinations' para direktang basahin ng JavaScript mo
+    $row['vaccinations'] = $history_arr;
     $my_records[] = $row;
 }
 ?>
@@ -84,11 +120,6 @@ while ($row = $result_children->fetch_assoc()) {
             flex-direction: column;
             align-items: center;
             transition: all 0.3s ease-in-out;
-        }
-
-        body.sidebar-closed #main {
-            margin-left: 0 !important;
-            width: 100% !important;
         }
 
         .header { 
@@ -248,7 +279,7 @@ while ($row = $result_children->fetch_assoc()) {
                         <td><?php echo "{$row['age_years']} yrs, {$row['age_months']} mos"; ?></td>
                         <td><?php echo htmlspecialchars($row['gender']); ?></td>
                         <td>
-                            <span class="vax-badge"><?php echo htmlspecialchars($row['vaccination_status'] ?: 'None'); ?></span>
+                            <span class="vax-badge"><?php echo htmlspecialchars($row['vaccination_status'] ?: ($row['vaccine_taken'] ?: 'None')); ?></span>
                         </td>
                         <td>
                             <span class="status-badge <?php echo ($row['status'] == 'Approved') ? 'status-approved' : 'status-pending'; ?>">
@@ -289,9 +320,6 @@ while ($row = $result_children->fetch_assoc()) {
 
 <script>
     function showDetails(data) {
-        console.log("Child Data:", data);
-        console.log("Vaccinations Array:", data.vaccinations);
-
         const modal = document.getElementById('detailsModal');
         const body = document.getElementById('modalBody');
         const footerDelete = document.getElementById('modalFooterDelete');
@@ -311,13 +339,13 @@ while ($row = $result_children->fetch_assoc()) {
             
             const match = data.vaccinations.find(v => 
                 v.vaccine_name && v.vaccine_name.toLowerCase().includes(vaxKeyword.toLowerCase()) && 
-                parseInt(v.dose_number) === doseNum
+                (v.vaccine_name.toLowerCase().includes('dose ' + doseNum) || doseNum === 1)
             );
 
             if (match) {
                 return {
                     date: match.date_administered || '-- / -- / ----',
-                    worker: match.health_worker_id ? 'ID: ' + match.health_worker_id : '--',
+                    worker: match.health_worker_id ? match.health_worker_id : '--',
                     notes: match.remarks || 'No notes yet'
                 };
             }
@@ -381,11 +409,22 @@ while ($row = $result_children->fetch_assoc()) {
                     </div>
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Height</small>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${data.height_cm || data.birth_height || '13.00'} <span style="font-size: 0.75rem; color: #777;">CM</span></div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${data.height_cm || data.height || '13.00'} <span style="font-size: 0.75rem; color: #777;">CM</span></div>
                     </div>
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Latest Vaccine</small>
-                        <div style="font-weight: bold; font-size: 0.9rem; color: var(--primary-green); margin-top: 4px;">${data.vaccination_status || 'None'}</div>
+                        <div style="font-weight: bold; font-size: 0.9rem; color: var(--primary-green); margin-top: 4px;">
+                            ${(() => {
+                                if (data.vaccinations && data.vaccinations.length > 0) {
+                                    let takenVaxs = data.vaccinations.filter(v => v.date_administered && v.date_administered !== '-- / -- / ----');
+                                    if (takenVaxs.length > 0) {
+                                        takenVaxs.sort((a, b) => new Date(b.date_administered) - new Date(a.date_administered));
+                                        return takenVaxs[0].vaccine_name;
+                                    }
+                                }
+                                return data.vaccination_status || data.vaccine_taken || 'None';
+                            })()}
+                        </div>
                     </div>
                 </div>
             </div>
