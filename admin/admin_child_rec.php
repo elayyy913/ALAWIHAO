@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'newest';
 $age_filter = isset($_GET['age_filter']) ? $_GET['age_filter'] : 'all';
-$dose_filter = isset($_GET['dose_filter']) ? $_GET['dose_filter'] : 'all'; // Bagong filter para sa doses
+$dose_filter = isset($_GET['dose_filter']) ? $_GET['dose_filter'] : 'all'; 
 
 // 2. Query para sa Master List (children table)
 $query = "SELECT c.*, 
@@ -55,7 +55,6 @@ while($row = mysqli_fetch_assoc($result)) {
         $history_arr[] = $hist;
     }
     
-    // Itinakda na ang history ay galing lamang sa database table ng infant_records
     $row['history'] = $history_arr;
 
     // Bilangin ang total unique/valid doses mula sa infant_records
@@ -63,7 +62,6 @@ while($row = mysqli_fetch_assoc($result)) {
         return !empty($h['vaccine_taken']) && strtolower($h['vaccine_taken']) != 'none';
     });
     
-    // Kunin ang unique vaccine names para tumpak ang bilang
     $unique_vaccines = [];
     foreach ($valid_doses as $d) {
         $v_name = strtolower(trim($d['vaccine_taken']));
@@ -103,7 +101,7 @@ while($row = mysqli_fetch_assoc($result)) {
         h2 { color: var(--sage-green); font-size: 1.8rem; margin: 0; }
         .search-box, .filter-select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; background: white; font-size: 0.9rem; }
         .search-box { width: 180px; }
-        .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+        .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         thead { background-color: var(--sage-green); }
         th { color: white; padding: 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; }
@@ -139,7 +137,6 @@ while($row = mysqli_fetch_assoc($result)) {
         .stat-box small { display: block; color: #999; font-size: 0.65rem; text-transform: uppercase; }
         .stat-box b { font-size: 1rem; color: var(--sage-green); }
 
-        /* Immunization Monitoring Table Style */
         .immunization-box { margin-top: 20px; }
         .immunization-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; border: 1px solid #e2e8f0; }
         .immunization-table th { background-color: #d4a373; color: white; padding: 10px; font-size: 0.75rem; text-align: center; border: 1px solid #c89664; }
@@ -147,6 +144,29 @@ while($row = mysqli_fetch_assoc($result)) {
         .immunization-table td:first-child { text-align: left; font-weight: 600; }
 
         .btn-delete { background: none; border: none; color: var(--danger-red); text-decoration: underline; cursor: pointer; font-weight: bold; }
+
+        /* Custom Popup Alert / Notification Modal Styling */
+        .custom-alert-overlay {
+            display: none;
+            position: fixed;
+            z-index: 5000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+        }
+        .custom-alert-box {
+            background: white;
+            margin: 15% auto;
+            padding: 25px;
+            width: 350px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: modalPopUp 0.25s ease-in-out;
+        }
+        @keyframes modalPopUp {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -166,7 +186,6 @@ while($row = mysqli_fetch_assoc($result)) {
                 <h2>Infant Health Records</h2>
                 <div style="display:flex; gap:10px; align-items: center; flex-wrap: wrap;">
                     <form method="GET" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                        <!-- Age Filter Dropdown -->
                         <select name="age_filter" class="filter-select" onchange="this.form.submit()">
                             <option value="all" <?= $age_filter == 'all' ? 'selected' : ''; ?>>All Ages</option>
                             <option value="0-1" <?= $age_filter == '0-1' ? 'selected' : ''; ?>>0 - 1 Month Old</option>
@@ -176,7 +195,6 @@ while($row = mysqli_fetch_assoc($result)) {
                             <option value="2_above" <?= $age_filter == '2_above' ? 'selected' : ''; ?>>2 Years Old & Above</option>
                         </select>
 
-                        <!-- Dose Filter Dropdown (Bago) -->
                         <select name="dose_filter" class="filter-select" onchange="this.form.submit()">
                             <option value="all" <?= $dose_filter == 'all' ? 'selected' : ''; ?>>All Doses</option>
                             <option value="0" <?= $dose_filter == '0' ? 'selected' : ''; ?>>0 Dose (None)</option>
@@ -184,9 +202,7 @@ while($row = mysqli_fetch_assoc($result)) {
                             <option value="3_plus" <?= $dose_filter == '3_plus' ? 'selected' : ''; ?>>3+ Doses</option>
                         </select>
                         
-                        <!-- Search Box -->
                         <input type="text" name="search" class="search-box" placeholder="Search baby..." value="<?= htmlspecialchars($search); ?>">
-                        
                         <input type="hidden" name="filter" value="<?= htmlspecialchars($filter); ?>">
                     </form>
                     
@@ -239,7 +255,6 @@ while($row = mysqli_fetch_assoc($result)) {
         <div class="modal-content">
             <h1 id="m_name" style="color: var(--sage-green); margin: 0 0 15px 0; font-size: 1.5rem;"></h1>
             
-            <!-- Personal Information Section -->
             <p style="font-size: 0.75rem; font-weight: bold; color: var(--sage-green); margin-bottom: 8px; text-transform: uppercase;">Verified Personal Information</p>
             <div class="info-card">
                 <div class="info-item"><label>Mother's Name</label><span id="m_mother">--</span></div>
@@ -251,7 +266,6 @@ while($row = mysqli_fetch_assoc($result)) {
                 <div class="info-item" style="grid-column: span 2;"><label>Address / Barangay</label><span id="m_address">--</span></div>
             </div>
 
-            <!-- Latest Health Data Section -->
             <div class="latest-record-box">
                 <label style="font-size: 0.75rem; font-weight: bold; color: var(--sage-green);">LATEST HEALTH DATA</label>
                 <div class="stat-grid">
@@ -261,7 +275,6 @@ while($row = mysqli_fetch_assoc($result)) {
                 </div>
             </div>
 
-            <!-- Immunization Monitoring Table -->
             <div class="immunization-box">
                 <label style="font-size: 0.75rem; font-weight: bold; color: var(--sage-green); text-transform: uppercase;">Immunization Monitoring Table</label>
                 <div style="overflow-x: auto; margin-top: 5px;">
@@ -276,14 +289,13 @@ while($row = mysqli_fetch_assoc($result)) {
                             </tr>
                         </thead>
                         <tbody id="immunization_rows">
-                            <!-- Dynamic rows loaded via JS -->
                         </tbody>
                     </table>
                 </div>
             </div>
 
             <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center;">
-                <button type="button" onclick="deleteRecord()" class="btn-delete">Delete Record</button>
+                <button type="button" onclick="confirmDelete()" class="btn-delete">Delete Record</button>
                 <button onclick="closeModal()" style="background:#eee; border:none; padding: 10px 20px; border-radius:10px; cursor:pointer; font-weight:600;">Close</button>
             </div>
         </div>
@@ -304,155 +316,201 @@ while($row = mysqli_fetch_assoc($result)) {
         </div>
     </div>
 
+    <!-- CUSTOM CONFIRMATION MODAL PARA SA DELETE -->
+    <div id="confirmDeleteModal" class="custom-alert-overlay">
+        <div class="custom-alert-box">
+            <div style="font-size: 40px; color: #DD6B20; margin-bottom: 10px;">⚠️</div>
+            <h3 style="color: #2D3748; margin: 0 0 10px 0;">Confirm Delete</h3>
+            <p id="confirmDeleteText" style="color: #4A5568; font-size: 0.9rem; margin-bottom: 20px;">Permanently delete this record?</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="closeConfirmModal()" style="background: #CBD5E0; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer;">Cancel</button>
+                <button onclick="executeDelete()" style="background: #E53E3E; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM NOTIFICATION / ALERT MODAL -->
+    <div id="customAlertModal" class="custom-alert-overlay">
+        <div class="custom-alert-box">
+            <div id="alertIcon" style="font-size: 45px; margin-bottom: 10px;">ℹ️</div>
+            <h3 id="alertTitle" style="color: var(--sage-green); margin: 0 0 10px 0;">Notice</h3>
+            <p id="alertMessage" style="color: #4A5568; font-size: 0.9rem; margin-bottom: 20px;">Message text here...</p>
+            <button onclick="closeCustomAlert()" style="background: var(--sage-green); color: white; border: none; width: 100%; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer;">OK</button>
+        </div>
+    </div>
+
 <script>
-        let currentChildId = null;
-        function openModal(data) {
-            currentChildId = data.id;
-            document.getElementById('m_name').innerText = data.child_name || data.baby_name;
-            
-            // Personal Info mapping
-            document.getElementById('m_mother').innerText = data.mother_name || "N/A";
-            document.getElementById('m_father').innerText = data.father_name || "N/A";
-            document.getElementById('m_dob').innerText = data.birth_date ? new Date(data.birth_date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : "N/A";
-            document.getElementById('m_gender').innerText = data.gender || "N/A";
-            document.getElementById('m_blood').innerText = data.blood_type || "N/A";
-            document.getElementById('m_pob').innerText = data.place_of_birth || "N/A";
-            
-            let fullAddress = (data.address ? data.address + ", " : "") + (data.barangay || "");
-            document.getElementById('m_address').innerText = fullAddress !== "" ? fullAddress : "N/A";
-            
-            let latestWeight = data.weight_kg || "--";
-            let latestHeight = data.height || "--";
-            let latestVaccine = data.vaccine_taken || "None";
+    let currentChildId = null;
 
-            if (data.history && data.history.length > 0) {
-                let latestRec = data.history[0];
-                if (latestRec.weight_kg) latestWeight = latestRec.weight_kg;
-                if (latestRec.height) latestHeight = latestRec.height;
-                if (latestRec.vaccine_taken) latestVaccine = latestRec.vaccine_taken;
-            }
+    // Helper function para sa custom alert modal
+    function showCustomAlert(title, message, isError = false) {
+        document.getElementById('alertTitle').innerText = title;
+        document.getElementById('alertMessage').innerText = message;
+        document.getElementById('alertIcon').innerText = isError ? "❌" : "✔";
+        document.getElementById('alertTitle').style.color = isError ? "#E53E3E" : "var(--sage-green)";
+        document.getElementById('customAlertModal').style.display = 'block';
+    }
 
-            document.getElementById('last_weight').innerText = latestWeight;
-            document.getElementById('last_height').innerText = latestHeight;
-            document.getElementById('last_vaccine').innerText = latestVaccine;
-            
-            // Standard Vaccines list
-            const standardVaccines = [
-                { name: "BCG Vaccine", keywords: ["bcg"], doseNum: "1", schedule: "At birth" },
-                { name: "Hepatitis B Vaccine", keywords: ["hepatitis", "hep b"], doseNum: "1", schedule: "At birth" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "1", schedule: "1½ mos" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "2", schedule: "2½ mos" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "3", schedule: "3½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "1", schedule: "1½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "2", schedule: "2½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "3", schedule: "3½ mos" },
-                { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "1", schedule: "3½ mos" },
-                { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "2", schedule: "9 mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "1", schedule: "1½ mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "2", schedule: "2½ mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "3", schedule: "3½ mos" },
-                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "1", schedule: "9 mos" },
-                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "2", schedule: "1 year" }
-            ];
+    function closeCustomAlert() {
+        document.getElementById('customAlertModal').style.display = 'none';
+    }
 
-            // 🛠️ FIX: I-initiate ang allSources sa LABAS ng loop para hindi mag-accumulate nang paulit-ulit
-            let allSources = [...(data.history || [])];
-            if (data.vaccine_taken && data.vaccine_taken !== 'None') {
-                allSources.push({
-                    vaccine_taken: data.vaccine_taken,
-                    vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
-                    administered_by: data.administered_by || 'Health Worker',
-                    remarks: 'Initial record',
-                    weight_kg: data.weight_kg || '--',
-                    height: data.height || '--'
-                });
-            }
+    function openModal(data) {
+        currentChildId = data.id;
+        document.getElementById('m_name').innerText = data.child_name || data.baby_name;
+        
+        document.getElementById('m_mother').innerText = data.mother_name || "N/A";
+        document.getElementById('m_father').innerText = data.father_name || "N/A";
+        document.getElementById('m_dob').innerText = data.birth_date ? new Date(data.birth_date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : "N/A";
+        document.getElementById('m_gender').innerText = data.gender || "N/A";
+        document.getElementById('m_blood').innerText = data.blood_type || "N/A";
+        document.getElementById('m_pob').innerText = data.place_of_birth || "N/A";
+        
+        let fullAddress = (data.address ? data.address + ", " : "") + (data.barangay || "");
+        document.getElementById('m_address').innerText = fullAddress !== "" ? fullAddress : "N/A";
+        
+        let latestWeight = data.weight_kg || "--";
+        let latestHeight = data.height || "--";
+        let latestVaccine = data.vaccine_taken || "None";
 
-            let immHtml = '';
-            standardVaccines.forEach(vac => {
-                let matchedRecord = null;
+        if (data.history && data.history.length > 0) {
+            let latestRec = data.history[0];
+            if (latestRec.weight_kg) latestWeight = latestRec.weight_kg;
+            if (latestRec.height) latestHeight = latestRec.height;
+            if (latestRec.vaccine_taken) latestVaccine = latestRec.vaccine_taken;
+        }
 
-                if (allSources.length > 0) {
-                    matchedRecord = allSources.find(h => {
-                        let vTaken = h.vaccine_taken ? h.vaccine_taken.toLowerCase() : '';
-                        let remarks = h.remarks ? h.remarks.toLowerCase() : '';
-                        
-                        let matchesKeyword = vac.keywords.some(kw => vTaken.includes(kw));
-                        let matchesDose = vTaken.includes(vac.doseNum) || remarks.includes(vac.doseNum) || (vac.doseNum === "1" && !vTaken.includes("2") && !vTaken.includes("3"));
-                        
-                        return matchesKeyword && matchesDose;
-                    });
-                }
+        document.getElementById('last_weight').innerText = latestWeight;
+        document.getElementById('last_height').innerText = latestHeight;
+        document.getElementById('last_vaccine').innerText = latestVaccine;
+        
+        const standardVaccines = [
+            { name: "BCG Vaccine", keywords: ["bcg"], doseNum: "1", schedule: "At birth" },
+            { name: "Hepatitis B Vaccine", keywords: ["hepatitis", "hep b"], doseNum: "1", schedule: "At birth" },
+            { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "1", schedule: "1½ mos" },
+            { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "2", schedule: "2½ mos" },
+            { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "3", schedule: "3½ mos" },
+            { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "1", schedule: "1½ mos" },
+            { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "2", schedule: "2½ mos" },
+            { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "3", schedule: "3½ mos" },
+            { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "1", schedule: "3½ mos" },
+            { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "2", schedule: "9 mos" },
+            { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "1", schedule: "1½ mos" },
+            { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "2", schedule: "2½ mos" },
+            { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "3", schedule: "3½ mos" },
+            { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "1", schedule: "9 mos" },
+            { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "2", schedule: "1 year" }
+        ];
 
-                let dateTaken = '--';
-                let administeredBy = '--';
-                let recordBtnHtml = '<span style="color:#a0aec0; font-style:italic; font-size:0.75rem;">No record</span>';
-
-                if (matchedRecord) {
-                    let rawDate = matchedRecord.vaccine_date || data.created_at;
-                    if (rawDate) {
-                        dateTaken = rawDate.split(' ')[0];
-                    }
-                    administeredBy = matchedRecord.administered_by || data.administered_by || 'Health Worker';
-                    
-                    let encodedRecord = encodeURIComponent(JSON.stringify(matchedRecord));
-                    recordBtnHtml = `<button type="button" class="btn-health-record" onclick='openHealthRecordModal("${encodedRecord}")'>Health Record</button>`;
-                }
-
-                immHtml += `<tr>
-                    <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
-                    <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Dose ${vac.doseNum}</span></td>
-                    <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
-                    <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
-                    <td style="text-align: center;">${recordBtnHtml}</td>
-                </tr>`;
+        let allSources = [...(data.history || [])];
+        if (data.vaccine_taken && data.vaccine_taken !== 'None') {
+            allSources.push({
+                vaccine_taken: data.vaccine_taken,
+                vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
+                administered_by: data.administered_by || 'Health Worker',
+                remarks: 'Initial record',
+                weight_kg: data.weight_kg || '--',
+                height: data.height || '--'
             });
-
-            document.getElementById('immunization_rows').innerHTML = immHtml;
-            document.getElementById('infantModal').style.display = "block";
         }
 
-        function closeModal() { document.getElementById('infantModal').style.display = "none"; }
+        let immHtml = '';
+        standardVaccines.forEach(vac => {
+            let matchedRecord = null;
 
-        function openHealthRecordModal(encodedData) {
-            let record = JSON.parse(decodeURIComponent(encodedData));
-            
-            document.getElementById('sub_weight').innerText = record.weight_kg || record.weight || '--';
-            document.getElementById('sub_height').innerText = record.height || '--';
-            document.getElementById('sub_remarks').innerText = record.remarks || 'No notes available for this immunization date.';
-            
-            document.getElementById('healthRecordModal').style.display = "block";
-        }
-
-        function closeHealthRecordModal() {
-            document.getElementById('healthRecordModal').style.display = "none";
-        }
-
-        function deleteRecord() {
-            if (confirm("Permanently delete " + document.getElementById('m_name').innerText + "'s record?")) {
-                const formData = new FormData();
-                formData.append('child_id', currentChildId);
-                
-                fetch('../delete_infant.php', { method: 'POST', body: formData })
-                .then(res => res.text())
-                .then(result => {
-                    if (result.trim() === "success") {
-                        const row = document.getElementById('row_' + currentChildId);
-                        if(row) row.remove();
-                        closeModal();
-                    } else { 
-                        alert("Error: " + result); 
-                    }
-                }).catch(err => {
-                    alert("Connection Error. Make sure delete_infant.php exists.");
+            if (allSources.length > 0) {
+                matchedRecord = allSources.find(h => {
+                    let vTaken = h.vaccine_taken ? h.vaccine_taken.toLowerCase() : '';
+                    let remarks = h.remarks ? h.remarks.toLowerCase() : '';
+                    
+                    let matchesKeyword = vac.keywords.some(kw => vTaken.includes(kw));
+                    let matchesDose = vTaken.includes(vac.doseNum) || remarks.includes(vac.doseNum) || (vac.doseNum === "1" && !vTaken.includes("2") && !vTaken.includes("3"));
+                    
+                    return matchesKeyword && matchesDose;
                 });
             }
-        }
 
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('infantModal')) closeModal();
-            if (event.target == document.getElementById('healthRecordModal')) closeHealthRecordModal();
-        }
-    </script>
+            let dateTaken = '--';
+            let administeredBy = '--';
+            let recordBtnHtml = '<span style="color:#a0aec0; font-style:italic; font-size:0.75rem;">No record</span>';
+
+            if (matchedRecord) {
+                let rawDate = matchedRecord.vaccine_date || data.created_at;
+                if (rawDate) {
+                    dateTaken = rawDate.split(' ')[0];
+                }
+                administeredBy = matchedRecord.administered_by || data.administered_by || 'Health Worker';
+                
+                let encodedRecord = encodeURIComponent(JSON.stringify(matchedRecord));
+                recordBtnHtml = `<button type="button" class="btn-health-record" onclick='openHealthRecordModal("${encodedRecord}")'>Health Record</button>`;
+            }
+
+            immHtml += `<tr>
+                <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
+                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Dose ${vac.doseNum}</span></td>
+                <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
+                <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
+                <td style="text-align: center;">${recordBtnHtml}</td>
+            </tr>`;
+        });
+
+        document.getElementById('immunization_rows').innerHTML = immHtml;
+        document.getElementById('infantModal').style.display = "block";
+    }
+
+    function closeModal() { document.getElementById('infantModal').style.display = "none"; }
+
+    function openHealthRecordModal(encodedData) {
+        let record = JSON.parse(decodeURIComponent(encodedData));
+        document.getElementById('sub_weight').innerText = record.weight_kg || record.weight || '--';
+        document.getElementById('sub_height').innerText = record.height || '--';
+        document.getElementById('sub_remarks').innerText = record.remarks || 'No notes available for this immunization date.';
+        document.getElementById('healthRecordModal').style.display = "block";
+    }
+
+    function closeHealthRecordModal() {
+        document.getElementById('healthRecordModal').style.display = "none";
+    }
+
+    // Modal Delete Trigger
+    function confirmDelete() {
+        let childName = document.getElementById('m_name').innerText;
+        document.getElementById('confirmDeleteText').innerText = "Permanently delete " + childName + "'s record?";
+        document.getElementById('confirmDeleteModal').style.display = "block";
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirmDeleteModal').style.display = "none";
+    }
+
+    // Actual AJAX Delete Execution
+    function executeDelete() {
+        closeConfirmModal();
+        const formData = new FormData();
+        formData.append('child_id', currentChildId);
+        
+        fetch('../delete_infant.php', { method: 'POST', body: formData })
+        .then(res => res.text())
+        .then(result => {
+            if (result.trim() === "success") {
+                const row = document.getElementById('row_' + currentChildId);
+                if(row) row.remove();
+                closeModal();
+                showCustomAlert("Success", "Record successfully deleted!");
+            } else { 
+                showCustomAlert("Error", result, true);
+            }
+        }).catch(err => {
+            showCustomAlert("Connection Error", "Make sure delete_infant.php exists.", true);
+        });
+    }
+
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('infantModal')) closeModal();
+        if (event.target == document.getElementById('healthRecordModal')) closeHealthRecordModal();
+        if (event.target == document.getElementById('confirmDeleteModal')) closeConfirmModal();
+        if (event.target == document.getElementById('customAlertModal')) closeCustomAlert();
+    }
+</script>
 </body>
 </html>
