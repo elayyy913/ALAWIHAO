@@ -43,7 +43,7 @@ while ($row = $result_children->fetch_assoc()) {
 
     $history_arr = [];
 
-// Kunin ang history mula sa infant_records table lang
+    // Kunin ang history mula sa infant_records table lang
     $hist_query = "SELECT * FROM infant_records WHERE child_id = ? ORDER BY created_at DESC";
     $hist_stmt = $conn->prepare($hist_query);
     $hist_stmt->bind_param("i", $child_current_id);
@@ -57,7 +57,7 @@ while ($row = $result_children->fetch_assoc()) {
             'health_worker_id' => $hist['administered_by'] ?? 'Health Worker',
             'remarks' => $hist['remarks'] ?? 'No notes yet',
             'weight' => $hist['weight'] ?? ($hist['weight_kg'] ?? null),
-            'height' => $hist['height'] ?? ($hist['height_cm'] ?? null)
+            'height' => $hist['height'] ?? ($hist['height_cm'] ?? ($hist['length'] ?? null))
         ];
     }
 
@@ -75,8 +75,27 @@ while ($row = $result_children->fetch_assoc()) {
                 'vaccine_name' => $row['vaccine_taken'],
                 'date_administered' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
                 'health_worker_id' => $row['administered_by'] ?? 'Health Worker',
-                'remarks' => 'Registered record'
+                'remarks' => 'Registered record',
+                'weight' => null,
+                'height' => null
             ];
+        }
+    }
+    
+    // I-update ang weight at height ng row kung may mas bago sa infant_records history
+    if (!empty($history_arr)) {
+        foreach ($history_arr as $h) {
+            if (!empty($h['weight']) && floatval($h['weight']) > 0) {
+                $row['weight_kg'] = $h['weight'];
+                break;
+            }
+        }
+        foreach ($history_arr as $h) {
+            if (!empty($h['height']) && floatval($h['height']) > 0) {
+                $row['height'] = $h['height'];
+                $row['height_cm'] = $h['height'];
+                break;
+            }
         }
     }
     
@@ -336,6 +355,8 @@ while ($row = $result_children->fetch_assoc()) {
             let sortedVax = [...data.vaccinations].sort((a, b) => new Date(b.date_administered) - new Date(a.date_administered));
             for (let v of sortedVax) {
                 if (v.weight && parseFloat(v.weight) > 0) { latestWeight = v.weight; break; }
+            }
+            for (let v of sortedVax) {
                 if (v.height && parseFloat(v.height) > 0) { latestHeight = v.height; break; }
             }
         }
@@ -476,3 +497,5 @@ while ($row = $result_children->fetch_assoc()) {
         if (event.target == document.getElementById('detailsModal')) closeModal();
     }
 </script>
+</body>
+</html>
