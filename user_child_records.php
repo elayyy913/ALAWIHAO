@@ -22,8 +22,8 @@ if (isset($_GET['delete_id'])) {
 
 // Kunin ang mga anak mula sa 'children' table kasama ang kalkulasyon ng edad
 $query = "SELECT c.*, 
-          TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) AS age_years, 
-          TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) % 12 AS age_months 
+                 TIMESTAMPDIFF(YEAR, c.birth_date, CURDATE()) AS age_years, 
+                 TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) % 12 AS age_months 
           FROM children c
           WHERE c.user_id = ? 
           ORDER BY c.id DESC";
@@ -37,7 +37,7 @@ $my_records = [];
 while ($row = $result_children->fetch_assoc()) {
     $child_name = $row['child_name'];
     
-    // Kunin ang vaccination records para sa batang ito gamit ang patient_name
+    // Kunin ang vaccination records para sa batang ito gamit ang child_name
     $vax_q = "SELECT * FROM vaccination_records WHERE patient_name = ?";
     $vax_stmt = $conn->prepare($vax_q);
     $vax_stmt->bind_param("s", $child_name);
@@ -246,7 +246,7 @@ while ($row = $result_children->fetch_assoc()) {
                     <tr>
                         <td style="font-weight: bold; color: #444;"><?php echo htmlspecialchars($row['child_name']); ?></td>
                         <td><?php echo "{$row['age_years']} yrs, {$row['age_months']} mos"; ?></td>
-                        <td><?php echo $row['gender']; ?></td>
+                        <td><?php echo htmlspecialchars($row['gender']); ?></td>
                         <td>
                             <span class="vax-badge"><?php echo htmlspecialchars($row['vaccination_status'] ?: 'None'); ?></span>
                         </td>
@@ -288,15 +288,14 @@ while ($row = $result_children->fetch_assoc()) {
 </div>
 
 <script>
-    console.log("Child Data:", data);
-console.log("Vaccinations Array:", data.vaccinations);
     function showDetails(data) {
-        
+        console.log("Child Data:", data);
+        console.log("Vaccinations Array:", data.vaccinations);
+
         const modal = document.getElementById('detailsModal');
         const body = document.getElementById('modalBody');
         const footerDelete = document.getElementById('modalFooterDelete');
         
-        // Ginawang uppercase para pareho sa admin side
         document.getElementById('modalTitle').innerText = (data.child_name || '').toUpperCase();
         
         if(data.status !== 'Approved') {
@@ -311,7 +310,7 @@ console.log("Vaccinations Array:", data.vaccinations);
             }
             
             const match = data.vaccinations.find(v => 
-                v.vaccine_name.toLowerCase().includes(vaxKeyword.toLowerCase()) && 
+                v.vaccine_name && v.vaccine_name.toLowerCase().includes(vaxKeyword.toLowerCase()) && 
                 parseInt(v.dose_number) === doseNum
             );
 
@@ -378,7 +377,7 @@ console.log("Vaccinations Array:", data.vaccinations);
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Weight</small>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${data.weight_kg || '2.50'} <span style="font-size: 0.75rem; color: #777;">KG</span></div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${data.weight_kg || data.weight || '2.50'} <span style="font-size: 0.75rem; color: #777;">KG</span></div>
                     </div>
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Height</small>
