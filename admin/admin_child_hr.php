@@ -22,6 +22,8 @@ if ($user_role == 'Super Admin') {
     $role_label = "Admin";
 }
 
+$show_success_modal = false;
+
 // Update Health Record (Isinasave na ngayon sa infant_records table)
 if (isset($_POST['update_health'])) {
     $c_id = mysqli_real_escape_string($conn, $_POST['child_id']);
@@ -30,7 +32,7 @@ if (isset($_POST['update_health'])) {
     $base_v = mysqli_real_escape_string($conn, $_POST['vaccine']);
     $dose = mysqli_real_escape_string($conn, $_POST['dose']);
     
-    // Pinagsama ang pangalan ng bakuna at ang dose para unique (Halimbawa: Pentavalent Vaccine (DPT-Hep B-HIB) - Dose 1)
+    // Pinagsama ang pangalan ng bakuna at ang dose para unique
     $v = $base_v . ' - ' . $dose;
 
     $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); 
@@ -44,7 +46,8 @@ if (isset($_POST['update_health'])) {
             VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$administered_by', '$hw_id', NOW())";
     
     if (mysqli_query($conn, $sql)) {
-        echo "<script>alert('Health Record Updated!'); window.location='admin_child_hr.php';</script>";
+        // Sa halip na alert(), it-trigger natin ang flag para sa modal
+        $show_success_modal = true;
     }
 }
 
@@ -157,6 +160,23 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
             border-top: 8px solid var(--sage);
         }
 
+        /* Success Pop-up Modal Styling */
+        .success-modal-content {
+            background: white;
+            margin: 15% auto;
+            padding: 30px;
+            width: 380px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: modalPopUp 0.3s ease-in-out;
+        }
+
+        @keyframes modalPopUp {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
         /* Print Styling para maging responsive at malinis kapag na-print o na-save */
         @media print {
             body * {
@@ -213,7 +233,6 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                     <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
                     <td><?php echo $row['gender']; ?></td>
                     <td>
-                        <!-- Pinalitan para magbukas ng Report Card Modal sa halip na redirect -->
                         <button class="btn btn-view" onclick='openHistoryModal(<?php echo json_encode($row); ?>, <?php echo json_encode($history_list); ?>)'>Full History</button>
                         <button class="btn btn-edit" onclick="openEditModal('<?php echo $c_id; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', <?php echo htmlspecialchars(json_encode($taken_list), ENT_QUOTES); ?>)">Update Health</button>
                     </td>
@@ -224,11 +243,20 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
     </div>
 </div>
 
+<!-- SUCCESS NOTIFICATION MODAL -->
+<div id="successModal" class="modal" style="<?php echo $show_success_modal ? 'display: block;' : ''; ?>">
+    <div class="success-modal-content">
+        <div style="font-size: 50px; color: #48BB78; margin-bottom: 10px;">✔</div>
+        <h3 style="color: var(--dark-sage); margin: 0 0 10px 0;">Success!</h3>
+        <p style="color: #4A5568; font-size: 0.95rem; margin-bottom: 20px;">Health Record Updated Successfully!</p>
+        <button onclick="closeSuccessModal()" class="btn btn-edit" style="width: 100%; padding: 10px;">OK</button>
+    </div>
+</div>
+
 <!-- REPORT CARD / FULL HISTORY MODAL -->
 <div id="historyModal" class="modal">
     <div class="modal-content" style="width: 700px; max-width: 90%; max-height: 85vh; overflow-y: auto;">
         
-        <!-- Print / Word Export Area Wrapper (Report Card Pad) -->
         <div id="printableArea">
             <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid var(--sage); padding-bottom: 10px;">
                 <h2 style="color: var(--dark-sage); margin: 0;">Alawihao Health Center</h2>
@@ -254,12 +282,10 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                     </tr>
                 </thead>
                 <tbody id="rep_history_rows">
-                    <!-- Dynamic rows -->
                 </tbody>
             </table>
         </div>
 
-        <!-- Modal Actions (Hidden kapag nagpa-print) -->
         <div class="no-print" style="text-align: right; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
                 <button onclick="exportToWord()" class="btn" style="background: #2b6cb0; color: white; margin-right: 5px;"> Download as Word</button>
@@ -376,6 +402,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// --- SUCCESS MODAL FUNCTION ---
+function closeSuccessModal() {
+    document.getElementById('successModal').style.display = 'none';
+    // Alisin ang POST data para hindi mag-resubmit kapag ni-refresh ang page
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 // --- REPORT CARD MODAL FUNCTIONS ---
 function openHistoryModal(childData, historyList) {
     document.getElementById('historyModal').style.display = 'block';
@@ -415,7 +448,6 @@ function printReportCard() {
     window.print();
 }
 
-// Function para ma-download bilang editable MS Word (.doc) file
 function exportToWord() {
     let header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
     header += "<head><meta charset='utf-8'><title>Export HTML to Word Document</title></head><body>";
@@ -447,7 +479,6 @@ function openEditModal(id, name, takenVaccinesArray) {
     let vaccineSelect = document.getElementById('vaccineSelect');
 
    if (currentChildTakenVaccines.length > 0) {
-        // Gumawa ng maayos na listahan (bullet or tags) para hindi siksikan
         let listHtml = '<ul style="margin: 0; padding-left: 18px; font-weight: 600; color: #2B6CB0;">';
         currentChildTakenVaccines.forEach(vac => {
             listHtml += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${vac}</li>`;
