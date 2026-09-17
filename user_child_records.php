@@ -58,33 +58,25 @@ while ($row = $result_children->fetch_assoc()) {
         ];
     }
 
-    if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
-        $found_in_history = false;
-        foreach($history_arr as $h) {
-            if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
-                $found_in_history = true;
-                break;
-            }
-        }
-        if(!$found_in_history) {
-            $history_arr[] = [
-                'vaccine_taken' => $row['vaccine_taken'],
-                'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
-                'administered_by' => $row['administered_by'] ?? 'Health Worker',
-                'remarks' => 'Registered record',
-                'weight_kg' => $row['weight_kg'],
-                'height' => $row['height']
-            ];
-        }
-    }
-    
+    // TINANGGAL NA ANG BLOCK NG CODE NA NAGDADAGDAG NG c.vaccine_taken GALING SA CHILDREN TABLE
+    // PARA HINDI SUMOBRA NG BILANG SA HISTORY ARRAY.
+
     $row['history'] = $history_arr;
 
-    // Bilangin kung ilan ang total doses na nakuha base sa history
+    // Bilangin kung ilan ang total doses na nakuha base sa history LAMANG
     $valid_doses = array_filter($history_arr, function($h) {
         return !empty($h['vaccine_taken']) && strtolower($h['vaccine_taken']) != 'none';
     });
-    $row['total_doses'] = count($valid_doses);
+    
+    // Kunin ang unique vaccine names para tumpak ang total doses
+    $unique_vaccines = [];
+    foreach ($valid_doses as $d) {
+        $v_name = strtolower(trim($d['vaccine_taken']));
+        if (!in_array($v_name, $unique_vaccines)) {
+            $unique_vaccines[] = $v_name;
+        }
+    }
+    $row['total_doses'] = count($unique_vaccines);
 
     $my_records[] = $row;
 }
