@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id']; 
 
-// Logic para sa Delete/Remove (Puwede lang i-delete ng user ang sarili niyang pending na in-add)
+// Logic para sa Delete/Remove
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
     $del_query = "DELETE FROM children WHERE id = ? AND user_id = ? AND status != 'Approved'";
@@ -20,7 +20,6 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// FIX: Naka-filter na ngayon sa pamamagitan ng user_id para makita lamang ng kasalukuyang user ang kanyang mga anak (Approved at Pending man).
 $query = "SELECT c.*, 
                  c.weight_kg AS weight_kg, 
                  c.height_cm AS height, 
@@ -40,10 +39,8 @@ $result_children = $stmt->get_result();
 $my_records = [];
 while ($row = $result_children->fetch_assoc()) {
     $child_current_id = $row['id'];
-
     $history_arr = [];
 
-    // Kunin ang history mula sa infant_records table lang
     $hist_query = "SELECT * FROM infant_records WHERE child_id = ? ORDER BY created_at DESC";
     $hist_stmt = $conn->prepare($hist_query);
     $hist_stmt->bind_param("i", $child_current_id);
@@ -52,54 +49,36 @@ while ($row = $result_children->fetch_assoc()) {
 
     while($hist = $hist_result->fetch_assoc()) {
         $history_arr[] = [
-            'vaccine_name' => $hist['vaccine_taken'] ?? '',
-            'date_administered' => $hist['vaccine_date'] ?? ($hist['created_at'] ? date('Y-m-d', strtotime($hist['created_at'])) : '-- / -- / ----'),
-            'health_worker_id' => $hist['administered_by'] ?? 'Health Worker',
+            'vaccine_taken' => $hist['vaccine_taken'] ?? ($hist['vaccine_name'] ?? ''),
+            'vaccine_date' => $hist['vaccine_date'] ?? ($hist['created_at'] ? date('Y-m-d', strtotime($hist['created_at'])) : ''),
+            'administered_by' => $hist['administered_by'] ?? 'Health Worker',
             'remarks' => $hist['remarks'] ?? 'No notes yet',
-            'weight' => $hist['weight'] ?? ($hist['weight_kg'] ?? null),
+            'weight_kg' => $hist['weight'] ?? ($hist['weight_kg'] ?? null),
             'height' => $hist['height'] ?? ($hist['height_cm'] ?? ($hist['length'] ?? null))
         ];
     }
 
-    // Siguruhing nakasama ang vaccine galing sa main 'children' table kung mayroon man
     if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
         $found_in_history = false;
         foreach($history_arr as $h) {
-            if(isset($h['vaccine_name']) && strtolower($h['vaccine_name']) == strtolower($row['vaccine_taken'])) {
+            if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
                 $found_in_history = true;
                 break;
             }
         }
         if(!$found_in_history) {
             $history_arr[] = [
-                'vaccine_name' => $row['vaccine_taken'],
-                'date_administered' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
-                'health_worker_id' => $row['administered_by'] ?? 'Health Worker',
+                'vaccine_taken' => $row['vaccine_taken'],
+                'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
+                'administered_by' => $row['administered_by'] ?? 'Health Worker',
                 'remarks' => 'Registered record',
-                'weight' => null,
-                'height' => null
+                'weight_kg' => $row['weight_kg'],
+                'height' => $row['height']
             ];
         }
     }
     
-    // I-update ang weight at height ng row kung may mas bago sa infant_records history
-    if (!empty($history_arr)) {
-        foreach ($history_arr as $h) {
-            if (!empty($h['weight']) && floatval($h['weight']) > 0) {
-                $row['weight_kg'] = $h['weight'];
-                break;
-            }
-        }
-        foreach ($history_arr as $h) {
-            if (!empty($h['height']) && floatval($h['height']) > 0) {
-                $row['height'] = $h['height'];
-                $row['height_cm'] = $h['height'];
-                break;
-            }
-        }
-    }
-    
-    $row['vaccinations'] = $history_arr;
+    $row['history'] = $history_arr;
     $my_records[] = $row;
 }
 ?>
@@ -115,7 +94,6 @@ while ($row = $result_children->fetch_assoc()) {
             --bg-color: #f8faf5; 
             --white: #ffffff; 
             --dark-gray: #2d3436;
-            --sage-light: #95AF7E;
             --border-color: #e5eadc;
             --danger-red: #b33939;
         }
@@ -134,7 +112,6 @@ while ($row = $result_children->fetch_assoc()) {
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: all 0.3s ease-in-out;
         }
 
         .header { 
@@ -182,11 +159,8 @@ while ($row = $result_children->fetch_assoc()) {
             font-size: 0.75rem;
             letter-spacing: 1px;
             text-transform: uppercase;
-            transition: 0.3s;
         }
-        .btn-register:hover {
-            background-color: #5a6a44;
-        }
+        .btn-register:hover { background-color: #5a6a44; }
 
         .status-badge { 
             padding: 6px 12px; 
@@ -217,13 +191,13 @@ while ($row = $result_children->fetch_assoc()) {
             cursor: pointer;
             border: none;
             text-transform: uppercase;
-            transition: 0.3s;
         }
         .details-btn { background: var(--primary-green); color: white; }
         .details-btn:hover { background: #5a6a44; }
         .remove-btn { background: transparent; color: var(--danger-red); border: 1px solid var(--danger-red); }
         .remove-btn:hover { background: #fdf0f0; }
 
+        /* Main Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -232,6 +206,7 @@ while ($row = $result_children->fetch_assoc()) {
             width: 100%; height: 100%;
             background-color: rgba(45, 52, 54, 0.5);
             backdrop-filter: blur(3px);
+            overflow-y: auto;
         }
         .modal-content {
             background-color: var(--white);
@@ -246,15 +221,43 @@ while ($row = $result_children->fetch_assoc()) {
             position: relative;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
-        .close-modal {
-            position: absolute;
-            right: 25px; top: 20px;
-            font-size: 28px;
-            cursor: pointer;
-            color: #aaa;
-            transition: 0.2s;
+        
+        /* Sub-Modal styles para sa Health Record details galing sa admin */
+        .sub-modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 4000; 
+            left: 0; top: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.4); 
         }
-        .close-modal:hover { color: var(--primary-green); }
+        .sub-modal-content { 
+            background: white; 
+            margin: 10% auto; 
+            padding: 25px; 
+            border-radius: 12px; 
+            width: 400px; 
+            position: relative; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+        }
+        .btn-health-record { 
+            background-color: #2b6cb0; 
+            color: white; 
+            border: none; 
+            padding: 5px 10px; 
+            border-radius: 5px; 
+            font-size: 0.75rem; 
+            font-weight: 600; 
+            cursor: pointer; 
+            text-transform: uppercase;
+        }
+        .btn-health-record:hover { background-color: #2c5282; }
+
+        /* Immunization Monitoring Table Style */
+        .immunization-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; border: 1px solid #e2e8f0; }
+        .immunization-table th { background-color: #b08d57; color: white; padding: 10px; font-size: 0.75rem; text-align: center; border: 1px solid #c89664; }
+        .immunization-table td { padding: 10px; border: 1px solid #e2e8f0; color: #2d3748; text-align: center; vertical-align: middle; }
+        .immunization-table td:first-child { text-align: left; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -302,7 +305,7 @@ while ($row = $result_children->fetch_assoc()) {
                             </span>
                         </td>
                         <td class="action-btns">
-                            <button class="btn details-btn" onclick='showDetails(<?php echo json_encode($row); ?>)'>History</button>
+                            <button class="btn details-btn" onclick='openModal(<?php echo json_encode($row); ?>)'>History</button>
                             
                             <?php if($row['status'] !== 'Approved'): ?>
                                 <a href="?delete_id=<?php echo $row['id']; ?>" class="btn remove-btn" onclick="return confirm('Remove this pending registration?')">Remove</a>
@@ -318,12 +321,52 @@ while ($row = $result_children->fetch_assoc()) {
     </div>
 </div>
 
-<div id="detailsModal" class="modal">
+<!-- Main Modal for Detailed Info & Immunization Monitoring -->
+<div id="infantModal" class="modal">
     <div class="modal-content">
-        <span class="close-modal" onclick="closeModal()">&times;</span>
-        <h3 id="modalTitle" style="color: var(--primary-green); border-bottom: 2px solid #f4f7f0; padding-bottom: 12px; margin-bottom: 20px;">Child Full History</h3>
+        <h3 id="m_name" style="color: var(--primary-green); border-bottom: 2px solid #f4f7f0; padding-bottom: 12px; margin-bottom: 20px;">Child Full History</h3>
         
-        <div id="modalBody">
+        <!-- Personal Information Section -->
+        <p style="font-size: 0.75rem; font-weight: bold; color: var(--primary-green); margin-bottom: 8px; text-transform: uppercase;">Verified Personal Information</p>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px dashed var(--primary-green); margin-bottom: 20px; font-size: 0.85rem;">
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Mother's Name</small><br><span id="m_mother">--</span></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Father's Name</small><br><span id="m_father">--</span></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Birthday</small><br><span id="m_dob">--</span></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Gender</small><br><span id="m_gender">--</span></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Blood Type</small><br><span id="m_blood">--</span></div>
+            <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Place of Birth</small><br><span id="m_pob">--</span></div>
+            <div style="grid-column: span 3;"><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Address / Barangay</small><br><span id="m_address">--</span></div>
+        </div>
+
+        <!-- Latest Health Data Section -->
+        <div style="background: #f8f9fa; border: 1px solid #f0f0f0; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+            <label style="font-size: 0.75rem; font-weight: bold; color: var(--primary-green);">LATEST HEALTH DATA</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
+                <div style="text-align: center; background: white; padding: 10px; border-radius: 8px; border: 1px solid #eaeaea;"><small style="display:block; color:#999; font-size:0.65rem; text-transform:uppercase;">Weight</small><b id="last_weight" style="font-size:1rem; color:var(--primary-green);">--</b><small>kg</small></div>
+                <div style="text-align: center; background: white; padding: 10px; border-radius: 8px; border: 1px solid #eaeaea;"><small style="display:block; color:#999; font-size:0.65rem; text-transform:uppercase;">Height</small><b id="last_height" style="font-size:1rem; color:var(--primary-green);">--</b><small>cm</small></div>
+                <div style="text-align: center; background: white; padding: 10px; border-radius: 8px; border: 1px solid #eaeaea;"><small style="display:block; color:#999; font-size:0.65rem; text-transform:uppercase;">Latest Vaccine</small><b id="last_vaccine" style="font-size: 0.85rem; color:var(--primary-green);">--</b></div>
+            </div>
+        </div>
+
+        <!-- Immunization Monitoring Table -->
+        <div style="margin-top: 20px;">
+            <label style="font-size: 0.75rem; font-weight: bold; color: var(--primary-green); text-transform: uppercase;">Immunization Monitoring Table</label>
+            <div style="overflow-x: auto; margin-top: 5px;">
+                <table class="immunization-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Bakuna</th>
+                            <th style="width: 12%;">Doses</th>
+                            <th style="width: 20%;">Petsa ng bakuna</th>
+                            <th style="width: 15%;">Nagturok</th>
+                            <th style="width: 18%;">Remarks / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="immunization_rows">
+                        <!-- Dynamic rows loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; border-top: 1px solid #f2f5ee; padding-top: 15px;">
@@ -333,168 +376,154 @@ while ($row = $result_children->fetch_assoc()) {
     </div>
 </div>
 
+<!-- Sub-Modal para sa Timbang, Tangkad, at Notes (Gaya ng sa Admin) -->
+<div id="healthRecordModal" class="sub-modal">
+    <div class="sub-modal-content">
+        <h3 style="color: #2b6cb0; margin-top: 0; font-size: 1.1rem;">Vaccination Health Record</h3>
+        <hr style="border:0; border-top:1px solid #eee; margin-bottom:15px;">
+        <p><strong>Timbang (Weight):</strong> <span id="sub_weight">--</span> kg</p>
+        <p><strong>Tangkad (Height):</strong> <span id="sub_height">--</span> cm</p>
+        <p><strong>Medical Notes / Remarks:</strong></p>
+        <div id="sub_remarks" style="background: #f7fafc; padding: 10px; border-radius: 6px; font-size: 0.85rem; color: #2d3748; border: 1px solid #e2e8f0; min-height: 40px;">--</div>
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="button" onclick="closeHealthRecordModal()" style="background:#cbd5e0; border:none; padding: 6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.8rem;">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    function showDetails(data) {
-        const modal = document.getElementById('detailsModal');
-        const body = document.getElementById('modalBody');
+    function openModal(data) {
+        document.getElementById('m_name').innerText = (data.child_name || '').toUpperCase();
+        
         const footerDelete = document.getElementById('modalFooterDelete');
-        
-        document.getElementById('modalTitle').innerText = (data.child_name || '').toUpperCase();
-        
         if(data.status !== 'Approved') {
             footerDelete.innerHTML = `<a href="?delete_id=${data.id}" onclick="return confirm('Remove this pending registration?')" style="color: var(--danger-red); text-decoration: none; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">Delete Record</a>`;
         } else {
             footerDelete.innerHTML = ``;
         }
 
-        // Kunin ang pinakabagong weight at height kung nakalagay sa history o vaccinations array
-        let latestWeight = data.weight_kg || data.weight || '2.50';
-        let latestHeight = data.height_cm || data.height || '13.00';
+        // Personal Info mapping
+        document.getElementById('m_mother').innerText = data.mother_name || "N/A";
+        document.getElementById('m_father').innerText = data.father_name || "N/A";
+        document.getElementById('m_dob').innerText = data.birth_date ? new Date(data.birth_date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : "N/A";
+        document.getElementById('m_gender').innerText = data.gender || "N/A";
+        document.getElementById('m_blood').innerText = data.blood_type || "N/A";
+        document.getElementById('m_pob').innerText = data.place_of_birth || "N/A";
+        
+        let fullAddress = (data.address ? data.address + ", " : "") + (data.barangay || "");
+        document.getElementById('m_address').innerText = fullAddress !== "" ? fullAddress : "N/A";
 
-        if (data.vaccinations && data.vaccinations.length > 0) {
-            let sortedVax = [...data.vaccinations].sort((a, b) => new Date(b.date_administered) - new Date(a.date_administered));
-            for (let v of sortedVax) {
-                if (v.weight && parseFloat(v.weight) > 0) { latestWeight = v.weight; break; }
-            }
-            for (let v of sortedVax) {
-                if (v.height && parseFloat(v.height) > 0) { latestHeight = v.height; break; }
-            }
+        let latestWeight = data.weight_kg || "--";
+        let latestHeight = data.height || "--";
+        let latestVaccine = data.vaccine_taken || "None";
+
+        if (data.history && data.history.length > 0) {
+            let latestRec = data.history[0];
+            if (latestRec.weight_kg) latestWeight = latestRec.weight_kg;
+            if (latestRec.height) latestHeight = latestRec.height;
+            if (latestRec.vaccine_taken) latestVaccine = latestRec.vaccine_taken;
         }
 
-        function getVaccineDetails(vaxKeyword, doseNum) {
-            if (!data.vaccinations || data.vaccinations.length === 0) {
-                return { date: '-- / -- / ----', worker: '--', notes: 'No notes yet' };
-            }
-            
-            const match = data.vaccinations.find(v => {
-                if (!v.vaccine_name) return false;
-                let vName = v.vaccine_name.toLowerCase();
-                let keyword = vaxKeyword.toLowerCase();
-                
-                // Special handling for BCG and Hep B at birth
-                if (keyword.includes('bcg') && vName.includes('bcg')) return true;
-                if (keyword.includes('hep b') && (vName.includes('hep') || vName.includes('hepatitis'))) return true;
-                
-                let matchesKeyword = vName.includes(keyword);
-                let matchesDose = vName.includes('dose ' + doseNum) || vName.includes('d' + doseNum) || vName.includes('dos' + doseNum);
-                
-                return matchesKeyword && (matchesDose || doseNum === 1);
-            });
+        document.getElementById('last_weight').innerText = latestWeight;
+        document.getElementById('last_height').innerText = latestHeight;
+        document.getElementById('last_vaccine').innerText = latestVaccine;
 
-            if (match) {
-                return {
-                    date: match.date_administered && match.date_administered !== '0000-00-00' ? match.date_administered : '-- / -- / ----',
-                    worker: match.health_worker_id ? match.health_worker_id : 'Health Worker',
-                    notes: match.remarks || 'No notes yet'
-                };
-            }
-            return { date: '-- / -- / ----', worker: '--', notes: 'No notes yet' };
-        }
-
-        const vaccinesList = [
-            { name: 'BCG Vaccine', desc: 'Rec: At birth', dose: 1, keyword: 'bcg' },
-            { name: 'Hepatitis B Vaccine', desc: 'Rec: At birth', dose: 1, keyword: 'hep b' },
-            { name: 'Pentavalent Vaccine (DPT-Hep B-HIB)', desc: 'Rec: 1½ mos', dose: 1, keyword: 'pentavalent' },
-            { name: 'Pentavalent Vaccine (DPT-Hep B-HIB)', desc: 'Rec: 2½ mos', dose: 2, keyword: 'pentavalent' },
-            { name: 'Pentavalent Vaccine (DPT-Hep B-HIB)', desc: 'Rec: 3½ mos', dose: 3, keyword: 'pentavalent' },
-            { name: 'Oral Polio Vaccine (OPV)', desc: 'Rec: 1½ mos', dose: 1, keyword: 'opv' },
-            { name: 'Oral Polio Vaccine (OPV)', desc: 'Rec: 2½ mos', dose: 2, keyword: 'opv' },
-            { name: 'Oral Polio Vaccine (OPV)', desc: 'Rec: 3½ mos', dose: 3, keyword: 'opv' },
-            { name: 'Inactivated Polio Vaccine (IPV)', desc: 'Rec: 3½ mos', dose: 1, keyword: 'ipv' },
-            { name: 'Inactivated Polio Vaccine (IPV)', desc: 'Rec: 9 mos', dose: 2, keyword: 'ipv' },
-            { name: 'Pneumococcal Conjugate Vaccine (PCV)', desc: 'Rec: 1½ mos', dose: 1, keyword: 'pcv' },
-            { name: 'Pneumococcal Conjugate Vaccine (PCV)', desc: 'Rec: 2½ mos', dose: 2, keyword: 'pcv' },
-            { name: 'Pneumococcal Conjugate Vaccine (PCV)', desc: 'Rec: 3½ mos', dose: 3, keyword: 'pcv' },
-            { name: 'Measles, Mumps, Rubella Vaccine (MMR)', desc: 'Rec: 9 mos', dose: 1, keyword: 'mmr' },
-            { name: 'Measles, Mumps, Rubella Vaccine (MMR)', desc: 'Rec: 1 year', dose: 2, keyword: 'mmr' }
+        // Standard Vaccines list
+        const standardVaccines = [
+            { name: "BCG Vaccine", keywords: ["bcg"], doseNum: "1", schedule: "At birth" },
+            { name: "Hepatitis B Vaccine", keywords: ["hepatitis", "hep b"], doseNum: "1", schedule: "At birth" },
+            { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "1", schedule: "1½ mos" },
+            { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "2", schedule: "2½ mos" },
+            { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "3", schedule: "3½ mos" },
+            { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "1", schedule: "1½ mos" },
+            { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "2", schedule: "2½ mos" },
+            { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "3", schedule: "3½ mos" },
+            { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "1", schedule: "3½ mos" },
+            { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "2", schedule: "9 mos" },
+            { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "1", schedule: "1½ mos" },
+            { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "2", schedule: "2½ mos" },
+            { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "3", schedule: "3½ mos" },
+            { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "1", schedule: "9 mos" },
+            { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "2", schedule: "1 year" }
         ];
 
-        let tableRowsHtml = '';
-        vaccinesList.forEach(item => {
-            let info = getVaccineDetails(item.keyword, item.dose);
-            let hasTaken = info.date !== '-- / -- / ----';
+        let immHtml = '';
+        standardVaccines.forEach(vac => {
+            let matchedRecord = null;
             
-            let dateColor = hasTaken ? 'color: #2d3436; font-weight: bold;' : 'color: #999;';
-            
-            tableRowsHtml += `
-                <tr style="border-bottom: 1px solid #f2f5ee;">
-                    <td style="padding: 12px;"><b>${item.name}</b><br><small style="color:#888; font-size:0.75rem;">${item.desc}</small></td>
-                    <td style="padding: 12px;"><span style="background: #f4f7f0; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: var(--primary-green); border: 1px solid #d0dbcc;">Dose ${item.dose}</span></td>
-                    <td style="padding: 12px; ${dateColor}">${info.date}</td>
-                    <td style="padding: 12px; color: #555;">${info.worker}</td>
-                    <td style="padding: 12px; color: ${hasTaken ? '#444' : '#b2bec3'}; font-style: ${hasTaken ? 'normal' : 'italic'};">${info.notes}</td>
-                </tr>
-            `;
+            let allSources = [...(data.history || [])];
+            if (data.vaccine_taken && data.vaccine_taken !== 'None') {
+                allSources.push({
+                    vaccine_taken: data.vaccine_taken,
+                    vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
+                    administered_by: data.administered_by || 'Health Worker',
+                    remarks: 'Initial record',
+                    weight_kg: data.weight_kg || '--',
+                    height: data.height || '--'
+                });
+            }
+
+            if (allSources.length > 0) {
+                matchedRecord = allSources.find(h => {
+                    let vTaken = h.vaccine_taken ? h.vaccine_taken.toLowerCase() : '';
+                    let remarks = h.remarks ? h.remarks.toLowerCase() : '';
+                    
+                    let matchesKeyword = vac.keywords.some(kw => vTaken.includes(kw));
+                    let matchesDose = vTaken.includes(vac.doseNum) || remarks.includes(vac.doseNum) || (vac.doseNum === "1" && !vTaken.includes("2") && !vTaken.includes("3"));
+                    
+                    return matchesKeyword && matchesDose;
+                });
+            }
+
+            let dateTaken = '--';
+            let administeredBy = '--';
+            let recordBtnHtml = '<span style="color:#a0aec0; font-style:italic; font-size:0.75rem;">No record</span>';
+
+            if (matchedRecord) {
+                let rawDate = matchedRecord.vaccine_date || data.created_at;
+                if (rawDate) {
+                    dateTaken = rawDate.split(' ')[0];
+                }
+                administeredBy = matchedRecord.administered_by || data.administered_by || 'Health Worker';
+                
+                let encodedRecord = encodeURIComponent(JSON.stringify(matchedRecord));
+                recordBtnHtml = `<button type="button" class="btn-health-record" onclick='openHealthRecordModal("${encodedRecord}")'>Health Record</button>`;
+            }
+
+            immHtml += `<tr>
+                <td>${vac.name} <br><small style="color:#718096; font-size:0.65rem;">Rec: ${vac.schedule}</small></td>
+                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Dose ${vac.doseNum}</span></td>
+                <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
+                <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
+                <td style="text-align: center;">${recordBtnHtml}</td>
+            </tr>`;
         });
-        
-        body.innerHTML = `
-            <div style="font-size: 0.75rem; font-weight: bold; color: var(--primary-green); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Verified Personal Information</div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px dashed var(--primary-green); margin-bottom: 20px; font-size: 0.85rem;">
-                <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Mother's Name</small><br><b>${data.mother_name || 'N/A'}</b></div>
-                <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Father's Name</small><br><b>${data.father_name || 'N/A'}</b></div>
-                <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Birthday</small><br><b>${data.birth_date}</b></div>
-                <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Gender</small><br><b>${data.gender}</b></div>
-                <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Blood Type</small><br><b>${data.blood_type || 'O+'}</b></div>
-                <div><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Place of Birth</small><br><b>${data.place_of_birth || 'Alawihao Health Center'}</b></div>
-                <div style="grid-column: span 3;"><small style="color:#888; text-transform:uppercase; font-size:0.65rem; font-weight:bold;">Address / Barangay</small><br><b>${data.address || 'Purok 1'}, Alawihao</b></div>
-            </div>
 
-            <div style="background: #f8f9fa; border: 1px solid #f0f0f0; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
-                <div style="font-size: 0.75rem; font-weight: bold; color: var(--primary-green); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Latest Health Data</div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-                    <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
-                        <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Weight</small>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${latestWeight} <span style="font-size: 0.75rem; color: #777;">KG</span></div>
-                    </div>
-                    <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
-                        <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Height</small>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${latestHeight} <span style="font-size: 0.75rem; color: #777;">CM</span></div>
-                    </div>
-                    <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
-                        <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Latest Vaccine</small>
-                        <div style="font-weight: bold; font-size: 0.9rem; color: var(--primary-green); margin-top: 4px;">
-                            ${(() => {
-                                if (data.vaccinations && data.vaccinations.length > 0) {
-                                    let takenVaxs = data.vaccinations.filter(v => v.date_administered && v.date_administered !== '-- / -- / ----' && v.date_administered !== '0000-00-00');
-                                    if (takenVaxs.length > 0) {
-                                        takenVaxs.sort((a, b) => new Date(b.date_administered) - new Date(a.date_administered));
-                                        return takenVaxs[0].vaccine_name;
-                                    }
-                                }
-                                return data.vaccination_status || data.vaccine_taken || 'None';
-                            })()}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <h4 style="color: var(--primary-green); margin-bottom: 10px; font-size: 0.9rem; letter-spacing: 1px;">IMMUNIZATION MONITORING TABLE</h4>
-            <div style="max-height: 380px; overflow-y: auto; border: 1px solid #e5eadc; border-radius: 8px; position: relative;">
-                <table style="width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; margin-top: 0;">
-                    <thead>
-                        <tr style="background: #b08d57; text-align: left;">
-                            <th style="padding: 12px; font-size: 0.7rem; color: white; width: 35%; position: sticky; top: 0; background: #b08d57; z-index: 2;">BAKUNA</th>
-                            <th style="padding: 12px; font-size: 0.7rem; color: white; width: 15%; position: sticky; top: 0; background: #b08d57; z-index: 2;">DOSES</th>
-                            <th style="padding: 12px; font-size: 0.7rem; color: white; width: 20%; position: sticky; top: 0; background: #b08d57; z-index: 2;">PETSA NG BAKUNA</th>
-                            <th style="padding: 12px; font-size: 0.7rem; color: white; width: 15%; position: sticky; top: 0; background: #b08d57; z-index: 2;">NAGTUROK</th>
-                            <th style="padding: 12px; font-size: 0.7rem; color: white; width: 15%; position: sticky; top: 0; background: #b08d57; z-index: 2;">REMARKS / NOTES</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${tableRowsHtml}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        modal.style.display = "block";
+        document.getElementById('immunization_rows').innerHTML = immHtml;
+        document.getElementById('infantModal').style.display = "block";
     }
 
     function closeModal() {
-        document.getElementById('detailsModal').style.display = "none";
+        document.getElementById('infantModal').style.display = "none";
+    }
+
+    function openHealthRecordModal(encodedData) {
+        let record = JSON.parse(decodeURIComponent(encodedData));
+        
+        document.getElementById('sub_weight').innerText = record.weight_kg || record.weight || '--';
+        document.getElementById('sub_height').innerText = record.height || '--';
+        document.getElementById('sub_remarks').innerText = record.remarks || 'No notes available for this immunization date.';
+        
+        document.getElementById('healthRecordModal').style.display = "block";
+    }
+
+    function closeHealthRecordModal() {
+        document.getElementById('healthRecordModal').style.display = "none";
     }
 
     window.onclick = function(event) {
-        if (event.target == document.getElementById('detailsModal')) closeModal();
+        if (event.target == document.getElementById('infantModal')) closeModal();
+        if (event.target == document.getElementById('healthRecordModal')) closeHealthRecordModal();
     }
 </script>
 </body>

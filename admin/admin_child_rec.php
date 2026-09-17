@@ -68,6 +68,12 @@ $result = mysqli_query($conn, $query);
         .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow-y: auto; }
         .modal-content { background: white; margin: 2% auto; padding: 30px; border-radius: 20px; width: 750px; position: relative; max-height: 90vh; overflow-y: auto; }
         
+        /* Sub-Modal styles para sa Health Record details */
+        .sub-modal { display: none; position: fixed; z-index: 4000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); }
+        .sub-modal-content { background: white; margin: 10% auto; padding: 25px; border-radius: 12px; width: 400px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .btn-health-record { background-color: #2b6cb0; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+        .btn-health-record:hover { background-color: #2c5282; }
+
         .info-card { background: #fdfdfd; border: 1px dashed var(--sage-green); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .info-item label { display: block; font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
         .info-item span { font-weight: 600; color: #333; font-size: 0.9rem; }
@@ -150,7 +156,6 @@ $result = mysqli_query($conn, $query);
                             
                             // SIGURADUHING NAKASAMA ang vaccine galing sa main 'children' table kung mayroon man
                             if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
-                                // I-check kung wala pa ito sa history array para maiwasan ang duplicate
                                 $found_in_history = false;
                                 foreach($history_arr as $h) {
                                     if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
@@ -163,7 +168,9 @@ $result = mysqli_query($conn, $query);
                                         'vaccine_taken' => $row['vaccine_taken'],
                                         'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
                                         'administered_by' => $row['administered_by'] ?? 'Health Worker',
-                                        'remarks' => 'Registered record'
+                                        'remarks' => 'Registered record',
+                                        'weight_kg' => $row['weight_kg'],
+                                        'height' => $row['height']
                                     ];
                                 }
                             }
@@ -242,6 +249,21 @@ $result = mysqli_query($conn, $query);
         </div>
     </div>
 
+    <!-- Sub-Modal para sa Timbang, Tangkad, at Notes -->
+    <div id="healthRecordModal" class="sub-modal">
+        <div class="sub-modal-content">
+            <h3 style="color: #2b6cb0; margin-top: 0; font-size: 1.1rem;">Vaccination Health Record</h3>
+            <hr style="border:0; border-top:1px solid #eee; margin-bottom:15px;">
+            <p><strong>Timbang (Weight):</strong> <span id="sub_weight">--</span> kg</p>
+            <p><strong>Tangkad (Height):</strong> <span id="sub_height">--</span> cm</p>
+            <p><strong>Medical Notes / Remarks:</strong></p>
+            <div id="sub_remarks" style="background: #f7fafc; padding: 10px; border-radius: 6px; font-size: 0.85rem; color: #2d3748; border: 1px solid #e2e8f0; min-height: 40px;">--</div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="button" onclick="closeHealthRecordModal()" style="background:#cbd5e0; border:none; padding: 6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.8rem;">Isara</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentChildId = null;
         function openModal(data) {
@@ -297,14 +319,15 @@ $result = mysqli_query($conn, $query);
             standardVaccines.forEach(vac => {
                 let matchedRecord = null;
                 
-                // Pagsasama ng pagsusuri sa data.history pati na rin sa mismong data.vaccine_taken (children table)
                 let allSources = [...(data.history || [])];
                 if (data.vaccine_taken && data.vaccine_taken !== 'None') {
                     allSources.push({
                         vaccine_taken: data.vaccine_taken,
                         vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
                         administered_by: data.administered_by || 'Health Worker',
-                        remarks: 'Initial record'
+                        remarks: 'Initial record',
+                        weight_kg: data.weight_kg || '--',
+                        height: data.height || '--'
                     });
                 }
 
@@ -322,16 +345,17 @@ $result = mysqli_query($conn, $query);
 
                 let dateTaken = '--';
                 let administeredBy = '--';
-                let remarksText = '<span style="color:#a0aec0; font-style:italic;">No notes yet</span>';
+                let recordBtnHtml = '<span style="color:#a0aec0; font-style:italic; font-size:0.75rem;">No record</span>';
 
                 if (matchedRecord) {
-                    // Kunin ang petsa mula sa record o gamitin ang petsa ng paggawa kung sakaling walang hiwalay na date
                     let rawDate = matchedRecord.vaccine_date || data.created_at;
                     if (rawDate) {
-                        dateTaken = rawDate.split(' ')[0]; // Kunin lang ang YYYY-MM-DD
+                        dateTaken = rawDate.split(' ')[0];
                     }
                     administeredBy = matchedRecord.administered_by || data.administered_by || 'Health Worker';
-                    remarksText = matchedRecord.remarks ? matchedRecord.remarks : '<span style="color:#a0aec0; font-style:italic;">No notes</span>';
+                    
+                    let encodedRecord = encodeURIComponent(JSON.stringify(matchedRecord));
+                    recordBtnHtml = `<button type="button" class="btn-health-record" onclick='openHealthRecordModal("${encodedRecord}")'>Health Record</button>`;
                 }
 
                 immHtml += `<tr>
@@ -339,7 +363,7 @@ $result = mysqli_query($conn, $query);
                     <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Dose ${vac.doseNum}</span></td>
                     <td>${dateTaken !== '--' ? dateTaken : '<span style="color:#cbd5e0;">-- / -- / ----</span>'}</td>
                     <td style="font-size: 0.75rem; font-weight: 500; color: #4a5568;">${administeredBy}</td>
-                    <td style="font-size: 0.75rem;">${remarksText}</td>
+                    <td style="text-align: center;">${recordBtnHtml}</td>
                 </tr>`;
             });
 
@@ -348,6 +372,20 @@ $result = mysqli_query($conn, $query);
         }
 
         function closeModal() { document.getElementById('infantModal').style.display = "none"; }
+
+        function openHealthRecordModal(encodedData) {
+            let record = JSON.parse(decodeURIComponent(encodedData));
+            
+            document.getElementById('sub_weight').innerText = record.weight_kg || record.weight || '--';
+            document.getElementById('sub_height').innerText = record.height || '--';
+            document.getElementById('sub_remarks').innerText = record.remarks || 'No notes available for this immunization date.';
+            
+            document.getElementById('healthRecordModal').style.display = "block";
+        }
+
+        function closeHealthRecordModal() {
+            document.getElementById('healthRecordModal').style.display = "none";
+        }
 
         function deleteRecord() {
             if (confirm("Permanently delete " + document.getElementById('m_name').innerText + "'s record?")) {
@@ -372,6 +410,7 @@ $result = mysqli_query($conn, $query);
 
         window.onclick = function(event) {
             if (event.target == document.getElementById('infantModal')) closeModal();
+            if (event.target == document.getElementById('healthRecordModal')) closeHealthRecordModal();
         }
     </script>
 </body>
