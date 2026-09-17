@@ -43,7 +43,7 @@ while ($row = $result_children->fetch_assoc()) {
 
     $history_arr = [];
 
-    // Kunin ang history mula sa infant_records table lang
+// Kunin ang history mula sa infant_records table lang
     $hist_query = "SELECT * FROM infant_records WHERE child_id = ? ORDER BY created_at DESC";
     $hist_stmt = $conn->prepare($hist_query);
     $hist_stmt->bind_param("i", $child_current_id);
@@ -55,7 +55,9 @@ while ($row = $result_children->fetch_assoc()) {
             'vaccine_name' => $hist['vaccine_taken'] ?? '',
             'date_administered' => $hist['vaccine_date'] ?? ($hist['created_at'] ? date('Y-m-d', strtotime($hist['created_at'])) : '-- / -- / ----'),
             'health_worker_id' => $hist['administered_by'] ?? 'Health Worker',
-            'remarks' => $hist['remarks'] ?? 'No notes yet'
+            'remarks' => $hist['remarks'] ?? 'No notes yet',
+            'weight' => $hist['weight'] ?? ($hist['weight_kg'] ?? null),
+            'height' => $hist['height'] ?? ($hist['height_cm'] ?? null)
         ];
     }
 
@@ -326,7 +328,19 @@ while ($row = $result_children->fetch_assoc()) {
             footerDelete.innerHTML = ``;
         }
 
-    function getVaccineDetails(vaxKeyword, doseNum) {
+        // Kunin ang pinakabagong weight at height kung nakalagay sa history o vaccinations array
+        let latestWeight = data.weight_kg || data.weight || '2.50';
+        let latestHeight = data.height_cm || data.height || '13.00';
+
+        if (data.vaccinations && data.vaccinations.length > 0) {
+            let sortedVax = [...data.vaccinations].sort((a, b) => new Date(b.date_administered) - new Date(a.date_administered));
+            for (let v of sortedVax) {
+                if (v.weight && parseFloat(v.weight) > 0) { latestWeight = v.weight; break; }
+                if (v.height && parseFloat(v.height) > 0) { latestHeight = v.height; break; }
+            }
+        }
+
+        function getVaccineDetails(vaxKeyword, doseNum) {
             if (!data.vaccinations || data.vaccinations.length === 0) {
                 return { date: '-- / -- / ----', worker: '--', notes: 'No notes yet' };
             }
@@ -409,11 +423,11 @@ while ($row = $result_children->fetch_assoc()) {
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Weight</small>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${data.weight_kg || data.weight || '2.50'} <span style="font-size: 0.75rem; color: #777;">KG</span></div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${latestWeight} <span style="font-size: 0.75rem; color: #777;">KG</span></div>
                     </div>
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Height</small>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${data.height_cm || data.height || '13.00'} <span style="font-size: 0.75rem; color: #777;">CM</span></div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #444; margin-top: 4px;">${latestHeight} <span style="font-size: 0.75rem; color: #777;">CM</span></div>
                     </div>
                     <div style="border: 1px solid #e5eadc; padding: 12px; border-radius: 8px; text-align: center; background: #fff;">
                         <small style="color: #888; font-size: 0.65rem; text-transform: uppercase; font-weight: bold;">Latest Vaccine</small>
@@ -462,6 +476,3 @@ while ($row = $result_children->fetch_assoc()) {
         if (event.target == document.getElementById('detailsModal')) closeModal();
     }
 </script>
-
-</body>
-</html>
