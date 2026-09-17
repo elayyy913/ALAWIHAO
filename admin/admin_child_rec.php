@@ -17,7 +17,7 @@ $query = "SELECT c.*,
          c.weight_kg AS weight_kg, 
          c.height_cm AS height, 
          COALESCE(c.vaccine_taken, 'None') AS vaccine_taken,
-         NULL AS vaccine_date, NULL AS next_checkup, NULL AS remarks, c.birth_date AS r_dob, NULL AS baby_name, c.administered_by
+         c.birth_date AS r_dob, c.administered_by
          FROM children c
          WHERE c.status = 'Approved' AND c.child_name LIKE '%$search%'";
 
@@ -141,12 +141,33 @@ $result = mysqli_query($conn, $query);
                         <?php 
                             $child_current_id = $row['id'];
                             
-                            // BINAGO DITO: Kinukuha na ang history mula sa infant_records table sa halip na children table
+                            // Kunin ang history mula sa infant_records table
                             $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
                             $history_arr = [];
                             while($hist = mysqli_fetch_assoc($history_query)) {
                                 $history_arr[] = $hist;
                             }
+                            
+                            // SIGURADUHING NAKASAMA ang vaccine galing sa main 'children' table kung mayroon man
+                            if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
+                                // I-check kung wala pa ito sa history array para maiwasan ang duplicate
+                                $found_in_history = false;
+                                foreach($history_arr as $h) {
+                                    if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
+                                        $found_in_history = true;
+                                        break;
+                                    }
+                                }
+                                if(!$found_in_history) {
+                                    $history_arr[] = [
+                                        'vaccine_taken' => $row['vaccine_taken'],
+                                        'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
+                                        'administered_by' => $row['administered_by'] ?? 'Health Worker',
+                                        'remarks' => 'Registered record'
+                                    ];
+                                }
+                            }
+                            
                             $row['history'] = $history_arr;
                         ?>
                         <tr id="row_<?= $row['id']; ?>">
@@ -238,13 +259,12 @@ $result = mysqli_query($conn, $query);
             let fullAddress = (data.address ? data.address + ", " : "") + (data.barangay || "");
             document.getElementById('m_address').innerText = fullAddress !== "" ? fullAddress : "N/A";
             
-            // Kung may history galing sa infant_records, kunin ang pinakabagong entry para sa Latest Health Data boxes
             let latestWeight = data.weight_kg || "--";
             let latestHeight = data.height || "--";
             let latestVaccine = data.vaccine_taken || "None";
 
             if (data.history && data.history.length > 0) {
-                let latestRec = data.history[0]; // Kasi naka ORDER BY created_at DESC
+                let latestRec = data.history[0];
                 if (latestRec.weight_kg) latestWeight = latestRec.weight_kg;
                 if (latestRec.height) latestHeight = latestRec.height;
                 if (latestRec.vaccine_taken) latestVaccine = latestRec.vaccine_taken;
@@ -254,34 +274,48 @@ $result = mysqli_query($conn, $query);
             document.getElementById('last_height').innerText = latestHeight;
             document.getElementById('last_vaccine').innerText = latestVaccine;
             
-            // Standard Vaccines list with individual breakdown for multiple doses
+            // Standard Vaccines list
             const standardVaccines = [
-                { name: "BCG Vaccine", keyword: "bcg", doseNum: "1", schedule: "At birth" },
-                { name: "Hepatitis B Vaccine", keyword: "hepatitis", doseNum: "1", schedule: "At birth" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", doseNum: "1", schedule: "1½ mos" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", doseNum: "2", schedule: "2½ mos" },
-                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keyword: "penta", doseNum: "3", schedule: "3½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", doseNum: "1", schedule: "1½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", doseNum: "2", schedule: "2½ mos" },
-                { name: "Oral Polio Vaccine (OPV)", keyword: "opv", doseNum: "3", schedule: "3½ mos" },
-                { name: "Inactivated Polio Vaccine (IPV)", keyword: "ipv", doseNum: "1", schedule: "3½ mos" },
-                { name: "Inactivated Polio Vaccine (IPV)", keyword: "ipv", doseNum: "2", schedule: "9 mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", doseNum: "1", schedule: "1½ mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", doseNum: "2", schedule: "2½ mos" },
-                { name: "Pneumococcal Conjugate Vaccine (PCV)", keyword: "pcv", doseNum: "3", schedule: "3½ mos" },
-                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keyword: "mmr", doseNum: "1", schedule: "9 mos" },
-                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keyword: "mmr", doseNum: "2", schedule: "1 year" }
+                { name: "BCG Vaccine", keywords: ["bcg"], doseNum: "1", schedule: "At birth" },
+                { name: "Hepatitis B Vaccine", keywords: ["hepatitis", "hep b"], doseNum: "1", schedule: "At birth" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "1", schedule: "1½ mos" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "2", schedule: "2½ mos" },
+                { name: "Pentavalent Vaccine (DPT-Hep B-HIB)", keywords: ["pentavalent", "penta"], doseNum: "3", schedule: "3½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "1", schedule: "1½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "2", schedule: "2½ mos" },
+                { name: "Oral Polio Vaccine (OPV)", keywords: ["opv", "polio"], doseNum: "3", schedule: "3½ mos" },
+                { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "1", schedule: "3½ mos" },
+                { name: "Inactivated Polio Vaccine (IPV)", keywords: ["ipv"], doseNum: "2", schedule: "9 mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "1", schedule: "1½ mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "2", schedule: "2½ mos" },
+                { name: "Pneumococcal Conjugate Vaccine (PCV)", keywords: ["pcv"], doseNum: "3", schedule: "3½ mos" },
+                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "1", schedule: "9 mos" },
+                { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "2", schedule: "1 year" }
             ];
 
             let immHtml = '';
             standardVaccines.forEach(vac => {
                 let matchedRecord = null;
-                if (data.history && data.history.length > 0) {
-                    matchedRecord = data.history.find(h => {
+                
+                // Pagsasama ng pagsusuri sa data.history pati na rin sa mismong data.vaccine_taken (children table)
+                let allSources = [...(data.history || [])];
+                if (data.vaccine_taken && data.vaccine_taken !== 'None') {
+                    allSources.push({
+                        vaccine_taken: data.vaccine_taken,
+                        vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
+                        administered_by: data.administered_by || 'Health Worker',
+                        remarks: 'Initial record'
+                    });
+                }
+
+                if (allSources.length > 0) {
+                    matchedRecord = allSources.find(h => {
                         let vTaken = h.vaccine_taken ? h.vaccine_taken.toLowerCase() : '';
                         let remarks = h.remarks ? h.remarks.toLowerCase() : '';
-                        let matchesKeyword = vTaken.includes(vac.keyword);
-                        let matchesDose = vTaken.includes(vac.doseNum) || remarks.includes(vac.doseNum) || vac.doseNum === "1";
+                        
+                        let matchesKeyword = vac.keywords.some(kw => vTaken.includes(kw));
+                        let matchesDose = vTaken.includes(vac.doseNum) || remarks.includes(vac.doseNum) || (vac.doseNum === "1" && !vTaken.includes("2") && !vTaken.includes("3"));
+                        
                         return matchesKeyword && matchesDose;
                     });
                 }
@@ -291,8 +325,12 @@ $result = mysqli_query($conn, $query);
                 let remarksText = '<span style="color:#a0aec0; font-style:italic;">No notes yet</span>';
 
                 if (matchedRecord) {
-                    dateTaken = matchedRecord.vaccine_date || (matchedRecord.created_at ? matchedRecord.created_at.split(' ')[0] : '--');
-                    administeredBy = matchedRecord.administered_by || 'Health Worker';
+                    // Kunin ang petsa mula sa record o gamitin ang petsa ng paggawa kung sakaling walang hiwalay na date
+                    let rawDate = matchedRecord.vaccine_date || data.created_at;
+                    if (rawDate) {
+                        dateTaken = rawDate.split(' ')[0]; // Kunin lang ang YYYY-MM-DD
+                    }
+                    administeredBy = matchedRecord.administered_by || data.administered_by || 'Health Worker';
                     remarksText = matchedRecord.remarks ? matchedRecord.remarks : '<span style="color:#a0aec0; font-style:italic;">No notes</span>';
                 }
 
