@@ -79,6 +79,13 @@ while ($row = $result_children->fetch_assoc()) {
     }
     
     $row['history'] = $history_arr;
+
+    // Bilangin kung ilan ang total doses na nakuha base sa history
+    $valid_doses = array_filter($history_arr, function($h) {
+        return !empty($h['vaccine_taken']) && strtolower($h['vaccine_taken']) != 'none';
+    });
+    $row['total_doses'] = count($valid_doses);
+
     $my_records[] = $row;
 }
 ?>
@@ -297,7 +304,14 @@ while ($row = $result_children->fetch_assoc()) {
                         <td><?php echo "{$row['age_years']} yrs, {$row['age_months']} mos"; ?></td>
                         <td><?php echo htmlspecialchars($row['gender']); ?></td>
                         <td>
-                            <span class="vax-badge"><?php echo htmlspecialchars($row['vaccination_status'] ?: ($row['vaccine_taken'] ?: 'None')); ?></span>
+                            <?php 
+                                $doses = $row['total_doses'] ?? 0;
+                                if ($doses > 0) {
+                                    echo '<span class="vax-badge">Vaccinated (' . $doses . ' dose' . ($doses > 1 ? 's' : '') . ')</span>';
+                                } else {
+                                    echo '<span class="vax-badge" style="background: #f1f2f6; color: #718096;">None (0 dose)</span>';
+                                }
+                            ?>
                         </td>
                         <td>
                             <span class="status-badge <?php echo ($row['status'] == 'Approved') ? 'status-approved' : 'status-pending'; ?>">
