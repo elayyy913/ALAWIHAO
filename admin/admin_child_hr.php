@@ -228,7 +228,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
 <div id="historyModal" class="modal">
     <div class="modal-content" style="width: 700px; max-width: 90%; max-height: 85vh; overflow-y: auto;">
         
-        <!-- Print Area Wrapper (Report Card Pad) -->
+        <!-- Print / Word Export Area Wrapper (Report Card Pad) -->
         <div id="printableArea">
             <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid var(--sage); padding-bottom: 10px;">
                 <h2 style="color: var(--dark-sage); margin: 0;">Alawihao Health Center</h2>
@@ -260,8 +260,11 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
         </div>
 
         <!-- Modal Actions (Hidden kapag nagpa-print) -->
-        <div class="no-print" style="text-align: right; margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-            <button onclick="printReportCard()" class="btn" style="background: #2b6cb0; color: white;">🖨️ Print / Save as PDF</button>
+        <div class="no-print" style="text-align: right; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <button onclick="exportToWord()" class="btn" style="background: #2b6cb0; color: white; margin-right: 5px;"> Download as Word</button>
+                <button onclick="printReportCard()" class="btn" style="background: #4a5568; color: white;"> Print / PDF</button>
+            </div>
             <button onclick="closeHistoryModal()" class="btn" style="background: #e2e8f0; color: #2d3748;">Close</button>
         </div>
     </div>
@@ -346,6 +349,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
 
 <script>
 let currentChildTakenVaccines = [];
+let currentChildNameForWord = "Child_Record";
 
 function toggleSidebar() {
     const sidebar = document.getElementById('mainSidebar');
@@ -376,6 +380,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function openHistoryModal(childData, historyList) {
     document.getElementById('historyModal').style.display = 'block';
     
+    currentChildNameForWord = childData.child_name || 'Child_Record';
+
     document.getElementById('rep_name').innerText = childData.child_name || '--';
     document.getElementById('rep_gender').innerText = childData.gender || '--';
     document.getElementById('rep_mother').innerText = childData.mother_name || '--';
@@ -409,6 +415,27 @@ function printReportCard() {
     window.print();
 }
 
+// Function para ma-download bilang editable MS Word (.doc) file
+function exportToWord() {
+    let header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
+    header += "<head><meta charset='utf-8'><title>Export HTML to Word Document</title></head><body>";
+    let footer = "</body></html>";
+    let htmlContent = header + document.getElementById('printableArea').innerHTML + footer;
+
+    let blob = new Blob(['\ufeff' + htmlContent], {
+        type: 'application/msword'
+    });
+    
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = currentChildNameForWord.replace(/\s+/g, '_') + '_Health_Record.doc';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 // --- UPDATE HEALTH MODAL FUNCTIONS ---
 function openEditModal(id, name, takenVaccinesArray) {
     document.getElementById('editModal').style.display = 'block';
@@ -419,11 +446,16 @@ function openEditModal(id, name, takenVaccinesArray) {
     let vaccinesContainer = document.getElementById('modal_previous_vaccines');
     let vaccineSelect = document.getElementById('vaccineSelect');
 
-    if (currentChildTakenVaccines.length > 0) {
-        vaccinesContainer.innerHTML = currentChildTakenVaccines.join(', ');
+   if (currentChildTakenVaccines.length > 0) {
+        // Gumawa ng maayos na listahan (bullet or tags) para hindi siksikan
+        let listHtml = '<ul style="margin: 0; padding-left: 18px; font-weight: 600; color: #2B6CB0;">';
+        currentChildTakenVaccines.forEach(vac => {
+            listHtml += `<li style="margin-bottom: 3px; font-size: 0.85rem;">${vac}</li>`;
+        });
+        listHtml += '</ul>';
+        
+        vaccinesContainer.innerHTML = listHtml;
         vaccinesContainer.style.fontStyle = 'normal';
-        vaccinesContainer.style.fontWeight = '600';
-        vaccinesContainer.style.color = '#2B6CB0';
     } else {
         vaccinesContainer.innerHTML = 'No vaccines recorded yet.';
         vaccinesContainer.style.fontStyle = 'italic';

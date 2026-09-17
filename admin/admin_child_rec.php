@@ -15,12 +15,12 @@ $dose_filter = isset($_GET['dose_filter']) ? $_GET['dose_filter'] : 'all'; // Ba
 
 // 2. Query para sa Master List (children table)
 $query = "SELECT c.*, 
-         c.weight_kg AS weight_kg, 
-         c.height_cm AS height, 
-         COALESCE(c.vaccine_taken, 'None') AS vaccine_taken,
-         c.birth_date AS r_dob, c.administered_by
-         FROM children c
-         WHERE c.status = 'Approved' AND c.child_name LIKE '%$search%'";
+          c.weight_kg AS weight_kg, 
+          c.height_cm AS height, 
+          COALESCE(c.vaccine_taken, 'None') AS vaccine_taken,
+          c.birth_date AS r_dob, c.administered_by
+          FROM children c
+          WHERE c.status = 'Approved' AND c.child_name LIKE '%$search%'";
 
 // Age Filtering Logic
 if ($age_filter == '0-1') {
@@ -48,40 +48,30 @@ $all_records = [];
 while($row = mysqli_fetch_assoc($result)) {
     $child_current_id = $row['id'];
     
-    // Kunin ang history mula sa infant_records table
+    // Kunin ang history mula sa infant_records table LAMANG
     $history_query = mysqli_query($conn, "SELECT * FROM infant_records WHERE child_id = '$child_current_id' ORDER BY created_at DESC");
     $history_arr = [];
     while($hist = mysqli_fetch_assoc($history_query)) {
         $history_arr[] = $hist;
     }
     
-    if(!empty($row['vaccine_taken']) && $row['vaccine_taken'] != 'None') {
-        $found_in_history = false;
-        foreach($history_arr as $h) {
-            if(isset($h['vaccine_taken']) && strtolower($h['vaccine_taken']) == strtolower($row['vaccine_taken'])) {
-                $found_in_history = true;
-                break;
-            }
-        }
-        if(!$found_in_history) {
-            $history_arr[] = [
-                'vaccine_taken' => $row['vaccine_taken'],
-                'vaccine_date' => $row['created_at'] ? date('Y-m-d', strtotime($row['created_at'])) : date('Y-m-d'),
-                'administered_by' => $row['administered_by'] ?? 'Health Worker',
-                'remarks' => 'Registered record',
-                'weight_kg' => $row['weight_kg'],
-                'height' => $row['height']
-            ];
-        }
-    }
-    
+    // Itinakda na ang history ay galing lamang sa database table ng infant_records
     $row['history'] = $history_arr;
 
-    // Bilangin ang total doses
+    // Bilangin ang total unique/valid doses mula sa infant_records
     $valid_doses = array_filter($history_arr, function($h) {
         return !empty($h['vaccine_taken']) && strtolower($h['vaccine_taken']) != 'none';
     });
-    $row['total_doses'] = count($valid_doses);
+    
+    // Kunin ang unique vaccine names para tumpak ang bilang
+    $unique_vaccines = [];
+    foreach ($valid_doses as $d) {
+        $v_name = strtolower(trim($d['vaccine_taken']));
+        if (!in_array($v_name, $unique_vaccines)) {
+            $unique_vaccines[] = $v_name;
+        }
+    }
+    $row['total_doses'] = count($unique_vaccines);
 
     // Dose Filtering Condition
     $matches_dose = true;
@@ -314,7 +304,7 @@ while($row = mysqli_fetch_assoc($result)) {
         </div>
     </div>
 
-    <script>
+<script>
         let currentChildId = null;
         function openModal(data) {
             currentChildId = data.id;
@@ -365,21 +355,22 @@ while($row = mysqli_fetch_assoc($result)) {
                 { name: "Measles, Mumps, Rubella Vaccine (MMR)", keywords: ["mmr", "measles"], doseNum: "2", schedule: "1 year" }
             ];
 
+            // 🛠️ FIX: I-initiate ang allSources sa LABAS ng loop para hindi mag-accumulate nang paulit-ulit
+            let allSources = [...(data.history || [])];
+            if (data.vaccine_taken && data.vaccine_taken !== 'None') {
+                allSources.push({
+                    vaccine_taken: data.vaccine_taken,
+                    vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
+                    administered_by: data.administered_by || 'Health Worker',
+                    remarks: 'Initial record',
+                    weight_kg: data.weight_kg || '--',
+                    height: data.height || '--'
+                });
+            }
+
             let immHtml = '';
             standardVaccines.forEach(vac => {
                 let matchedRecord = null;
-                
-                let allSources = [...(data.history || [])];
-                if (data.vaccine_taken && data.vaccine_taken !== 'None') {
-                    allSources.push({
-                        vaccine_taken: data.vaccine_taken,
-                        vaccine_date: data.created_at ? data.created_at.split(' ')[0] : '--',
-                        administered_by: data.administered_by || 'Health Worker',
-                        remarks: 'Initial record',
-                        weight_kg: data.weight_kg || '--',
-                        height: data.height || '--'
-                    });
-                }
 
                 if (allSources.length > 0) {
                     matchedRecord = allSources.find(h => {
