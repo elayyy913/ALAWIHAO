@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include '../db_connect.php';
 
 // Allow both Admin and Super Admin
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['Admin', 'Super Admin'])) {
