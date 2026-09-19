@@ -214,7 +214,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
     <div class="sidebar-header">
         <button class="close-sidebar-x" onclick="hideSidebar()">&times;</button>
         <div class="sidebar-header-content">
-            <img src="../images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
+            <img src="/FINAL_CAPSTONE/images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
             <div>
                 <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
                 <p>Administrative Control</p>
