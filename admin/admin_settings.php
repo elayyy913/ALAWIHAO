@@ -2,363 +2,913 @@
 session_start();
 include '../db_connect.php';
 
-// Allow both Admin and Super Admin
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['Admin', 'Super Admin'])) {
+if (!isset($_SESSION['admin_id']) && !isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-$user_id  = $_SESSION['user_id'] ?? 0;
-$role     = $_SESSION['role'];
-$message  = "";
+$admin_id = (int)($_SESSION['admin_id'] ?? $_SESSION['user_id']);
+$message = "";
 
-// Determine which sidebar to include
-$sidebar_file = ($role === 'Super Admin') ? 'super_admin_sidebar.php' : 'admin_sidebar.php';
+/* GET ADMIN DATA */
+$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->bind_param("i", $admin_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
-// Handle password change
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
-    $current  = $_POST['current_password'] ?? '';
-    $new_pass = $_POST['new_password']     ?? '';
-    $confirm  = $_POST['confirm_password'] ?? '';
+if (!$result || $result->num_rows === 0) {
+    die("Admin account not found.");
+}
 
-    $stmt = $conn->prepare("SELECT password FROM users WHERE id = ?");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+$admin = $result->fetch_assoc();
+$stmt->close();
 
-    if (!$row || !password_verify($current, $row['password'])) {
-        $message = "<div class='alert alert-error'>Current password is incorrect.</div>";
-    } elseif (strlen($new_pass) < 6) {
-        $message = "<div class='alert alert-error'>New password must be at least 6 characters.</div>";
-    } elseif ($new_pass !== $confirm) {
-        $message = "<div class='alert alert-error'>New passwords do not match.</div>";
+/* UPDATE PROFILE */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_profile'])) {
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $contact = trim($_POST['contact'] ?? '');
+    $address = trim($_POST['address'] ?? '');
+
+    if ($first_name === '' || $last_name === '' || $email === '') {
+        $message = "<div class='alert error'>Please complete all required profile information.</div>";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $message = "<div class='alert error'>Please enter a valid email address.</div>";
     } else {
-        $hashed = password_hash($new_pass, PASSWORD_DEFAULT);
-        $upd = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
-        $upd->bind_param("si", $hashed, $user_id);
-        $upd->execute();
-        $upd->close();
-        $message = "<div class='alert alert-success'>Password updated successfully!</div>";
+        $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+        $check->bind_param("si", $email, $admin_id);
+        $check->execute();
+        $check_result = $check->get_result();
+
+        if ($check_result->num_rows > 0) {
+            $message = "<div class='alert error'>That email address is already being used by another account.</div>";
+        } else {
+            $stmt = $conn->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ?, contact_number = ?, address = ? WHERE id = ?");
+            $stmt->bind_param("sssssi", $first_name, $last_name, $email, $contact, $address, $admin_id);
+
+            if ($stmt->execute()) {
+                $admin['first_name'] = $first_name;
+                $admin['last_name'] = $last_name;
+                $admin['email'] = $email;
+                $admin['contact_number'] = $contact;
+                $admin['address'] = $address;
+
+                $message = "<div class='alert success'>Profile updated successfully! Your new email is now also your recovery email.</div>";
+            } else {
+                $message = "<div class='alert error'>Update failed: " . htmlspecialchars($conn->error) . "</div>";
+            }
+
+            $stmt->close();
+        }
+
+        $check->close();
+    }
+}
+
+/* UPDATE RECOVERY EMAIL */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_recovery'])) {
+    $new_recovery_email = trim($_POST['recovery_email'] ?? '');
+    $recovery_password = $_POST['recovery_password'] ?? '';
+
+    if ($new_recovery_email === '') {
+        $message = "<div class='alert error'>Please enter your new email address.</div>";
+    } elseif (!filter_var($new_recovery_email, FILTER_VALIDATE_EMAIL)) {
+        $message = "<div class='alert error'>Please enter a valid email address.</div>";
+    } elseif ($recovery_password === '') {
+        $message = "<div class='alert error'>Please enter your current password.</div>";
+    } elseif (strcasecmp($new_recovery_email, $admin['email'] ?? '') === 0) {
+        $message = "<div class='alert error'>The new email is the same as your current email.</div>";
+    } else {
+        $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+        $check->bind_param("si", $new_recovery_email, $admin_id);
+        $check->execute();
+        $check_result = $check->get_result();
+
+        if ($check_result->num_rows > 0) {
+            $message = "<div class='alert error'>That email address is already being used by another account.</div>";
+        } else {
+            $db_pass = $admin['password'] ?? '';
+            $is_match = false;
+
+            if (!empty($db_pass) && password_verify($recovery_password, $db_pass)) {
+                $is_match = true;
+            } elseif (!empty($db_pass) && hash_equals($db_pass, $recovery_password)) {
+                $is_match = true;
+            }
+
+            if (!$is_match) {
+                $message = "<div class='alert error'>Incorrect current password. Email was not changed.</div>";
+            } else {
+                $stmt = $conn->prepare("UPDATE users SET email = ? WHERE id = ?");
+                $stmt->bind_param("si", $new_recovery_email, $admin_id);
+
+                if ($stmt->execute()) {
+                    $admin['email'] = $new_recovery_email;
+
+                    $message = "<div class='alert success'>Recovery email updated successfully! Your new email is now your login and recovery email.</div>";
+                } else {
+                    $message = "<div class='alert error'>Email update failed: " . htmlspecialchars($conn->error) . "</div>";
+                }
+
+                $stmt->close();
+            }
+        }
+
+        $check->close();
+    }
+}
+
+/* UPDATE PASSWORD */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_security'])) {
+    $current_password = $_POST['current_password'] ?? '';
+    $new_password = $_POST['new_password'] ?? '';
+
+    if ($current_password === '') {
+        $message = "<div class='alert error'>Please enter your current password.</div>";
+    } elseif ($new_password === '') {
+        $message = "<div class='alert error'>Please enter a new password.</div>";
+    } elseif (strlen($new_password) < 8) {
+        $message = "<div class='alert error'>New password must be at least 8 characters.</div>";
+    } else {
+        $db_pass = $admin['password'] ?? '';
+        $is_match = false;
+
+        if (!empty($db_pass) && password_verify($current_password, $db_pass)) {
+            $is_match = true;
+        } elseif (!empty($db_pass) && hash_equals($db_pass, $current_password)) {
+            $is_match = true;
+        }
+
+        if ($is_match) {
+            $hashed_new_pass = password_hash($new_password, PASSWORD_DEFAULT);
+
+            $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $stmt->bind_param("si", $hashed_new_pass, $admin_id);
+
+            if ($stmt->execute()) {
+                $admin['password'] = $hashed_new_pass;
+                $message = "<div class='alert success'>Password updated successfully!</div>";
+            } else {
+                $message = "<div class='alert error'>Password update failed: " . htmlspecialchars($conn->error) . "</div>";
+            }
+
+            $stmt->close();
+        } else {
+            $message = "<div class='alert error'>Incorrect current password!</div>";
+        }
+    }
+}
+
+/* DELETE ACCOUNT */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['delete_account'])) {
+    $delete_password = $_POST['delete_password'] ?? '';
+    $db_pass = $admin['password'] ?? '';
+    $is_match = false;
+
+    if (!empty($db_pass) && password_verify($delete_password, $db_pass)) {
+        $is_match = true;
+    } elseif (!empty($db_pass) && hash_equals($db_pass, $delete_password)) {
+        $is_match = true;
+    }
+
+    if ($is_match) {
+        $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->bind_param("i", $admin_id);
+
+        if ($stmt->execute()) {
+            session_destroy();
+            header("Location: login.php?deleted=success");
+            exit();
+        } else {
+            $message = "<div class='alert error'>Deletion failed: " . htmlspecialchars($conn->error) . "</div>";
+        }
+
+        $stmt->close();
+    } else {
+        $message = "<div class='alert error'>Incorrect password! Account deletion aborted.</div>";
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fil">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings | Alawihao Health Center</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --sage:         #8DAE74;
-            --dark-sage:    #6B8E55;
-            --light-bg:     #F8FAFC;
-            --card-bg:      #FFFFFF;
-            --text-main:    #1E293B;
-            --text-muted:   #64748B;
-            --border-color: #E2E8F0;
-            --sidebar-width: 280px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account Settings & Profile | Alawihao Health Center</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+    --green: #2d5016;
+    --accent: #5a7c3a;
+    --light: #8fbf5a;
+    --bg: #f8fffb;
+    --white: #ffffff;
+    --text: #333333;
+    --muted: #666666;
+    --sidebar-width: 260px;
+    --border-color: #edf2ed;
+}
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-        body {
-            font-family: 'Inter', 'Segoe UI', sans-serif;
-            background: var(--light-bg);
-            color: var(--text-main);
-            display: flex;
-            min-height: 100vh;
-            transition: background 0.3s, color 0.3s;
-        }
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
 
-        /* ── Dark mode overrides ── */
-        body.dark-mode {
-            --light-bg:     #121212;
-            --card-bg:      #1e1e1e;
-            --text-main:    #e2e2e2;
-            --text-muted:   #9e9e9e;
-            --border-color: #2e2e2e;
-            --sage:         #5aab38;
-            --dark-sage:    #78c455;
-            background: #121212;
-            color: #e2e2e2;
-        }
-        body.dark-mode .settings-card {
-            background: #1e1e1e;
-            border-color: #2e2e2e;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-        }
-        body.dark-mode .section-title { color: #a8d880; border-bottom-color: #2e2e2e; }
-        body.dark-mode label { color: #9e9e9e; }
-        body.dark-mode input[type="password"] {
-            background: #2a2a2a;
-            color: #e2e2e2;
-            border-color: #444;
-        }
-        body.dark-mode input[type="password"]:focus { border-color: #5aab38; }
-        body.dark-mode .alert-success { background: #1a3a22; color: #86efac; border-color: #166534; }
-        body.dark-mode .alert-error   { background: #3a1a1a; color: #fca5a5; border-color: #991b1b; }
-        body.dark-mode .dark-mode-label strong { color: #e2e2e2; }
-        body.dark-mode .dark-mode-label span   { color: #9e9e9e; }
+.progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 4px;
+    background: var(--light);
+    width: 0%;
+    z-index: 9999;
+    transition: width 0.1s;
+}
 
-        #main {
-            flex: 1;
-            margin-left: var(--sidebar-width);
-            padding: 40px;
-            overflow-y: auto;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: margin-left 0.3s;
-        }
+.sidebar-container {
+    width: var(--sidebar-width) !important;
+    min-width: var(--sidebar-width) !important;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 300;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
+}
 
-        /* ── Page header ── */
-        .page-header {
-            width: 100%;
-            max-width: 620px;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 14px;
-            margin-bottom: 28px;
-        }
-        .page-header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark-sage);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+body.sidebar-closed .sidebar-container {
+    transform: translateX(-100%);
+}
 
-        /* ── Cards ── */
-        .settings-container {
-            width: 100%;
-            max-width: 620px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
+.topbar {
+    background: var(--white);
+    border-bottom: 3px solid var(--green);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    transition: margin-left 0.3s ease, width 0.3s ease;
+}
 
-        .settings-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-top: 4px solid var(--sage);
-            border-radius: 12px;
-            padding: 28px 32px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
+body.sidebar-closed .topbar {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
 
-        .section-title {
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: var(--dark-sage);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-width: 0;
+    flex-shrink: 0;
+}
 
-        /* ── Form elements ── */
-        .form-group { margin-bottom: 18px; }
-        .form-group label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            margin-bottom: 6px;
-        }
-        .form-group input[type="password"] {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            background: var(--light-bg);
-            color: var(--text-main);
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .form-group input[type="password"]:focus {
-            outline: none;
-            border-color: var(--sage);
-            box-shadow: 0 0 0 3px rgba(141,174,116,0.15);
-        }
+.topbar .hamburger-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--green);
+    font-size: 20px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background 0.2s;
+    display: none;
+    flex-shrink: 0;
+}
 
-        /* ── Buttons ── */
-        .btn-save {
-            background: var(--dark-sage);
-            color: #fff;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 6px;
-        }
-        .btn-save:hover { background: var(--sage); }
+body.sidebar-closed .topbar .hamburger-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
 
-        /* ── Alerts ── */
-        .alert {
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 20px;
-            border: 1px solid transparent;
-        }
-        .alert-success { background: #d4edda; color: #155724; border-color: #c3e6cb; }
-        .alert-error   { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+.topbar .hamburger-btn:hover {
+    background: #f0f4f0;
+}
 
-        /* ── Dark mode toggle row ── */
-        .dark-mode-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 4px 0;
-        }
-        .dark-mode-label {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-        .dark-mode-label strong { font-size: 0.95rem; color: var(--text-main); }
-        .dark-mode-label span   { font-size: 0.82rem; color: var(--text-muted); }
+.topbar .logo-img {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--green);
+    background: #eef2ee;
+    flex-shrink: 0;
+}
 
-        /* Toggle switch */
-        .toggle-switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-track {
-            position: absolute;
-            inset: 0;
-            background: #ccc;
-            border-radius: 999px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        .toggle-track::before {
-            content: '';
-            position: absolute;
-            width: 20px; height: 20px;
-            left: 4px; top: 4px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.3s;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-        }
-        .toggle-switch input:checked + .toggle-track { background: var(--sage); }
-        .toggle-switch input:checked + .toggle-track::before { transform: translateX(24px); }
+.topbar .page-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--green);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-        /* ── Role badge ── */
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #EEF2FF;
-            color: #3730A3;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 4px 12px;
-            border-radius: 999px;
-            margin-left: auto;
-        }
-        body.dark-mode .role-badge { background: #1e1e3a; color: #a5b4fc; }
-    </style>
+#main {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    transition: margin-left 0.3s ease, width 0.3s ease;
+    padding: 30px 24px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: calc(100vh - 70px);
+}
+
+body.sidebar-closed #main {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+.settings-container {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.settings-card {
+    background: var(--white);
+    width: 100%;
+    padding: 35px 40px;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+    border: 1px solid #eef2ee;
+}
+
+.profile-card-header {
+    border-top: 6px solid var(--green);
+}
+
+.settings-section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--green);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: 100%;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: var(--green);
+    font-size: 0.95rem;
+}
+
+.info-value {
+    font-size: 1.05rem;
+    color: #333;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 5px;
+    width: 100%;
+}
+
+.edit-input,
+.settings-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.edit-input {
+    display: none;
+}
+
+.edit-input:focus,
+.settings-input:focus {
+    outline: none;
+    border-color: var(--green);
+}
+
+.field-note {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    cursor: pointer;
+    color: var(--text);
+    font-weight: 500;
+    width: 100%;
+}
+
+.checkbox-group input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--green);
+    cursor: pointer;
+}
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 25px;
+    width: 100%;
+}
+
+.btn {
+    padding: 12px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+    transition: 0.2s;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.btn-edit {
+    background: var(--green);
+    color: white;
+    flex: 1;
+}
+
+.btn-edit:hover {
+    background: var(--accent);
+}
+
+.btn-save {
+    background: var(--accent);
+    color: white;
+    flex: 1;
+    display: none;
+}
+
+.btn-save:hover {
+    background: var(--green);
+}
+
+.btn-cancel {
+    background: #e2e8f0;
+    color: #475569;
+    flex: 1;
+    display: none;
+}
+
+.btn-cancel:hover {
+    background: #cbd5e1;
+}
+
+.btn-primary-action {
+    background: var(--green);
+    color: white;
+    width: 100%;
+}
+
+.btn-primary-action:hover {
+    background: var(--accent);
+}
+
+.recovery-text {
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.recovery-email-box {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d9e3d9;
+    border-radius: 8px;
+    background: #f8fbf8;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+}
+
+.recovery-email-box i {
+    color: var(--green);
+}
+
+.recovery-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: #f0f7ed;
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.recovery-info i {
+    color: var(--green);
+    margin-top: 2px;
+}
+
+.danger-card {
+    border: 1px solid #FED7D7;
+    background-color: #FFF5F5;
+}
+
+.danger-title {
+    color: #E53E3E;
+    border-bottom: 2px solid #FED7D7;
+}
+
+.danger-text {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    width: 100%;
+}
+
+.btn-danger {
+    background-color: #E53E3E;
+    color: #FFFFFF;
+    width: 100%;
+}
+
+.btn-danger:hover {
+    background-color: #C53030;
+}
+
+.alert {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 500;
+    width: 100%;
+}
+
+.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 260px;
+    }
+
+    .topbar {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    #main {
+        margin-left: 0;
+        width: 100%;
+        padding: 20px 15px 40px;
+    }
+
+    .sidebar-container {
+        transform: translateX(-100%);
+    }
+
+    body:not(.sidebar-closed) .sidebar-container {
+        transform: translateX(0);
+    }
+
+    .topbar .hamburger-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .settings-card {
+        padding: 25px 20px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+}
+</style>
 </head>
-<body>
+<body class="sidebar-closed">
 
-<?php include $sidebar_file; ?>
+<div id="progressBar" class="progress-bar"></div>
+
+<div class="sidebar-container">
+    <?php include 'admin_sidebar.php'; ?>
+</div>
+
+<div class="topbar">
+    <div class="topbar-brand">
+        <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+            <i class="fa fa-bars"></i>
+        </button>
+        <img src="../images/logo.jpg" alt="Brgy Logo" class="logo-img">
+    </div>
+    <span class="page-label">Account Settings & Profile</span>
+</div>
 
 <div id="main">
-
-    <div class="page-header">
-        <h1 style="display:flex;align-items:center;gap:10px;">
-            <i class="fa fa-gear"></i> Settings
-            <span class="role-badge"><i class="fa fa-shield-halved"></i> <?= htmlspecialchars($role) ?></span>
-        </h1>
-    </div>
-
     <div class="settings-container">
 
-        <?php if ($message): ?>
-            <?= $message ?>
-        <?php endif; ?>
+        <?php echo $message; ?>
 
-        <!-- 1. APPEARANCE -->
-        <div class="settings-card">
-            <div class="section-title"><i class="fa fa-moon"></i> Appearance</div>
-            <div class="dark-mode-row">
-                <div class="dark-mode-label">
-                    <strong>Dark Mode</strong>
-                    <span>Switch to a darker color scheme to reduce eye strain.</span>
-                </div>
-                <label class="toggle-switch" title="Toggle Dark Mode">
-                    <input type="checkbox" id="darkModeToggle">
-                    <span class="toggle-track"></span>
-                </label>
+        <!-- PROFILE INFORMATION CARD -->
+        <div class="settings-card profile-card-header">
+            <div class="settings-section-title">
+                <i class="fa fa-user-circle"></i> Admin Profile Information
             </div>
+
+            <form id="profileForm" method="POST">
+
+                <div class="form-group">
+                    <label>First Name</label>
+                    <div class="info-value">
+                        <?php echo htmlspecialchars($admin['first_name'] ?? ''); ?>
+                    </div>
+                    <input type="text" name="first_name" class="edit-input" value="<?php echo htmlspecialchars($admin['first_name'] ?? ''); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <div class="info-value">
+                        <?php echo htmlspecialchars($admin['last_name'] ?? ''); ?>
+                    </div>
+                    <input type="text" name="last_name" class="edit-input" value="<?php echo htmlspecialchars($admin['last_name'] ?? ''); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <div class="info-value">
+                        <?php echo htmlspecialchars($admin['email'] ?? ''); ?>
+                    </div>
+                    <input type="email" name="email" class="edit-input" value="<?php echo htmlspecialchars($admin['email'] ?? ''); ?>" required>
+                    <small class="field-note">
+                        This email address is also used for account recovery.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Number</label>
+                    <div class="info-value">
+                        <?php echo htmlspecialchars($admin['contact_number'] ?? 'Not set'); ?>
+                    </div>
+                    <input type="text" name="contact" class="edit-input" value="<?php echo htmlspecialchars($admin['contact_number'] ?? ''); ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Home Address</label>
+                    <div class="info-value">
+                        <?php echo htmlspecialchars($admin['address'] ?? 'Not set'); ?>
+                    </div>
+                    <input type="text" name="address" class="edit-input" value="<?php echo htmlspecialchars($admin['address'] ?? ''); ?>">
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="editBtn" class="btn btn-edit" onclick="toggleEdit(true)">
+                        <i class="fa fa-pen-to-square"></i> Edit Profile
+                    </button>
+
+                    <button type="submit" name="update_profile" id="saveBtn" class="btn btn-save">
+                        <i class="fa fa-check"></i> Save Changes
+                    </button>
+
+                    <button type="button" id="cancelBtn" class="btn btn-cancel" onclick="toggleEdit(false)">
+                        <i class="fa fa-xmark"></i> Cancel
+                    </button>
+                </div>
+
+            </form>
         </div>
 
-        <!-- 2. SECURITY -->
+        <!-- SECURITY CARD -->
         <div class="settings-card">
-            <div class="section-title"><i class="fa fa-lock"></i> Change Password</div>
             <form method="POST">
+
+                <div class="settings-section-title">
+                    <i class="fa fa-shield-halved"></i> Security Credentials
+                </div>
+
                 <div class="form-group">
                     <label for="current_password">Current Password</label>
-                    <input type="password" id="current_password" name="current_password"
-                           placeholder="Enter your current password" required>
+                    <input type="password" id="current_password" name="current_password" class="settings-input" placeholder="Enter current password" required>
                 </div>
+
                 <div class="form-group">
                     <label for="new_password">New Password</label>
-                    <input type="password" id="new_password" name="new_password"
-                           placeholder="At least 6 characters" required>
+                    <input type="password" id="new_password" name="new_password" class="settings-input" placeholder="Enter new password" required>
                 </div>
-                <div class="form-group">
-                    <label for="confirm_password">Confirm New Password</label>
-                    <input type="password" id="confirm_password" name="confirm_password"
-                           placeholder="Repeat new password" required>
+
+                <div class="settings-section-title" style="margin-top: 30px;">
+                    <i class="fa fa-bell"></i> Notification Preferences
                 </div>
-                <button type="submit" name="change_password" class="btn-save">
-                    <i class="fa fa-floppy-disk"></i> Update Password
-                </button>
+
+                <label class="checkbox-group">
+                    <input type="checkbox" name="system_alerts" checked>
+                    Receive system alerts for new user registrations and requests
+                </label>
+
+                <label class="checkbox-group">
+                    <input type="checkbox" name="email_reports">
+                    Receive daily summary email reports of health center activities
+                </label>
+
+                <div style="margin-top: 25px;">
+                    <button type="submit" name="update_security" class="btn btn-primary-action">
+                        Save Security & Preferences
+                    </button>
+                </div>
+
             </form>
+        </div>
+
+        <!-- ACCOUNT RECOVERY CARD -->
+        <div class="settings-card">
+
+            <div class="settings-section-title">
+                <i class="fa fa-envelope-circle-check"></i> Account Recovery
+            </div>
+
+            <p class="recovery-text">
+                Your account email is also your recovery email. You can change it below.
+                Once updated, the new email will be used for login and password recovery.
+            </p>
+
+            <form method="POST">
+
+                <div class="form-group">
+                    <label>Current Email</label>
+                    <div class="recovery-email-box">
+                        <i class="fa fa-envelope"></i>
+                        <span>
+                            <?php echo htmlspecialchars($admin['email'] ?? ''); ?>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="recovery_email">New Email Address</label>
+                    <input
+                        type="email"
+                        id="recovery_email"
+                        name="recovery_email"
+                        class="settings-input"
+                        placeholder="Enter your new email address"
+                        required
+                    >
+                    <small class="field-note">
+                        This will become your new login and recovery email.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="recovery_password">Current Password</label>
+                    <input
+                        type="password"
+                        id="recovery_password"
+                        name="recovery_password"
+                        class="settings-input"
+                        placeholder="Enter your current password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" name="update_recovery" class="btn btn-primary-action">
+                    <i class="fa fa-envelope-circle-check"></i>
+                    Update Recovery Email
+                </button>
+
+            </form>
+
+            <div class="recovery-info" style="margin-top: 20px;">
+                <i class="fa fa-circle-info"></i>
+                <span>
+                    Your new email will replace your old email in the account.
+                    Your password will remain unchanged.
+                </span>
+            </div>
+
+        </div>
+
+        <!-- DANGER ZONE -->
+        <div class="settings-card danger-card">
+
+            <div class="settings-section-title danger-title">
+                <i class="fa fa-triangle-exclamation"></i> Danger Zone
+            </div>
+
+            <p class="danger-text">
+                Once you delete this admin account, system administration access from this profile will be permanently revoked.
+            </p>
+
+            <form method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this admin account? This action cannot be undone.');">
+
+                <div class="form-group">
+                    <label for="delete_password" style="color: #E53E3E;">
+                        Enter Password to Confirm Deletion
+                    </label>
+
+                    <input
+                        type="password"
+                        id="delete_password"
+                        name="delete_password"
+                        class="settings-input"
+                        placeholder="Type your password here"
+                        required
+                        style="border-color: #FEB2B2;"
+                    >
+                </div>
+
+                <button type="submit" name="delete_account" class="btn btn-danger">
+                    Delete Admin Account
+                </button>
+
+            </form>
+
         </div>
 
     </div>
 </div>
 
 <script>
-    // ── Dark Mode ──────────────────────────────────────────────
-    const DARK_KEY = 'alawihao_dark_mode';
-    const dmToggle = document.getElementById('darkModeToggle');
+window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    document.getElementById('progressBar').style.width = progress + '%';
+});
 
-    function applyDarkMode(isDark) {
-        document.body.classList.toggle('dark-mode', isDark);
-        if (dmToggle) dmToggle.checked = isDark;
+function toggleSidebar() {
+    document.body.classList.toggle('sidebar-closed');
+}
+
+function toggleEdit(isEditing) {
+    const values = document.querySelectorAll('.info-value');
+    const inputs = document.querySelectorAll('.edit-input');
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+
+    if (isEditing) {
+        values.forEach(v => v.style.display = 'none');
+        inputs.forEach(i => i.style.display = 'block');
+        editBtn.style.display = 'none';
+        saveBtn.style.display = 'flex';
+        cancelBtn.style.display = 'flex';
+    } else {
+        values.forEach(v => v.style.display = 'block');
+        inputs.forEach(i => i.style.display = 'none');
+        editBtn.style.display = 'flex';
+        saveBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
     }
-
-    // Apply saved preference (early-apply script in sidebar already did body class,
-    // this syncs the toggle checkbox state)
-    applyDarkMode(localStorage.getItem(DARK_KEY) === 'true');
-
-    if (dmToggle) {
-        dmToggle.addEventListener('change', () => {
-            const enabled = dmToggle.checked;
-            localStorage.setItem(DARK_KEY, enabled);
-            applyDarkMode(enabled);
-        });
-    }
+}
 </script>
+
 <?php include 'footer.php'; ?>
+
 </body>
 </html>
