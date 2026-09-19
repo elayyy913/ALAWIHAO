@@ -1,7 +1,7 @@
 <?php
 $current_page = basename($_SERVER['PHP_SELF']);
-// Direktang nakaturo sa root folder na CAPSTONE
-$base_url = "/CAPSTONE/";
+// Direktang tinutukoy ang tamang path papunta sa admin folder para maiwasan ang dobleng folder[cite: 1]
+$base_url = "/FINAL_CAPSTONE/admin/";
 ?>
 
 <!DOCTYPE html>
@@ -20,7 +20,7 @@ $base_url = "/CAPSTONE/";
         --transition: all 0.3s ease-in-out;
     }
 
-    /* 1. HAMBURGER BUTTON - Floating sa labas */
+    /* 1. HAMBURGER BUTTON - Floating sa labas[cite: 1] */
     .open-sidebar-btn {
         position: fixed;
         top: 20px;
@@ -39,7 +39,7 @@ $base_url = "/CAPSTONE/";
     }
     .open-sidebar-btn:hover { background-color: var(--dark-sage); }
 
-    /* 2. SIDEBAR CORE STYLE */
+    /* 2. SIDEBAR CORE STYLE[cite: 1] */
     .sidebar {
         width: var(--sidebar-width);
         height: 100vh;
@@ -60,7 +60,7 @@ $base_url = "/CAPSTONE/";
         transform: translateX(-100%);
     }
 
-    /* 3. CLOSE BUTTON (X) */
+    /* 3. CLOSE BUTTON (X)[cite: 1] */
     .close-sidebar-x {
         position: absolute;
         top: 15px;
@@ -75,54 +75,48 @@ $base_url = "/CAPSTONE/";
     }
     .close-sidebar-x:hover { color: #E53E3E; }
 
-    /* Header styling with Logo side-by-side */
+    /* Header styling[cite: 1] */
     .sidebar-header {
-        padding: 25px 20px;
+        padding: 30px 20px;
         border-bottom: 1px solid var(--border-color);
         position: relative;
     }
-    .sidebar-brand-container {
+    /* Bagong CSS para sa pagtatabi ng Logo at Header Text */
+    .sidebar-header-content {
         display: flex;
         align-items: center;
         gap: 12px;
     }
     .sidebar-logo {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 1.5px solid var(--sage);
-        flex-shrink: 0;
-    }
-    .brand-text-group {
-        display: flex;
-        flex-direction: column;
+        width: 45px;
+        height: 45px;
+        object-fit: contain;
     }
     .brand-name {
-        font-size: 1rem;
+        font-size: 1.1rem;
         font-weight: 800;
         color: var(--text-main);
         letter-spacing: -0.5px;
         text-transform: uppercase;
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 4px;
-        line-height: 1.2;
     }
     .brand-name span { color: var(--sage); }
     .sidebar-header p {
-        font-size: 0.6rem;
+        font-size: 0.65rem;
         color: var(--text-muted);
-        margin: 2px 0 0 0;
+        margin: 4px 0 0 0;
         text-transform: uppercase;
-        letter-spacing: 1.2px;
+        letter-spacing: 1.5px;
         font-weight: 600;
     }
 
-    /* Menu styling */
+    /* Menu styling[cite: 1] */
     .nav-menu {
         flex-grow: 1;
-        padding: 20px 15px;
+        padding: 30px 15px;
         overflow-y: auto;
     }
     .nav-label {
@@ -130,7 +124,7 @@ $base_url = "/CAPSTONE/";
         color: var(--text-muted);
         text-transform: uppercase;
         display: block;
-        margin: 15px 0 8px 15px;
+        margin: 20px 0 8px 15px;
         font-weight: 700;
         letter-spacing: 1px;
     }
@@ -162,7 +156,7 @@ $base_url = "/CAPSTONE/";
         font-weight: 600;
     }
 
-    /* Dropdown container */
+    /* Dropdown container[cite: 1] */
     .dropdown-container {
         display: none;
         background-color: #f9fbf7;
@@ -200,7 +194,7 @@ $base_url = "/CAPSTONE/";
     }
     .logout-btn:hover { background: #FFF5F5; }
 
-    /* DYNAMIC ADJUSTMENT */
+    /* DYNAMIC ADJUSTMENT[cite: 1] */
     .main-content, #main {
         margin-left: var(--sidebar-width);
         transition: margin-left 0.3s ease-in-out;
@@ -219,9 +213,9 @@ $base_url = "/CAPSTONE/";
 <nav class="sidebar" id="mainSidebar">
     <div class="sidebar-header">
         <button class="close-sidebar-x" onclick="hideSidebar()">&times;</button>
-        <div class="sidebar-brand-container">
-            <img src="images/logo.jpg" alt="Logo" class="sidebar-logo">
-            <div class="brand-text-group">
+        <div class="sidebar-header-content">
+            <img src="../images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
+            <div>
                 <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
                 <p>Administrative Control</p>
             </div>
@@ -257,11 +251,13 @@ $base_url = "/CAPSTONE/";
         <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link" id="link-schedule">Schedule Management</a>
 
         <span class="nav-label">(others)</span>
-        <a href="<?php echo $base_url; ?>super_admin_setting.php" class="nav-link" id="link-settings">Settings</a>
+        <a href="<?php echo $base_url; ?>activity_logs.php" class="nav-link" id="link-settings">History</a>
+        <a href="<?php echo $base_url; ?>super_admin_setting.php" class="nav-link" id="link-settings">Setting</a>
+
     </div>
 
     <div class="sidebar-footer">
-        <a href="login.php" class="logout-btn">Log out</a>
+    <a href="../logout.php" class="logout-btn">Log out</a>
     </div>
 </nav>
 
@@ -309,8 +305,9 @@ document.addEventListener('DOMContentLoaded', function() {
         'admin_maternal_hr.php': 'id-maternal-health',
         'admin_child_reg.php': 'link-child-reg',
         'admin_child_hr.php': 'id-child-health',
-        'schedule_management.php': 'link-schedule',
-        'super_admin_setting.php': 'link-settings',
+        'admin_sched_maternal.php': 'link-sched-maternal',
+        'admin_sched_child.php': 'link-sched-child',
+        'admin_settings.php': 'link-settings',
         'register_worker.php': 'link-workers'
     };
 
