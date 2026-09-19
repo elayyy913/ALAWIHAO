@@ -30,7 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Palitan ang path depende kung nasaan folder ang admin_health_workers.php mo:
             echo "<script>
                     alert('Worker Registered Successfully and added to Users Inventory! ID: $generated_id');
-                    window.location.href='admin_health_workers.php'; 
+                    window.location.href='admin/admin_health_workers.php';
                   </script>";
         } else {
             // Kung nag-fail sa users table pero pumasok sa workers
