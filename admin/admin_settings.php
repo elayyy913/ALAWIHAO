@@ -134,6 +134,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_security'])) {
         $db_pass = $admin['password'] ?? '';
         $is_match = false;
 
+        // Sinusuri pa rin natin kung tama ang current password (kaya gumagana pareho sa hash o plain text)
         if (!empty($db_pass) && password_verify($current_password, $db_pass)) {
             $is_match = true;
         } elseif (!empty($db_pass) && hash_equals($db_pass, $current_password)) {
@@ -141,13 +142,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_security'])) {
         }
 
         if ($is_match) {
-            $hashed_new_pass = password_hash($new_password, PASSWORD_DEFAULT);
-
+            // DITO ANG PAGBABAGO: Ginawa nating plain text ($new_password) sa halip na hashed string
             $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
-            $stmt->bind_param("si", $hashed_new_pass, $admin_id);
+            $stmt->bind_param("si", $new_password, $admin_id);
 
             if ($stmt->execute()) {
-                $admin['password'] = $hashed_new_pass;
+                $admin['password'] = $new_password;
                 $message = "<div class='alert success'>Password updated successfully!</div>";
             } else {
                 $message = "<div class='alert error'>Password update failed: " . htmlspecialchars($conn->error) . "</div>";
@@ -741,20 +741,6 @@ label {
                     <label for="new_password">New Password</label>
                     <input type="password" id="new_password" name="new_password" class="settings-input" placeholder="Enter new password" required>
                 </div>
-
-                <div class="settings-section-title" style="margin-top: 30px;">
-                    <i class="fa fa-bell"></i> Notification Preferences
-                </div>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="system_alerts" checked>
-                    Receive system alerts for new user registrations and requests
-                </label>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="email_reports">
-                    Receive daily summary email reports of health center activities
-                </label>
 
                 <div style="margin-top: 25px;">
                     <button type="submit" name="update_security" class="btn btn-primary-action">
