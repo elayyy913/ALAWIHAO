@@ -123,18 +123,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_recovery'])) {
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_security'])) {
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
 
     if ($current_password === '') {
         $message = "<div class='alert error'>Please enter your current password.</div>";
     } elseif ($new_password === '') {
         $message = "<div class='alert error'>Please enter a new password.</div>";
+    } elseif ($confirm_password === '') {
+        $message = "<div class='alert error'>Please confirm your new password.</div>";
+    } elseif ($new_password !== $confirm_password) {
+        $message = "<div class='alert error'>New passwords do not match!</div>";
     } elseif (strlen($new_password) < 8) {
-        $message = "<div class='alert error'>New password must be at least 8 characters.</div>";
+        $message = "<div class='alert error'>New password must be at least 8 characters long.</div>";
+    } elseif (!preg_match('/[A-Z]/', $new_password)) {
+        $message = "<div class='alert error'>New password must contain at least one uppercase letter (e.g., A-Z).</div>";
+    } elseif (!preg_match('/[a-z]/', $new_password)) {
+        $message = "<div class='alert error'>New password must contain at least one lowercase letter (e.g., a-z).</div>";
+    } elseif (!preg_match('/[0-9]/', $new_password)) {
+        $message = "<div class='alert error'>New password must contain at least one number (e.g., 0-9).</div>";
     } else {
         $db_pass = $admin['password'] ?? '';
         $is_match = false;
 
-        // Sinusuri pa rin natin kung tama ang current password (kaya gumagana pareho sa hash o plain text)
         if (!empty($db_pass) && password_verify($current_password, $db_pass)) {
             $is_match = true;
         } elseif (!empty($db_pass) && hash_equals($db_pass, $current_password)) {
@@ -142,7 +152,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_security'])) {
         }
 
         if ($is_match) {
-            // DITO ANG PAGBABAGO: Ginawa nating plain text ($new_password) sa halip na hashed string
             $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
             $stmt->bind_param("si", $new_password, $admin_id);
 
@@ -421,25 +430,6 @@ label {
     color: var(--muted);
     font-size: 0.82rem;
     line-height: 1.4;
-}
-
-.checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    margin-bottom: 15px;
-    cursor: pointer;
-    color: var(--text);
-    font-weight: 500;
-    width: 100%;
-}
-
-.checkbox-group input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--green);
-    cursor: pointer;
 }
 
 .button-group {
@@ -739,7 +729,15 @@ label {
 
                 <div class="form-group">
                     <label for="new_password">New Password</label>
-                    <input type="password" id="new_password" name="new_password" class="settings-input" placeholder="Enter new password" required>
+                    <input type="password" id="new_password" name="new_password" class="settings-input no-copy-paste" placeholder="Enter new password" required oncopy="return false;" onpaste="return false;" oncut="return false;" oncontextmenu="return false;">
+                    <small class="field-note">
+                        Must be at least 8 characters long, include at least one uppercase letter, one lowercase letter, and one number.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="settings-input no-copy-paste" placeholder="Confirm new password" required oncopy="return false;" onpaste="return false;" oncut="return false;" oncontextmenu="return false;">
                 </div>
 
                 <div style="margin-top: 25px;">
@@ -892,6 +890,13 @@ function toggleEdit(isEditing) {
         cancelBtn.style.display = 'none';
     }
 }
+
+// Proteksyon laban sa copy, paste, cut, at right-click sa password fields
+document.querySelectorAll('.no-copy-paste').forEach(input => {
+    ['copy', 'paste', 'cut', 'contextmenu'].forEach(event => {
+        input.addEventListener(event, (e) => e.preventDefault());
+    });
+});
 </script>
 
 <?php include 'footer.php'; ?>
