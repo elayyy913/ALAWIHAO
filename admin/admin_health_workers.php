@@ -267,10 +267,16 @@ if (!$result) {
     }
 
     function confirmDelete(id, type, name) {
-        document.getElementById('deleteMsg').innerHTML = `Are you sure you want to remove <strong>${name}</strong>? This will permanently delete their account and access.`;
-        document.getElementById('confirmDeleteBtn').href = `delete_worker.php?id=${id}&type=${type}`;
-        document.getElementById('deleteConfirmModal').style.display = 'flex';
-    }
+            document.getElementById('deleteMsg').innerHTML = `Are you sure you want to remove <strong>${name}</strong>? This will permanently delete their account and access.`;
+            
+           
+            const deleteBtn = document.getElementById('confirmDeleteBtn');
+            deleteBtn.onclick = function() {
+                window.location.href = `delete_worker.php?id=${id}&type=${type}`;
+            };
+            
+            document.getElementById('deleteConfirmModal').style.display = 'flex';
+        }
 
     function closeModal(id) {
         document.getElementById(id).style.display = 'none';
