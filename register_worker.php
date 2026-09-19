@@ -73,12 +73,11 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
         }
         input:focus { outline: none; border-color: var(--sage); background: white; }
 
-        /* Style para sa error message */
         .match-error { 
             color: var(--error); 
             font-size: 0.75rem; 
             margin-top: 5px; 
-            display: none; /* Hidden by default */
+            display: none; 
         }
 
         .btn-register { 
@@ -96,6 +95,32 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
         .btn-register:disabled { background: #CBD5E0; cursor: not-allowed; transform: none; }
         .btn-register:hover:not(:disabled) { background: var(--dark-sage); transform: translateY(-2px); }
         .back-link { display: block; text-align: center; margin-top: 20px; color: #A0AEC0; text-decoration: none; font-size: 0.85rem; }
+
+        /* --- SUCCESS POP-UP MODAL STYLING --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-pad {
+            background: white;
+            width: 400px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            text-align: center;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .success-icon {
+            font-size: 3rem;
+            color: #48BB78;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -107,7 +132,7 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
         <h2>Register Worker</h2>
         <p class="subtitle">Create a new account for health center personnel.</p>
         
-        <form action="register_worker_process.php" method="POST" id="registrationForm">
+        <form id="registrationForm">
             <div class="id-container">
                 <span class="id-label">System Generated ID</span>
                 <span class="id-value"><?php echo $newGeneratedID; ?></span>
@@ -135,7 +160,6 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
                 <div style="position: relative;">
                     <input type="password" name="password" id="password" minlength="8" placeholder="Min. 8 characters" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
                     <span id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; user-select: none; display: flex; align-items: center;">
-                        <!-- Eye-slash (Default closed) -->
                         <svg id="eyeIcon1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                     </span>
                 </div>
@@ -146,7 +170,6 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
                 <div style="position: relative;">
                     <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
                     <span id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; user-select: none; display: flex; align-items: center;">
-                        <!-- Eye-slash (Default closed) -->
                         <svg id="eyeIcon2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                     </span>
                 </div>
@@ -167,7 +190,17 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
             <button type="submit" class="btn-register" id="submitBtn">Complete Registration</button>
         </form>
         
-        <a href="admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
+        <a href="admin/admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
+    </div>
+</div>
+
+<!-- SUCCESS POP-UP MODAL -->
+<div class="modal-overlay" id="successModal">
+    <div class="modal-pad">
+        <div class="success-icon">✔️</div>
+        <h3 style="margin: 0 0 10px 0; color: var(--dark-sage);">Registration Successful!</h3>
+        <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;" id="successMsgText">The health worker account has been successfully registered.</p>
+        <button onclick="window.location.href='admin/admin_health_workers.php'" style="background: var(--dark-sage); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;">View Personnel Directory</button>
     </div>
 </div>
 
@@ -180,10 +213,8 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
     const contactErrorMsg = document.getElementById('contactError');
     const submitBtn = document.getElementById('submitBtn');
 
-    // Toggle Password Visibility Logic (SVG Line Icons)
     const togglePasswordBtn = document.getElementById('togglePassword');
     const eyeIcon1 = document.getElementById('eyeIcon1');
-    
     const toggleConfirmPasswordBtn = document.getElementById('toggleConfirmPassword');
     const eyeIcon2 = document.getElementById('eyeIcon2');
 
@@ -206,7 +237,6 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
         let isPasswordValid = true;
         let isContactValid = true;
 
-        // Password matching check
         if (confirm_password.value !== "" && password.value !== confirm_password.value) {
             passwordErrorMsg.style.display = "block";
             confirm_password.style.borderColor = "#E53E3E";
@@ -216,7 +246,6 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
             if(confirm_password.value !== "") confirm_password.style.borderColor = "#8DAE74";
         }
 
-        // Contact number format check (must start with 09 and be exactly 11 digits)
         const contactVal = contactInput.value;
         if (contactVal.length > 0) {
             if (!contactVal.startsWith('09') || contactVal.length !== 11) {
@@ -232,15 +261,13 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
             isContactValid = false;
         }
 
-        // Enable or disable submit button based on both validations
         if (isPasswordValid && isContactValid && password.value === confirm_password.value && confirm_password.value !== "") {
             submitBtn.disabled = false;
         } else {
-            // Keep disabled if requirements aren't fully met
+            submitBtn.disabled = true;
         }
     }
 
-    // Auto-filter contact input to numbers only and restrict length
     contactInput.addEventListener('input', function (e) {
         this.value = this.value.replace(/[^0-9]/g, '');
         validateForm();
@@ -248,6 +275,27 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
 
     password.addEventListener('keyup', validateForm);
     confirm_password.addEventListener('keyup', validateForm);
+
+    // --- AJAX SUBMISSION PARA SA POP-UP MODAL ---
+    const registrationForm = document.getElementById('registrationForm');
+    registrationForm.addEventListener('submit', function(e) {
+        e.preventDefault(); // Pigilan ang normal page reload
+        
+        const formData = new FormData(registrationForm);
+
+        fetch('register_worker_process.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(data => {
+            // Ipakita ang Success Pop-up Modal
+            document.getElementById('successModal').style.display = 'flex';
+        })
+        .catch(error => {
+            alert('An error occurred during registration.');
+        });
+    });
 </script>
 
 </body>
