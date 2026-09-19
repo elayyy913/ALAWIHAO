@@ -749,7 +749,7 @@ label {
             </form>
         </div>
 
-        <!-- ACCOUNT RECOVERY CARD -->
+<!-- ACCOUNT RECOVERY CARD -->
         <div class="settings-card">
 
             <div class="settings-section-title">
@@ -761,7 +761,8 @@ label {
                 Once updated, the new email will be used for login and password recovery.
             </p>
 
-            <form method="POST">
+            <!-- Tanging isang form tag na lang na patungong send_otp.php -->
+            <form action="send_otp.php" method="POST">
 
                 <div class="form-group">
                     <label>Current Email</label>
@@ -802,7 +803,7 @@ label {
 
                 <button type="submit" name="update_recovery" class="btn btn-primary-action">
                     <i class="fa fa-envelope-circle-check"></i>
-                    Update Recovery Email
+                    Send OTP Verification
                 </button>
 
             </form>
@@ -810,7 +811,7 @@ label {
             <div class="recovery-info" style="margin-top: 20px;">
                 <i class="fa fa-circle-info"></i>
                 <span>
-                    Your new email will replace your old email in the account.
+                    A verification code will be sent to your new email address.
                     Your password will remain unchanged.
                 </span>
             </div>
