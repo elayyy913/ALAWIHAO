@@ -19,27 +19,19 @@ if (isset($_SESSION['user_id'])) {
     }
 }
 
-// 3. FETCH PERSONNEL DATA (Deduplicated and Fixed Status)
-$query = "SELECT uid, generated_id, first_name, last_name, email, role_type, 
+// 3. FETCH PERSONNEL DATA (Admin at Super Admin lang, na may Online/Offline Status)
+$query = "SELECT id AS uid, generated_id, first_name, last_name, email, role AS role_type, 
                  CASE WHEN last_activity IS NOT NULL AND last_activity >= NOW() - INTERVAL 2 MINUTE THEN 'Online' ELSE 'Offline' END AS current_status, 
                  address, contact_number, last_activity 
-          FROM (
-             SELECT id AS uid, generated_id, first_name, last_name, email, 'Admin' as role_type,
-                    address, contact_number, last_activity
-             FROM users WHERE role IN ('Admin', 'Super Admin') AND status = 'Approved'
-             UNION
-             SELECT worker_id AS uid, generated_id, first_name, last_name, email, 'Worker' as role_type,
-                    address, contact_number, last_activity
-             FROM health_workers WHERE status = 'approved'
-          ) AS combined_workers 
-          GROUP BY email 
+          FROM users 
+          WHERE role IN ('Admin', 'Super Admin') AND status = 'Approved'
           ORDER BY (last_activity IS NOT NULL AND last_activity >= NOW() - INTERVAL 2 MINUTE) DESC, last_activity DESC, first_name ASC";
+
 $result = mysqli_query($conn, $query);
 
 if (!$result) {
     die("SQL Error: " . mysqli_error($conn));
 }
-
 ?>
 
 <!DOCTYPE html>
