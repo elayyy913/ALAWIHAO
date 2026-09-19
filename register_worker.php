@@ -130,22 +130,28 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
                 <input type="email" name="email" required>
             </div>
 
-        <div class="input-group">
-                    <label>Set Password</label>
-                    <div style="position: relative;">
-                        <input type="password" name="password" id="password" minlength="8" placeholder="Min. 8 characters" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
-                        <span id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; font-size: 0.85rem; user-select: none;"></span>
-                    </div>
+            <div class="input-group">
+                <label>Set Password</label>
+                <div style="position: relative;">
+                    <input type="password" name="password" id="password" minlength="8" placeholder="Min. 8 characters" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
+                    <span id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; user-select: none; display: flex; align-items: center;">
+                        <!-- Eye-slash (Default closed) -->
+                        <svg id="eyeIcon1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    </span>
                 </div>
+            </div>
 
-                <div class="input-group">
-                    <label>Confirm Password</label>
-                    <div style="position: relative;">
-                        <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
-                        <span id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; font-size: 0.85rem; user-select: none;"></span>
-                    </div>
-                    <div id="passwordError" class="match-error">Passwords do not match!</div>
+            <div class="input-group">
+                <label>Confirm Password</label>
+                <div style="position: relative;">
+                    <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" oncopy="return false" onpaste="return false" oncut="return false" required style="padding-right: 40px;">
+                    <span id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #718096; user-select: none; display: flex; align-items: center;">
+                        <!-- Eye-slash (Default closed) -->
+                        <svg id="eyeIcon2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    </span>
                 </div>
+                <div id="passwordError" class="match-error">Passwords do not match!</div>
+            </div>
 
             <div class="input-group">
                 <label>Home Address</label>
@@ -161,7 +167,7 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
             <button type="submit" class="btn-register" id="submitBtn">Complete Registration</button>
         </form>
         
-        <a href="admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
+        <a href="admin/admin_health_workers.php" class="back-link">← Cancel and Go Back</a>
     </div>
 </div>
 
@@ -173,6 +179,28 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
     const contactInput = document.getElementById('contact_number');
     const contactErrorMsg = document.getElementById('contactError');
     const submitBtn = document.getElementById('submitBtn');
+
+    // Toggle Password Visibility Logic (SVG Line Icons)
+    const togglePasswordBtn = document.getElementById('togglePassword');
+    const eyeIcon1 = document.getElementById('eyeIcon1');
+    
+    const toggleConfirmPasswordBtn = document.getElementById('toggleConfirmPassword');
+    const eyeIcon2 = document.getElementById('eyeIcon2');
+
+    const eyeOpenSVG = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+    const eyeClosedSVG = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+
+    togglePasswordBtn.addEventListener('click', function () {
+        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        eyeIcon1.innerHTML = type === 'password' ? eyeClosedSVG : eyeOpenSVG;
+    });
+
+    toggleConfirmPasswordBtn.addEventListener('click', function () {
+        const type = confirm_password.getAttribute('type') === 'password' ? 'text' : 'password';
+        confirm_password.setAttribute('type', type);
+        eyeIcon2.innerHTML = type === 'password' ? eyeClosedSVG : eyeOpenSVG;
+    });
 
     function validateForm() {
         let isPasswordValid = true;
