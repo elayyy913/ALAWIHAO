@@ -94,7 +94,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mail->Host       = 'smtp.gmail.com'; // Ilagay ang SMTP host ninyo
         $mail->SMTPAuth   = true;
         $mail->Username   = 'alawihaohealth@gmail.com'; // Ilagay ang email ng health center/system
-        $mail->Password   = 'Alawihao123'; // App Password ng email
+        $mail->Password   = 'shlycwzyckzszsen'; // Ang iyong bagong Google App Password
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 

@@ -1,8 +1,6 @@
 log in/ sign up 
 
 fix all toogle notifications in here
-background photo needed sa sign in same sa photo bg ng login at ng forgot pass page
-yung password if di nameet yung security di dapat makakapasok
 dapat may security ang history page hindi dapat nababalik sa page kapag tig press yung arrow in the upper left 
 
 
