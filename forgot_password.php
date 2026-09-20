@@ -32,16 +32,14 @@
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.85); /* Semi-transparent white */
-            backdrop-filter: blur(8px); /* Nagbibigay ng glass blur effect sa likod */
-            -webkit-backdrop-filter: blur(8px); /* Para sa Safari support */
+            background: rgba(240, 243, 240, 0.88); /* Non-blurry transparent look na katulad ng reference mo */
             width: 100%;
             max-width: 400px;
             padding: 40px;
             border-radius: 24px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.3); /* Magandang border para sa transparent look */
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
 
         .icon-box {
