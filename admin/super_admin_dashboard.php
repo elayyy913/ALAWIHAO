@@ -8,20 +8,13 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
     exit();
 }
 
-// --- HANDLE WORKER APPROVAL / REJECTION LOCALLY (SUPER ADMIN ONLY) ---
-if (isset($_GET['approve_worker_id'])) {
-    $worker_id = intval($_GET['approve_worker_id']);
-    mysqli_query($conn, "UPDATE users SET status='Approved' WHERE id=$worker_id AND role='Admin'");
-    header("Location: super_admin_dashboard.php?success=worker_approved");
-    exit();
-}
-
-if (isset($_GET['remove_worker_id'])) {
-    $worker_id = intval($_GET['remove_worker_id']);
-    mysqli_query($conn, "DELETE FROM users WHERE id=$worker_id AND role='Admin'");
-    header("Location: super_admin_dashboard.php?success=worker_removed");
-    exit();
-}
+// --- WORKER APPROVAL / REJECTION ---
+// Inalis na ang lokal na handler dito. Ang approve_worker_id / remove_worker_id
+// ay dapat na pumunta sa process_verification.php (mas kumpleto ang logic doon:
+// hinahawakan din nito ang health_workers table, hindi lang ang users table).
+// Sa verification pad(s), gawin ang links/buttons na:
+//   process_verification.php?approve_worker_id=...&redirect=super_admin_dashboard.php
+//   process_verification.php?remove_worker_id=...&redirect=super_admin_dashboard.php
 
 // Para sa notification badge sa sidebar
 $pending_workers_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0;
@@ -454,11 +447,13 @@ if (check_table_exists($conn, 'schedules')) {
     <div class="dashboard-grid">
         
         <!-- LEFT COLUMN -->
-        <!-- Ang 3 pending/verification tables (Worker, Newborn, Maternal) ay nasa
-             hiwalay na file na ngayon: verification_pad.php. Umaasa ang $conn,
-             $pending_workers, $pending_list, at $pending_preg_list (na naka-define
-             sa itaas ng file na ito) sa loob ng include na ito. -->
-        <?php include 'worker_verification_pad.php'; ?>
+        <!-- Ang Worker, Newborn, at Maternal pending/verification tables ay kasalukuyang
+             nasa loob pa ng maternal_verification_pad.php (TODO: ililipat pa ang Newborn
+             pad papunta sa sarili nitong file, hal. infant_verification_pad.php).
+             Umaasa ang $conn, $pending_workers, $pending_list, at $pending_preg_list
+             (na naka-define sa itaas ng file na ito) sa loob ng mga include na ito. -->
+        <?php include 'maternal_verification_pad.php'; ?>
+        <?php // include 'infant_verification_pad.php'; -- idadagdag pagkatapos ma-split ?>
 
         <!-- RIGHT COLUMN -->
         <div class="right-column">s
