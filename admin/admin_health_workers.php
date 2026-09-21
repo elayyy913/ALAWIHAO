@@ -113,7 +113,12 @@ if (!$result) {
         <div class="card-header">
             <h2 style="color: var(--dark-sage); margin: 0;">Personnel Directory</h2>
             <?php if ($_SESSION['role'] === 'Super Admin'): ?>
-                <a href="../register_worker.php" class="btn-add">+ Register Worker</a>
+                <!-- register_worker.php ay nasa ROOT (FINAL_CAPSTONE/), kaya "../" papunta dito.
+                     Ang "redirect" value ay relative sa ROOT din (kaya may "admin/" prefix),
+                     dahil doon ie-evaluate ni register_worker.php ang value na ito.
+                     Destination: admin/super_admin_dashboard.php diretso sa "Pending Staff
+                     Worker Accounts" pad (id="pendingWorkersPad") para doon i-verify/approve. -->
+                <a href="../register_worker.php?redirect=admin/super_admin_dashboard.php%23pendingWorkersPad" class="btn-add">+ Register Worker</a>
             <?php endif; ?>
         </div>
 
