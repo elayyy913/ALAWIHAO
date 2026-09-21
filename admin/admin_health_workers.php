@@ -227,14 +227,24 @@ if (!$result) {
 
 <div class="modal-overlay" id="deleteConfirmModal">
     <div class="modal-pad" style="width: 400px;">
-        <div class="modal-body" style="padding-top: 35px;">
-            <h3 style="margin:0; color: #2D3748;">Confirm Deletion</h3>
-            <p id="deleteMsg" style="color: #718096; font-size: 0.9rem; line-height: 1.5; margin-top: 10px;"></p>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-action-secondary" onclick="closeModal('deleteConfirmModal')">Cancel</button>
-            <a id="confirmDeleteBtn" href="#" class="btn-action-danger">Delete Personnel</a>
-        </div>
+        <form id="deleteForm" action="delete_worker.php" method="POST">
+            <div class="modal-body" style="padding-top: 35px;">
+                <h3 style="margin:0; color: #2D3748;">Confirm Deletion</h3>
+                <p id="deleteMsg" style="color: #718096; font-size: 0.9rem; line-height: 1.5; margin-top: 10px;"></p>
+
+                <input type="hidden" name="id" id="deleteTargetId">
+                <input type="hidden" name="type" id="deleteTargetType">
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>Enter Your Password to Confirm</label>
+                    <input type="password" name="confirm_password" id="deleteConfirmPassword" required autocomplete="current-password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-action-secondary" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+                <button type="submit" class="btn-action-danger" style="border:none; cursor:pointer;">Delete Personnel</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -265,13 +275,11 @@ if (!$result) {
 
     function confirmDelete(id, type, name) {
             document.getElementById('deleteMsg').innerHTML = `Are you sure you want to remove <strong>${name}</strong>? This will permanently delete their account and access.`;
-            
-           
-            const deleteBtn = document.getElementById('confirmDeleteBtn');
-            deleteBtn.onclick = function() {
-                window.location.href = `delete_worker.php?id=${id}&type=${type}`;
-            };
-            
+
+            document.getElementById('deleteTargetId').value = id;
+            document.getElementById('deleteTargetType').value = type;
+            document.getElementById('deleteConfirmPassword').value = '';
+
             document.getElementById('deleteConfirmModal').style.display = 'flex';
         }
 
@@ -279,10 +287,15 @@ if (!$result) {
         document.getElementById(id).style.display = 'none';
     }
 
-    // Handle Success Redirects
+    // Handle Success/Error Redirects
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('msg')) {
+        if (urlParams.has('error')) {
+            document.getElementById('alertTitle').innerText = 'Action Failed';
+            document.getElementById('alertMsg').innerText = urlParams.get('error');
+            document.getElementById('alertModal').style.display = 'flex';
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (urlParams.has('msg')) {
             document.getElementById('alertTitle').innerText = 'Update Successful';
             document.getElementById('alertMsg').innerText = urlParams.get('msg');
             document.getElementById('alertModal').style.display = 'flex';
