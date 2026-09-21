@@ -100,11 +100,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
 
-        // 5. Tamang pag-redirect papunta sa user dashboard o records
-        $redirect_page = '../user_maternal_records.php'; 
+        // 5. Dynamic Redirection batay sa Role ng nag-login
+        if (isset($_SESSION['role'])) {
+            if ($_SESSION['role'] === 'Super Admin') {
+                $redirect_page = 'super_admin_dashboard.php'; 
+            } elseif ($_SESSION['role'] === 'Admin') {
+                $redirect_page = 'admin_dashboard.php'; 
+            } else {
+                $redirect_page = '../user_maternal_records.php';
+            }
+        } else {
+            $redirect_page = '../user_maternal_records.php';
+        }
 
         echo "<script>
-                alert('Registration submitted successfully! Please wait for admin approval before it appears in your active records.');
+                alert('Registration submitted successfully!');
                 window.location.href = '$redirect_page';
             </script>";
         exit();
