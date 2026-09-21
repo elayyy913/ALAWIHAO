@@ -3,9 +3,24 @@ session_start();
 include('db_connect.php');
 // Security: Check if logged in and is Super Admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
-    header("Location: admin/super_admin_dashboard.php?msg=Worker+successfully+registered");
+    header("Location: admin/super_admin_dashboard.php");
     exit(); 
 }
+
+/** * REDIRECT TARGET (saan babalik pagkatapos mag-successfully register) **
+ * Nanggagaling ito sa "+ Register Worker" link ng admin_health_workers.php:
+ *   ?redirect=admin/super_admin_dashboard.php#pendingWorkersPad
+ * Ini-whitelist para hindi maging open-redirect (di basta-basta susundin
+ * ang kahit anong value na ipasa sa URL).
+ */
+$allowedRedirects = [
+    'admin/super_admin_dashboard.php#pendingWorkersPad',
+    'admin/admin_health_workers.php',
+];
+$requestedRedirect = $_GET['redirect'] ?? '';
+$redirectTarget = in_array($requestedRedirect, $allowedRedirects, true)
+    ? $requestedRedirect
+    : 'admin/admin_health_workers.php';
 
 /** * LOGIC PARA SA AUTO-GENERATED ID **/
 $currentYear = date("Y");
@@ -200,7 +215,7 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
         <div class="success-icon">✔️</div>
         <h3 style="margin: 0 0 10px 0; color: var(--dark-sage);">Registration Successful!</h3>
         <p style="color: var(--text-gray); font-size: 0.9rem; margin-bottom: 20px;" id="successMsgText">The health worker account has been successfully registered.</p>
-        <button onclick="window.location.href='admin/admin_health_workers.php'" style="background: var(--dark-sage); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;">View Personnel Directory</button>
+        <button onclick="window.location.href='<?php echo htmlspecialchars($redirectTarget, ENT_QUOTES); ?>'" style="background: var(--dark-sage); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;"><?php echo ($redirectTarget !== 'admin/admin_health_workers.php') ? 'Go to Pending Worker Verification' : 'View Personnel Directory'; ?></button>
     </div>
 </div>
 
@@ -289,8 +304,14 @@ $newGeneratedID = $currentYear . '-' . $formattedNumber;
         })
         .then(response => response.text())
         .then(data => {
-            // Ipakita ang Success Pop-up Modal
-            document.getElementById('successModal').style.display = 'flex';
+            const trimmed = data.trim();
+            if (trimmed.startsWith('SUCCESS')) {
+                // Ipakita ang Success Pop-up Modal
+                document.getElementById('successModal').style.display = 'flex';
+            } else {
+                // Ipakita ang totoong dahilan ng pagka-fail (hal. SQL error, duplicate ID, atbp.)
+                alert('Registration failed:\n\n' + trimmed);
+            }
         })
         .catch(error => {
             alert('An error occurred during registration.');

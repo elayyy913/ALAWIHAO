@@ -13,6 +13,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $contact      = mysqli_real_escape_string($conn, $_POST['contact_number']);
     
     // Status is 'approved'
+    // NOTE: health_workers.status ay hiwalay sa users.status (baba). Nilagyan pa rin
+    // itong 'approved' dahil hindi ko alam kung may ibang page na umaasa dito. Kung
+    // pareho dapat ang pag-uugali (Pending muna hangga't hindi na-vverify), sabihin mo
+    // lang para maisama ko rin ito.
     $status = 'approved';
 
     // 1. I-INSERT SA HEALTH_WORKERS TABLE (Nilagyan ng last_activity = NULL)
@@ -22,21 +26,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (mysqli_query($conn, $sql_worker)) {
         
         // 2. I-INSERT DIN SA USERS TABLE (Nilagyan din ng last_activity = NULL)
+        // NOTE: 'Pending' (hindi 'Approved') dapat dito - ito yung ginagamit ng
+        // super_admin_dashboard.php sa query nito (WHERE role='Admin' AND status='Pending')
+        // para lumabas ang bagong worker sa "Pending Staff Worker Accounts" pad.
+        // Kapag 'Approved' agad, ma-sskip yung buong verification step at diretso na
+        // itong lalabas sa Personnel Directory (admin_health_workers.php) bilang approved.
         $sql_user = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status, last_activity) 
-                     VALUES ('$generated_id', '$first_name', '$last_name', '$email', '$password', 'Admin', 'Approved', NULL)";
+                     VALUES ('$generated_id', '$first_name', '$last_name', '$email', '$password', 'Admin', 'Pending', NULL)";
         
         if (mysqli_query($conn, $sql_user)) {
-            // Success sa dalawang table! 
-            echo "<script>
-                    alert('Worker Registered Successfully and added to Users Inventory! ID: $generated_id');
-                    window.location.href='admin/admin_health_workers.php'; 
-                  </script>";
+            // Success sa dalawang table!
+            echo "SUCCESS:$generated_id";
         } else {
-            echo "Error adding to Users Inventory: " . mysqli_error($conn);
+            echo "ERROR: Failed to add to Users table - " . mysqli_error($conn);
         }
 
     } else {
-        echo "Error: " . $sql_worker . "<br>" . mysqli_error($conn);
+        echo "ERROR: Failed to add to Health Workers table - " . mysqli_error($conn);
     }
 } else {
     header("Location: register_worker.php");
