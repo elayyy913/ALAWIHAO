@@ -35,14 +35,7 @@ or iindicate dun yung kung sino ang nag make ng update
 (admin pages)
 
 1. sa home yung schedule tapos yung pag resched  (M)
-2. sa profile yung makakapaglagay sila ng profile picture and dagdagan ang hinihingi na personal data (C)
-3. pag mag eedit ng profile needed ng password (C)
-4. tapos maglalagay ng recovery email for security purposes na if makalimot ng access ng acc and so on (C)
 5. sa history needed na makikita dun yung ginawa nila just their movements  sa acc. pag confirm and verify etc(M)
-6. setting is darkmode(R)
-
-
-
 
 
 (general fixing)
