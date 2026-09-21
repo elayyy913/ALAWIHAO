@@ -17,6 +17,8 @@ or iindicate dun yung kung sino ang nag make ng update
 10. ayusin ang schedule ilalagay mana lang
 11. history needed lahat ng movements mapa verify, sched and resched needed na marecord not just ffrom superadmin
 12. setting is darkmode lang
+13. magdagdag ng activity graph sa super admin (kung nataas ba or nababa ang bilang ng success nilng pag ooperate ng vaccinations)
+14. sa setting yung recovery email din
 
 
 

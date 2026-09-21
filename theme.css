@@ -1,0 +1,368 @@
+/*
+ * theme.css — Dark / Light mode overrides for Alawihao Health Center
+ * Applied via [data-theme="dark"] on <html>
+ */
+
+/* ── Smooth transitions ───────────────────────────────────────── */
+*, *::before, *::after {
+    transition: background-color 0.25s ease, color 0.2s ease,
+                border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ── LIGHT mode (default) ─────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+    --dm-bg:           #F9F9F4;
+    --dm-surface:      #FFFFFF;
+    --dm-surface2:     #F4F7F0;
+    --dm-text:         #2D2D2D;
+    --dm-text2:        #555;
+    --dm-muted:        #6b7280;
+    --dm-border:       #E1E1D7;
+    --dm-hover:        #F0F5EC;
+    --dm-sage:         #8DAE74;
+    --dm-dark-sage:    #5A6B47;
+    --dm-input-bg:     #FFFFFF;
+    --dm-input-border: #E1E1D7;
+    --dm-card-shadow:  0 2px 8px rgba(0,0,0,0.06);
+    --dm-sidebar-bg:   #FFFFFF;
+    --dm-topbar-bg:    #FFFFFF;
+    --dm-topbar-border:#E1E1D7;
+    --dm-table-head:   #F4F4ED;
+    --dm-table-stripe: #F9FAF6;
+    --dm-badge-bg:     #F0F5EC;
+}
+
+/* ── DARK mode ────────────────────────────────────────────────── */
+[data-theme="dark"] {
+    --dm-bg:           #1A1D1B;
+    --dm-surface:      #242826;
+    --dm-surface2:     #2C302C;
+    --dm-text:         #E8EDE5;
+    --dm-text2:        #B8C4B0;
+    --dm-muted:        #8A9886;
+    --dm-border:       #3A403A;
+    --dm-hover:        #2E3530;
+    --dm-sage:         #8DAE74;
+    --dm-dark-sage:    #A8C88E;
+    --dm-input-bg:     #2C302C;
+    --dm-input-border: #3A403A;
+    --dm-card-shadow:  0 2px 8px rgba(0,0,0,0.4);
+    --dm-sidebar-bg:   #1E221E;
+    --dm-topbar-bg:    #1E221E;
+    --dm-topbar-border:#3A403A;
+    --dm-table-head:   #2C302C;
+    --dm-table-stripe: #232723;
+    --dm-badge-bg:     #2A3028;
+}
+
+/* ── Global body & background ─────────────────────────────────── */
+[data-theme="dark"] body {
+    background-color: var(--dm-bg) !important;
+    color: var(--dm-text) !important;
+}
+
+/* ── Cards, panels, modals ────────────────────────────────────── */
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .table-container,
+[data-theme="dark"] .analytics-section,
+[data-theme="dark"] .analytic-card,
+[data-theme="dark"] .schedule-item,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .section-card,
+[data-theme="dark"] .toc-box,
+[data-theme="dark"] .key-takeaway,
+[data-theme="dark"] .highlight-box,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .settings-card,
+[data-theme="dark"] .info-card,
+[data-theme="dark"] .welcome-banner,
+[data-theme="dark"] .records-card,
+[data-theme="dark"] .form-card,
+[data-theme="dark"] .table-card,
+[data-theme="dark"] .header-box,
+[data-theme="dark"] .content-container > * {
+    background-color: var(--dm-surface) !important;
+    border-color: var(--dm-border) !important;
+    color: var(--dm-text) !important;
+}
+
+/* ── Main content areas ───────────────────────────────────────── */
+[data-theme="dark"] #main,
+[data-theme="dark"] #main-wrapper,
+[data-theme="dark"] .main-content,
+[data-theme="dark"] .container,
+[data-theme="dark"] .content-container,
+[data-theme="dark"] .inventory-container {
+    background-color: var(--dm-bg) !important;
+    color: var(--dm-text) !important;
+}
+
+/* ── Topbar ───────────────────────────────────────────────────── */
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .page-header,
+[data-theme="dark"] .welcome-title {
+    background-color: var(--dm-topbar-bg) !important;
+    border-color: var(--dm-topbar-border) !important;
+    color: var(--dm-text) !important;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .side-nav-new,
+[data-theme="dark"] #mySidenav,
+[data-theme="dark"] #mainSidebar,
+[data-theme="dark"] .sidebar-container {
+    background-color: var(--dm-sidebar-bg) !important;
+    border-color: var(--dm-border) !important;
+}
+[data-theme="dark"] .nav-link,
+[data-theme="dark"] .nav-item-new,
+[data-theme="dark"] .dropdown-btn,
+[data-theme="dark"] .dropdown-btn-new {
+    color: var(--dm-text2) !important;
+}
+[data-theme="dark"] .nav-link:hover,
+[data-theme="dark"] .nav-item-new:hover,
+[data-theme="dark"] .dropdown-btn:hover {
+    background-color: var(--dm-hover) !important;
+    color: var(--dm-sage) !important;
+}
+[data-theme="dark"] .nav-link.active,
+[data-theme="dark"] .nav-item-new.active {
+    background-color: var(--dm-sage) !important;
+    color: #fff !important;
+}
+
+/* ── Tables ───────────────────────────────────────────────────── */
+[data-theme="dark"] table,
+[data-theme="dark"] .table-container table {
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] th {
+    background-color: var(--dm-table-head) !important;
+    color: var(--dm-text2) !important;
+    border-color: var(--dm-border) !important;
+}
+[data-theme="dark"] td {
+    border-color: var(--dm-border) !important;
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] tr:nth-child(even) td {
+    background-color: var(--dm-table-stripe) !important;
+}
+[data-theme="dark"] tr:hover td {
+    background-color: var(--dm-hover) !important;
+}
+
+/* ── Inputs, selects, textareas ───────────────────────────────── */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+[data-theme="dark"] .settings-input,
+[data-theme="dark"] .search-wrapper input {
+    background-color: var(--dm-input-bg) !important;
+    border-color: var(--dm-input-border) !important;
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: var(--dm-muted) !important;
+}
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+    border-color: var(--dm-sage) !important;
+    box-shadow: 0 0 0 3px rgba(141, 174, 116, 0.2) !important;
+}
+
+/* ── Headings & text ──────────────────────────────────────────── */
+[data-theme="dark"] h1, [data-theme="dark"] h2,
+[data-theme="dark"] h3, [data-theme="dark"] h4,
+[data-theme="dark"] h5, [data-theme="dark"] p,
+[data-theme="dark"] span, [data-theme="dark"] label,
+[data-theme="dark"] small, [data-theme="dark"] li {
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] .text-muted,
+[data-theme="dark"] .muted { color: var(--dm-muted) !important; }
+
+/* ── Specific text elements that need better visibility ─────────── */
+[data-theme="dark"] .page-label,
+[data-theme="dark"] .topbar .page-label,
+[data-theme="dark"] .logo-text span,
+[data-theme="dark"] .logo-text strong,
+[data-theme="dark"] .settings-section-title,
+[data-theme="dark"] .info-value,
+[data-theme="dark"] .form-group label,
+[data-theme="dark"] .danger-text,
+[data-theme="dark"] .checkbox-group {
+    color: var(--dm-text) !important;
+}
+
+/* ── Green text elements need to be visible in dark mode ─────────── */
+[data-theme="dark"] .settings-section-title,
+[data-theme="dark"] .page-label {
+    color: var(--dm-sage) !important;
+}
+
+/* ── Danger zone text override ──────────────────────────────────── */
+[data-theme="dark"] .danger-title {
+    color: #ff6b6b !important;
+}
+
+[data-theme="dark"] .danger-card {
+    background-color: rgba(255, 107, 107, 0.1) !important;
+    border-color: rgba(255, 107, 107, 0.3) !important;
+}
+
+/* ── Links ────────────────────────────────────────────────────── */
+[data-theme="dark"] a { color: var(--dm-sage) !important; }
+[data-theme="dark"] a:hover { color: var(--dm-dark-sage) !important; }
+
+/* ── Notification dropdown ────────────────────────────────────── */
+[data-theme="dark"] .notif-dropdown {
+    background-color: var(--dm-surface) !important;
+    border-color: var(--dm-border) !important;
+}
+[data-theme="dark"] .notif-dropdown-header {
+    border-color: var(--dm-border) !important;
+    color: var(--dm-sage) !important;
+}
+[data-theme="dark"] .notif-item {
+    border-color: var(--dm-border) !important;
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] .notif-item:hover { background-color: var(--dm-hover) !important; }
+[data-theme="dark"] .notif-item.unread { background-color: var(--dm-badge-bg) !important; }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+[data-theme="dark"] .btn-approve,
+[data-theme="dark"] .btn-update,
+[data-theme="dark"] .btn-add { background-color: var(--dm-sage) !important; }
+[data-theme="dark"] .btn-back {
+    background: var(--dm-surface) !important;
+    color: var(--dm-sage) !important;
+    border-color: var(--dm-sage) !important;
+}
+
+/* ── Footer ───────────────────────────────────────────────────── */
+[data-theme="dark"] .site-footer,
+[data-theme="dark"] .article-footer {
+    background-color: var(--dm-surface) !important;
+    border-color: var(--dm-border) !important;
+    color: var(--dm-text2) !important;
+}
+
+/* ── Dropdowns ────────────────────────────────────────────────── */
+[data-theme="dark"] .dropdown-container,
+[data-theme="dark"] .dropdown-container-new {
+    background-color: var(--dm-surface2) !important;
+    border-color: var(--dm-border) !important;
+}
+
+/* ── Health Article specific elements ─────────────────────────── */
+[data-theme="dark"] .article-header {
+    background-color: var(--dm-dark-sage) !important;
+    border-color: var(--dm-sage) !important;
+}
+
+[data-theme="dark"] .article-wrap,
+[data-theme="dark"] .article-body,
+[data-theme="dark"] .section-box,
+[data-theme="dark"] .toc-item {
+    background-color: var(--dm-surface) !important;
+    border-color: var(--dm-border) !important;
+    color: var(--dm-text) !important;
+}
+
+[data-theme="dark"] .article-intro,
+[data-theme="dark"] .section-intro,
+[data-theme="dark"] .article-text {
+    color: var(--dm-text) !important;
+}
+
+[data-theme="dark"] .myth-box,
+[data-theme="dark"] .truth-box,
+[data-theme="dark"] .step-box {
+    background-color: var(--dm-surface2) !important;
+    border-color: var(--dm-border) !important;
+}
+
+[data-theme="dark"] .article-footer {
+    background-color: var(--dm-surface) !important;
+    border-color: var(--dm-border) !important;
+}
+
+[data-theme="dark"] .back-link {
+    background-color: var(--dm-surface) !important;
+    color: var(--dm-sage) !important;
+    border-color: var(--dm-sage) !important;
+}
+
+[data-theme="dark"] .back-link:hover {
+    background-color: var(--dm-sage) !important;
+    color: var(--white) !important;
+}
+
+/* ── Scrollbar (webkit) ───────────────────────────────────────── */
+[data-theme="dark"] ::-webkit-scrollbar { width: 6px; height: 6px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: var(--dm-bg); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--dm-border); border-radius: 3px; }
+
+/* ── Theme toggle button styles ───────────────────────────────── */
+.theme-toggle-btn {
+    background: none;
+    border: 1px solid var(--dm-border, #E1E1D7);
+    border-radius: 20px;
+    padding: 4px 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--dm-text, #2D2D2D);
+    background-color: var(--dm-surface, #fff);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.theme-toggle-btn:hover {
+    border-color: var(--dm-sage, #8DAE74);
+    color: var(--dm-sage, #8DAE74);
+}
+
+/* Settings section for theme selection */
+.theme-mode-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.theme-mode-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 20px;
+    border: 2px solid var(--dm-border, #E1E1D7);
+    border-radius: 10px;
+    cursor: pointer;
+    background: var(--dm-surface, #fff);
+    color: var(--dm-text, #2D2D2D);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    min-width: 80px;
+}
+.theme-mode-btn .mode-icon { font-size: 1.4rem; }
+.theme-mode-btn:hover {
+    border-color: var(--dm-sage, #8DAE74);
+    background: var(--dm-hover, #F0F5EC);
+}
+.theme-mode-btn.active {
+    border-color: var(--dm-sage, #8DAE74);
+    background: var(--dm-badge-bg, #F0F5EC);
+    color: var(--dm-dark-sage, #5A6B47);
+}
