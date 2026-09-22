@@ -188,26 +188,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['save_profile'])) {
                         $tmp_file = $_FILES['profile_picture']['tmp_name'];
 
                         /*
-                         * Check if actual image
+                         * Check if actual images
                          */
-                        $image_info = @getimagesize($tmp_file);
+                        $images_info = @getimagesize($tmp_file);
 
-                        if ($image_info === false) {
+                        if ($images_info === false) {
 
-                            $message = "Please upload a valid image.";
+                            $message = "Please upload a valid images.";
                             $message_type = "error";
 
                         } else {
 
                             $allowed_types = [
-                                IMAGETYPE_JPEG => 'jpg',
-                                IMAGETYPE_PNG  => 'png',
-                                IMAGETYPE_WEBP => 'webp'
+                                imagesTYPE_JPEG => 'jpg',
+                                imagesTYPE_PNG  => 'png',
+                                imagesTYPE_WEBP => 'webp'
                             ];
 
-                            $image_type = $image_info[2];
+                            $images_type = $images_info[2];
 
-                            if (!isset($allowed_types[$image_type])) {
+                            if (!isset($allowed_types[$images_type])) {
 
                                 $message = "Only JPG, PNG, and WEBP images are allowed.";
                                 $message_type = "error";
@@ -226,7 +226,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['save_profile'])) {
                                 /*
                                  * Unique filename
                                  */
-                                $extension = $allowed_types[$image_type];
+                                $extension = $allowed_types[$images_type];
 
                                 $new_filename =
                                     "profile_" .
@@ -367,9 +367,9 @@ if ($stmt) {
 */
 $profile_picture = $admin['profile_picture'] ?? '';
 if (!empty($profile_picture)) {
-    $profile_image = $profile_picture;
+    $profile_images = $profile_picture;
 } else {
-    $profile_image = "";
+    $profile_images = "";
 }
 $is_verified =
     isset($_SESSION['profile_edit_verified']) &&
@@ -716,9 +716,9 @@ $is_verified =
         <!-- PROFILE PICTURE -->
 
         <div class="profile-picture-container">
-            <?php if (!empty($profile_image)): ?>
+            <?php if (!empty($profile_images)): ?>
                 <img
-                    src="<?php echo htmlspecialchars($profile_image); ?>"
+                    src="<?php echo htmlspecialchars($profile_images); ?>"
                     class="profile-picture"
                     id="profilePreview"
                     alt="Profile Picture"
@@ -927,7 +927,7 @@ $is_verified =
                     type="file"
                     name="profile_picture"
                     id="profile_picture"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="images/jpeg,images/png,images/webp"
                     style="display:none;"
                 >
             </div>
@@ -1096,12 +1096,12 @@ document
         }
 
         /*
-        Check image type
+        Check images type
          */
         const allowedTypes = [
-            "image/jpeg",
-            "image/png",
-            "image/webp"
+            "images/jpeg",
+            "images/png",
+            "images/webp"
         ];
 
         if (!allowedTypes.includes(file.type)) {
