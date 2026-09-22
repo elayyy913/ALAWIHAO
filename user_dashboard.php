@@ -10,23 +10,25 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Health Hub | Alawihao Health Center</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Segoe+UI:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --green: #2d5016;
-            --accent: #5a7c3a;
-            --light: #8fbf5a;
-            --bg: #f4f7f4;
+            --green: #5A6B47;
+            --accent: #6B8E55;
+            --light: #8DAE74;
+            --bg: #F9F9F4;
             --white: #ffffff;
-            --text: #1a2e0f;
+            --text: #2D2D2D;
             --muted: #6b7280;
-            --blue: #1e5f8e;
-            --blue-light: #e8f4fd;
-            --orange: #b45309;
-            --orange-light: #fef3c7;
-            --beige: #f5f2eb;
-            --card-border: #e2dcd0;
+            --blue: #5A6B47;
+            --blue-light: #F0F5EC;
+            --orange: #6B8E55;
+            --orange-light: #F0F5EC;
+            --beige: #F9F9F4;
+            --card-border: #E1E1D7;
             --sidebar-width: 260px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -74,39 +76,70 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             padding: 18px 30px;
             display: flex;
             align-items: center;
-            gap: 18px;
+            justify-content: space-between;
             position: sticky;
             top: 0;
             z-index: 200;
             box-shadow: 0 2px 8px rgba(0,0,0,0.03);
             width: 100%;
         }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
 
         /* HAMBURGER BUTTON SA TOPBAR */
         .hamburger-btn {
+            position: static !important;
+            float: none !important;
+            top: auto !important;
+            left: auto !important;
             background: none;
             border: none;
             font-size: 1.4rem;
             color: var(--green);
             cursor: pointer;
-            padding: 6px 10px;
+            width: 40px;
+            height: 40px;
+            padding: 0;
             border-radius: 6px;
             transition: background 0.2s;
-            display: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
         .hamburger-btn:hover {
             background: var(--bg);
         }
-        body.sidebar-closed .hamburger-btn {
-            display: inline-block;
+
+        /* Ipakita lang ang topbar hamburger kapag SARADO ang sidebar.
+           Kapag bukas ang sidebar, may sarili na itong X button, kaya itago ang hamburger. */
+        .topbar-left .hamburger-btn {
+            display: none;
+        }
+        body.sidebar-closed .topbar-left .hamburger-btn {
+            display: inline-flex;
+            margin-right: 6px;
         }
 
         /* Dynamic margin para sa logo kapag naka-close ang sidebar */
-        body.sidebar-closed .topbar img {
-            margin-left: 46px; 
+        body.sidebar-closed .topbar-left img {
+            margin-left: 0; 
             transition: margin 0.3s ease;
         }
-        .topbar img {
+        .topbar-left img {
             transition: margin 0.3s ease;
         }
 
@@ -279,19 +312,143 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         /* FOOTER */
         .site-footer {
             background: var(--white);
+            border-top: 3px solid var(--green);
+            padding: 28px 30px 20px;
             color: var(--text);
-            border-top: 1px solid var(--card-border);
-            padding: 30px 20px;
-            margin-top: 50px;
-            text-align: center;
             width: 100%;
+            margin-top: 50px;
         }
-        .site-footer h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; color: var(--green); font-family: 'Playfair Display', serif; }
-        .site-footer p { font-size: 0.82rem; color: var(--muted); line-height: 1.8; }
-        .site-footer hr { border: none; border-top: 1px solid var(--card-border); margin: 14px auto; width: 40px; }
+        .footer-inner { max-width: 1100px; margin: 0 auto; }
+        .footer-top {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr 1fr;
+            gap: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 18px;
+        }
+        @media (max-width: 768px) {
+            .footer-top { grid-template-columns: 1fr; gap: 20px; }
+        }
+        .footer-brand { display: flex; align-items: flex-start; gap: 12px; }
+        .footer-brand img {
+            width: 48px; height: 48px; border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--green);
+            flex-shrink: 0;
+        }
+        .footer-brand-text h4 {
+            font-size: 0.9rem; font-weight: 700; color: var(--green);
+            line-height: 1.3; margin-bottom: 3px;
+            font-family: 'Playfair Display', serif;
+        }
+        .footer-brand-text span {
+            font-size: 0.72rem; color: var(--muted);
+            display: block; line-height: 1.4;
+        }
+        .footer-tagline {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+        .footer-col h5 {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--green);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #D0E4C0;
+        }
+        .footer-col ul { list-style: none; padding: 0; margin: 0; }
+        .footer-col ul li {
+            font-size: 0.78rem;
+            color: var(--text);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.4;
+        }
+        .footer-col ul li i, .footer-col ul li img {
+            color: var(--green);
+            font-size: 0.72rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        .footer-col ul li strong { color: var(--green); }
+        .footer-col a { color: var(--accent); text-decoration: none; }
+        .footer-col a:hover { text-decoration: underline; }
+        .footer-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .footer-copy {
+            font-size: 0.7rem;
+            color: var(--muted);
+        }
+        .footer-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: var(--bg);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.68rem;
+            color: var(--green);
+            font-weight: 600;
+        }
+
+        /* NOTIFICATION BELL */
+        .notif-wrapper { position: relative; margin-left: auto; }
+        .notif-bell-btn {
+            background: none; border: none; cursor: pointer;
+            font-size: 1.3rem; color: var(--green); position: relative;
+            padding: 6px 10px; border-radius: 8px; transition: background 0.2s;
+        }
+        .notif-bell-btn:hover { background: var(--bg); }
+        #notifBellBadge {
+            position: absolute; top: 2px; right: 4px;
+            background: #e53e3e; color: white;
+            font-size: 0.6rem; font-weight: 700;
+            width: 17px; height: 17px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .notif-dropdown {
+            display: none; position: fixed;
+            width: 320px; background: white;
+            border: 1px solid var(--card-border); border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 99999; overflow: hidden;
+        }
+        .notif-dropdown.open { display: block; }
+        .notif-dropdown-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 16px; border-bottom: 1px solid var(--card-border);
+            font-weight: 700; font-size: 0.9rem; color: var(--green);
+        }
+        .notif-mark-all {
+            background: none; border: none; font-size: 0.75rem;
+            color: var(--muted); cursor: pointer; font-weight: 600;
+        }
+        .notif-mark-all:hover { color: var(--green); }
+        .notif-list { max-height: 320px; overflow-y: auto; }
+        .notif-item {
+            padding: 12px 16px; border-bottom: 1px solid #f0f0f0;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .notif-item:hover { background: var(--bg); }
+        .notif-item.unread { background: #f0f5eb; }
+        .notif-item .notif-title { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+        .notif-item .notif-msg  { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+        .notif-item .notif-time { font-size: 0.72rem; color: #aaa; margin-top: 4px; }
+        .notif-empty { text-align: center; padding: 30px 16px; color: var(--muted); font-size: 0.85rem; }
+        .notif-empty i { font-size: 1.8rem; margin-bottom: 8px; display: block; }
     </style>
 </head>
-<body class="sidebar-closed">
+<body>
 
 <!-- SIDEBAR CONTAINER -->
 <div class="sidebar-container">
@@ -301,15 +458,37 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
 <!-- MAIN CONTENT WRAPPER -->
 <div id="main">
     <div class="topbar">
-        <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
-            <i class="fa fa-bars"></i>
-        </button>
+        <div class="topbar-left">
+            <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+                <i class="fa fa-bars"></i>
+            </button>
 
-        <!-- Pinalaki ang sukat ng logo (50px) at ginamit ang tamang folder at file name na images/logo.jpg -->
-        <img src="images/logo.jpg" alt="Brgy Logo" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
-        <div class="logo-text">
-            <span>Barangay Alawihao Health Center</span>
-            <strong>ALAWIHAO HEALTH HUB</strong>
+            <img src="images/logo.jpg" alt="Brgy Logo" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--green);">
+            <div class="logo-text">
+                <span>Barangay Alawihao Health Center</span>
+                <strong>ALAWIHAO HEALTH HUB</strong>
+            </div>
+        </div>
+
+        <div class="topbar-right">
+            <!-- Search in topbar -->
+            <div class="topbar-search" id="topbarSearchWrapper" style="position:relative;">
+                <button id="searchToggleBtn" onclick="toggleSearch()" title="Search" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;padding:6px 10px;border-radius:8px;transition:background 0.2s;">
+                    <i class="fa fa-search"></i>
+                </button>
+                <div id="searchExpanded" style="display:none;position:absolute;right:0;top:50%;transform:translateY(-50%);width:280px;z-index:100;">
+                    <i class="fa fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;"></i>
+                    <input type="text" id="searchInput" placeholder="Maghanap ng health topic..."
+                        oninput="filterCards()"
+                        autofocus
+                        style="width:100%;padding:8px 36px 8px 34px;border-radius:20px;border:1px solid var(--card-border);background:var(--bg);font-size:0.85rem;color:var(--text);outline:none;">
+                    <button onclick="toggleSearch()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;">
+                        <i class="fa fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <?php include 'notif_bell.php'; ?>
         </div>
     </div>
 
@@ -323,11 +502,6 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             </div>
         </div>
 
-        <!-- SEARCH BAR -->
-        <div class="search-wrapper">
-            <i class="fa fa-search search-icon"></i>
-            <input type="text" id="searchInput" placeholder="Maghanap ng health topic..." oninput="filterCards()">
-        </div>
         <p class="no-results" id="noResults">Walang nahanap na topic. Subukan ang ibang keyword.</p>
 
         <!-- MATERNAL HEALTH -->
@@ -425,13 +599,43 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
     </div>
 
     <div class="site-footer">
-        <h3>Barangay Alawihao Health Center</h3>
-        <hr>
-        <p>
-            Alawihao, Daet, Camarines Norte<br>
-            Hotline: (054) 000-0000 &nbsp;|&nbsp; alawihaohealth@gmail.com
-        </p>
-        <p style="margin-top:10px; font-size:0.75rem; opacity:0.6;">(c) <?= date('Y') ?> Alawihao Health Center. All rights reserved.</p>
+        <div class="footer-inner">
+            <div class="footer-top">
+                <div>
+                    <div class="footer-brand">
+                        <img src="images/logo.jpg" alt="Brgy Logo" onerror="this.style.display='none'">
+                        <div class="footer-brand-text">
+                            <h4>Barangay Alawihao Health Center</h4>
+                            <span>Alawihao, Daet, Camarines Norte</span>
+                        </div>
+                    </div>
+                    <p class="footer-tagline">Serving the health of every family in Barangay Alawihao.</p>
+                </div>
+
+                <div class="footer-col">
+                    <h5><i class="fa fa-address-book"></i> Contact Us</h5>
+                    <ul>
+                        <li><img src="images/fb.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
+                        <li><img src="images/email.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
+                        <li><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Alawihao, Daet, Camarines Norte, 4600</li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5><i class="fa fa-clock"></i> Office Hours</h5>
+                    <ul>
+                        <li>Monday – Friday</li>
+                        <li>8:00 AM – 5:00 PM</li>
+                        <li>Closed on Saturdays, Sundays &amp; Holidays</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <span class="footer-copy">&copy; <?= date('Y') ?> Barangay Alawihao Health Center. All rights reserved.</span>
+                <span class="footer-badge"><img src="images/shield.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;"> DOH-Accredited Facility</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -439,6 +643,36 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
     function toggleSidebar() {
         document.body.classList.toggle('sidebar-closed');
     }
+
+    function toggleSearch() {
+        var expanded = document.getElementById('searchExpanded');
+        var btn = document.getElementById('searchToggleBtn');
+        if (expanded.style.display === 'none') {
+            expanded.style.display = 'block';
+            btn.style.display = 'none';
+            expanded.querySelector('input').focus();
+        } else {
+            expanded.style.display = 'none';
+            btn.style.display = 'inline-block';
+            document.getElementById('searchInput').value = '';
+            filterCards();
+        }
+    }
+
+    // Close search when clicking outside
+    document.addEventListener('click', function(e) {
+        var wrapper = document.getElementById('topbarSearchWrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+            var expanded = document.getElementById('searchExpanded');
+            var btn = document.getElementById('searchToggleBtn');
+            if (expanded && expanded.style.display !== 'none') {
+                expanded.style.display = 'none';
+                btn.style.display = 'inline-block';
+                document.getElementById('searchInput').value = '';
+                filterCards();
+            }
+        }
+    });
 
     function filterCards() {
         const query = document.getElementById('searchInput').value.toLowerCase();
@@ -455,6 +689,9 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
         });
         document.getElementById('noResults').style.display = visibleCount === 0 ? 'block' : 'none';
     }
+
+    // ── NOTIFICATION FUNCTIONS ──────────────────────────────────────────
 </script>
+<?php $notif_path = ''; include 'notif_js.php'; ?>
 </body>
 </html>
