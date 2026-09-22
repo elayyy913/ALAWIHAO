@@ -97,13 +97,13 @@ body.dark-mode .sf-badge {
 }
 </style>
 
-<?php $_img = (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) ? '../image/' : 'image/'; ?>
+<?php $_img = (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) ? '../images/' : 'images/'; ?>
 <div class="site-footer-wrap">
     <div class="site-footer-inner">
 
         <div>
             <div class="sf-brand">
-                <img src="<?= (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) ? '../' : '' ?>image/logo.png"
+                <img src="<?= (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) ? '../' : '' ?>images/logo.png"
                      alt="Alawihao Health Center"
                      onerror="this.style.display='none'">
                 <div class="sf-brand-text">
