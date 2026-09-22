@@ -21,7 +21,7 @@ $articles = [
 'warning-signs' => [
     'title'    => 'Mga Babala Habang Buntis',
     'icon'     => 'fa-triangle-exclamation',
-    'image'    => 'image/pic9.jpg',
+    'images'    => 'images/pic9.jpg',
     'color'    => '#c0392b',
     'source'   => 'DOH Philippines – Focused Antenatal Care Guidelines',
     'intro'    => 'Nanay, ang mga palatandaang ito ay senyales na kailangan ng agarang medikal na atensyon. Huwag hintayin na lumala — pumunta agad sa pinakamalapit na health center o ospital.',
@@ -80,7 +80,7 @@ $articles = [
 'prenatal-checkup' => [
     'title'    => 'Pre-natal Check-up: Ang Iyong Gabay',
     'icon'     => 'fa-stethoscope',
-    'image'    => 'image/pic10.jpg',
+    'images'    => 'images/pic10.jpg',
     'color'    => '#2980b9',
     'source'   => 'DOH Philippines – Focused Antenatal Care (FANC) Protocol',
     'intro'    => 'Ang pre-natal check-up ay hindi lang basta pormal na bisita — ito ang susi sa pagprotekta sa buhay mo at ng iyong sanggol. Ang bawat check-up ay may layunin at siyentipikong batayan.',
@@ -134,7 +134,7 @@ $articles = [
 'pregnancy-dos' => [
     'title'    => "Pregnancy Do's: Mga Dapat Gawin",
     'icon'     => 'fa-thumbs-up',
-    'image'    => 'image/pic11.jpg',
+    'images'    => 'images/pic11.jpg',
     'color'    => '#27ae60',
     'source'   => 'WHO Antenatal Care Guidelines & DOH Philippines Maternal Health Program',
     'intro'    => 'Ang bawat magandang gawi sa panahon ng pagbubuntis ay may direktang epekto sa kalusugan mo at ng iyong sanggol. Hindi lang ito tradisyon — may siyensya sa likod ng bawat rekomendasyon.',
@@ -192,7 +192,7 @@ $articles = [
 'pregnancy-donts' => [
     'title'    => "Pregnancy Don'ts: Mga Dapat Iwasan",
     'icon'     => 'fa-ban',
-    'image'    => 'image/pic8.jpg',
+    'images'    => 'images/pic8.jpg',
     'color'    => '#e74c3c',
     'source'   => 'WHO, CDC, at DOH Philippines Guidelines on Maternal Health',
     'intro'    => 'Ang mga bagay na ito ay may siyentipikong patunay na mapanganib sa pagbubuntis. Ang pag-iwas sa mga ito ay isa sa pinakaepektibong paraan ng pag-protekta sa iyong sanggol.',
@@ -254,7 +254,7 @@ $articles = [
 'pamahiin' => [
     'title'    => 'Mga Pamahiin: Sabi-sabi vs. Agham',
     'icon'     => 'fa-book-open',
-    'image'    => 'image/pic12.webp',
+    'images'    => 'images/pic12.webp',
     'color'    => '#8e44ad',
     'source'   => 'DOH Philippines Health Literacy Program & Philippine Obstetrical and Gynecological Society',
     'intro'    => 'Ang mga pamahiin ay bahagi ng ating kultura, ngunit ang ilang maling paniniwala ay maaaring makapinsala sa iyo at sa iyong sanggol. Alamin ang katotohanan batay sa siyensya at medikal na pananaliksik.',
@@ -302,7 +302,7 @@ $articles = [
 'baby-growth' => [
     'title'    => 'Ang Paglaki ni Baby sa Sinapupunan',
     'icon'     => 'fa-baby',
-    'image'    => 'image/pic13.jpg',
+    'images'    => 'images/pic13.jpg',
     'color'    => '#16a085',
     'source'   => 'Moore KL, Persaud TVN – The Developing Human: Clinically Oriented Embryology; DOH Philippines',
     'intro'    => 'Sa loob ng 40 linggo, ang isang simpleng cell ay nagiging isang kumpletong tao. Narito ang isang detalyadong patnubay — at ang mga bagay na maaari mong gawin para masuportahan ang bawat yugto ng pagbubuntis.',
@@ -368,7 +368,7 @@ $articles = [
 'newborn-care' => [
     'title'    => 'Pangangalaga sa Bagong Silang na Sanggol',
     'icon'     => 'fa-hands-holding-child',
-    'image'    => 'image/pic6.jpg',
+    'images'    => 'images/pic6.jpg',
     'color'    => '#e67e22',
     'source'   => 'DOH Philippines – Essential Newborn Care (ENC) Protocol; WHO Guidelines for Care of the Newborn',
     'intro'    => 'Ang mga unang minuto, oras, at araw ng buhay ni baby ay kritikal para sa kanyang kalusugan at pag-unlad. Ang bawat hakbang ng Essential Newborn Care ay may siyentipikong batayan.',
@@ -425,7 +425,7 @@ $articles = [
 'breastfeeding' => [
     'title'    => 'Eksklusibong Pagpapasuso: Ang Pinakamabisang Proteksyon',
     'icon'     => 'fa-heart-pulse',
-    'image'    => 'image/pic1.jpg',
+    'images'    => 'images/pic1.jpg',
     'color'    => '#e91e8c',
     'source'   => 'WHO/UNICEF Global Breastfeeding Collective; DOH Philippines – National Breastfeeding Program',
     'intro'    => 'Ang gatas ng ina ay hindi lamang pagkain — ito ay isang buhay na sustansya na nagbabago araw-araw upang matugunan ang pangangailangan ng lumalaki at nagbabagong sanggol. Walang formula ang maaaring tularan ito.',
@@ -494,7 +494,7 @@ $articles = [
 'baby-milestones' => [
     'title'    => 'Mga Developmental Milestones ng Sanggol',
     'icon'     => 'fa-chart-line',
-    'image'    => 'image/pic7.webp',
+    'images'    => 'images/pic7.webp',
     'color'    => '#2980b9',
     'source'   => 'WHO Child Growth Standards; CDC Developmental Milestones; DOH Philippines Integrated Child Development Service',
     'intro'    => 'Ang pag-unawa sa mga developmental milestones ay tumutulong sa mga magulang na suportahan ang pag-unlad ng kanilang anak at matuklasan ang mga posibleng problema nang maaga — kung saan ang maagang intervention ay pinaka-epektibo.',
@@ -1478,7 +1478,7 @@ $section_count = count($article['sections']);
     <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
         <i class="fa fa-bars"></i>
     </button>
-    <img src="image/logo.png" alt="Brgy Logo" class="logo-img" onerror="this.style.display='none'">
+    <img src="images/logo.png" alt="Brgy Logo" class="logo-img" onerror="this.style.display='none'">
     <span class="page-label"><?= htmlspecialchars($article['title']) ?></span>
 </div>
 
@@ -1495,16 +1495,16 @@ $section_count = count($article['sections']);
 
     <!-- META -->
     <div class="article-meta">
-        <span><img src="image/clock.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> <?= $read_min ?> min basahin</span>
-        <span><img src="image/greenbook.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> <?= $section_count ?> seksyon</span>
-        <span><img src="image/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Alawihao Health Center</span>
-        <span><img src="image/shield.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> DOH-verified</span>
+        <span><img src="images/clock.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> <?= $read_min ?> min basahin</span>
+        <span><img src="images/greenbook.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> <?= $section_count ?> seksyon</span>
+        <span><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Alawihao Health Center</span>
+        <span><img src="images/shield.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> DOH-verified</span>
     </div>
 
     <!-- BACK BUTTON -->
     <div class="article-actions">
         <a href="user_dashboard.php" class="btn-back">
-            <img src="image/left arrow.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Bumalik sa Dashboard
+            <img src="images/left arrow.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Bumalik sa Dashboard
         </a>
     </div>
 
@@ -1533,7 +1533,7 @@ $section_count = count($article['sections']);
     ?>
     <?php if ($preview): ?>
     <div class="key-takeaway">
-        <div class="key-takeaway-icon"><img src="image/light.png" alt="" style="width:22px;height:22px;object-fit:contain;"></div>
+        <div class="key-takeaway-icon"><img src="images/light.png" alt="" style="width:22px;height:22px;object-fit:contain;"></div>
         <div>
             <h3>Pangunahing Aral</h3>
             <p><?= htmlspecialchars($preview) ?></p>
@@ -1559,7 +1559,7 @@ $section_count = count($article['sections']);
                 </div>
                 <?php if (!empty($item['why'])): ?>
                 <div class="detailed-why">
-                    <div class="why-label"><img src="image/stethoscope.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> Bakit? — Batay sa Agham</div>
+                    <div class="why-label"><img src="images/stethoscope.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> Bakit? — Batay sa Agham</div>
                     <p><?= htmlspecialchars($item['why']) ?></p>
                 </div>
                 <?php endif; ?>
@@ -1616,19 +1616,19 @@ $section_count = count($article['sections']);
     <?php
     // ── Related articles map ────────────────────────────────────────────────
     $all_related = [
-        'warning-signs'    => ['icon'=>'fa-triangle-exclamation', 'image'=>'image/pic9.jpg',    'label'=>'Mga Babala Habang Buntis'],
-        'prenatal-checkup' => ['icon'=>'fa-stethoscope',          'image'=>'image/pic10.jpg',   'label'=>'Pre-natal Check-up'],
-        'pregnancy-dos'    => ['icon'=>'fa-thumbs-up',            'image'=>'image/pic11.jpg',   'label'=>"Pregnancy Do's"],
-        'pregnancy-donts'  => ['icon'=>'fa-ban',                  'image'=>'image/pic8.jpg',    'label'=>"Pregnancy Don'ts"],
-        'pamahiin'         => ['icon'=>'fa-book-open',            'image'=>'image/pic12.webp',  'label'=>'Sabi-sabi vs. Totoo'],
-        'baby-growth'      => ['icon'=>'fa-baby',                 'image'=>'image/pic13.jpg',   'label'=>'Paglaki ni Baby'],
-        'newborn-care'     => ['icon'=>'fa-hands-holding-child',  'image'=>'image/pic6.jpg',    'label'=>'Newborn Care'],
-        'breastfeeding'    => ['icon'=>'fa-heart-pulse',          'image'=>'image/pic1.jpg',    'label'=>'Eksklusibong Pagpapasuso'],
-        'baby-milestones'  => ['icon'=>'fa-chart-line',           'image'=>'image/pic7.webp',   'label'=>'Baby Milestones'],
-        'baby-safety'      => ['icon'=>'fa-shield-halved',        'image'=>'image/pic2.jpg',    'label'=>'Kaligtasan ng Baby'],
-        'unang-linggo'     => ['icon'=>'fa-calendar-day',         'image'=>'image/pic3.jpg',    'label'=>'Unang Linggo ni Baby'],
-        'philhealth'       => ['icon'=>'fa-id-card',              'image'=>'image/pic13.webp',  'label'=>'PhilHealth Benefits'],
-        'family-planning'  => ['icon'=>'fa-people-group',         'image'=>'image/pic14.webp',  'label'=>'Family Planning'],
+        'warning-signs'    => ['icon'=>'fa-triangle-exclamation', 'images'=>'images/pic9.jpg',    'label'=>'Mga Babala Habang Buntis'],
+        'prenatal-checkup' => ['icon'=>'fa-stethoscope',          'images'=>'images/pic10.jpg',   'label'=>'Pre-natal Check-up'],
+        'pregnancy-dos'    => ['icon'=>'fa-thumbs-up',            'images'=>'images/pic11.jpg',   'label'=>"Pregnancy Do's"],
+        'pregnancy-donts'  => ['icon'=>'fa-ban',                  'images'=>'images/pic8.jpg',    'label'=>"Pregnancy Don'ts"],
+        'pamahiin'         => ['icon'=>'fa-book-open',            'images'=>'images/pic12.webp',  'label'=>'Sabi-sabi vs. Totoo'],
+        'baby-growth'      => ['icon'=>'fa-baby',                 'images'=>'images/pic13.jpg',   'label'=>'Paglaki ni Baby'],
+        'newborn-care'     => ['icon'=>'fa-hands-holding-child',  'images'=>'images/pic6.jpg',    'label'=>'Newborn Care'],
+        'breastfeeding'    => ['icon'=>'fa-heart-pulse',          'images'=>'images/pic1.jpg',    'label'=>'Eksklusibong Pagpapasuso'],
+        'baby-milestones'  => ['icon'=>'fa-chart-line',           'images'=>'images/pic7.webp',   'label'=>'Baby Milestones'],
+        'baby-safety'      => ['icon'=>'fa-shield-halved',        'images'=>'images/pic2.jpg',    'label'=>'Kaligtasan ng Baby'],
+        'unang-linggo'     => ['icon'=>'fa-calendar-day',         'images'=>'images/pic3.jpg',    'label'=>'Unang Linggo ni Baby'],
+        'philhealth'       => ['icon'=>'fa-id-card',              'images'=>'images/pic13.webp',  'label'=>'PhilHealth Benefits'],
+        'family-planning'  => ['icon'=>'fa-people-group',         'images'=>'images/pic14.webp',  'label'=>'Family Planning'],
     ];
     // Pick 3 related topics (exclude current)
     $related_keys = array_filter(array_keys($all_related), fn($k) => $k !== $slug);
@@ -1640,14 +1640,14 @@ $section_count = count($article['sections']);
     <!-- RELATED ARTICLES -->
     <?php if (!empty($picks)): ?>
     <div class="related-section">
-        <h3><img src="image/greenbook.png" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;"> Related Topics</h3>
+        <h3><img src="images/greenbook.png" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;"> Related Topics</h3>
         <div class="related-grid">
             <?php foreach ($picks as $key): ?>
             <?php $r = $all_related[$key]; ?>
             <a href="health_article.php?topic=<?= $key ?>" class="related-card">
                 <div class="related-card-icon">
-                    <?php if (!empty($r['image'])): ?>
-                    <img src="<?= htmlspecialchars($r['image']) ?>" alt="<?= htmlspecialchars($r['label']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:3px;">
+                    <?php if (!empty($r['images'])): ?>
+                    <img src="<?= htmlspecialchars($r['images']) ?>" alt="<?= htmlspecialchars($r['label']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:3px;">
                     <?php else: ?>
                     <i class="fa <?= $r['icon'] ?>"></i>
                     <?php endif; ?>
@@ -1672,7 +1672,7 @@ $section_count = count($article['sections']);
 
             <div>
                 <div class="footer-brand">
-                    <img src="image/logo.png" alt="Brgy Logo" onerror="this.style.display='none'">
+                    <img src="images/logo.png" alt="Brgy Logo" onerror="this.style.display='none'">
                     <div class="footer-brand-text">
                         <h4>Barangay Alawihao Health Center</h4>
                         <span>Alawihao, Daet, Camarines Norte</span>
@@ -1684,9 +1684,9 @@ $section_count = count($article['sections']);
             <div class="footer-col">
                 <h5><i class="fa fa-address-book"></i> Contact Us</h5>
                 <ul>
-                    <li><img src="image/fb.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
-                    <li><img src="image/email.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
-                    <li><img src="image/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> Alawihao, Daet, Camarines Norte, 4600</li>
+                    <li><img src="images/fb.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
+                    <li><img src="images/email.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
+                    <li><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> Alawihao, Daet, Camarines Norte, 4600</li>
                 </ul>
             </div>
 
@@ -1703,7 +1703,7 @@ $section_count = count($article['sections']);
 
         <div class="footer-bottom">
             <span class="footer-copy">&copy; <?= date('Y') ?> Barangay Alawihao Health Center. All rights reserved.</span>
-            <span class="footer-badge"><img src="image/shield.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;"> DOH-Accredited Facility</span>
+            <span class="footer-badge"><img src="images/shield.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;"> DOH-Accredited Facility</span>
         </div>
 
     </div>

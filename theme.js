@@ -32,8 +32,8 @@
         var icon = document.getElementById('themeIcon');
         if (icon) {
             var imgSrc = mode === 'dark'
-                ? 'image/darkmode.png'
-                : 'image/light.png';
+                ? 'images/darkmode.png'
+                : 'images/light.png';
             var prefix = '';
             var parts = window.location.pathname.replace(/\\/g, '/').split('/');
             if (parts.indexOf('admin') !== -1) {

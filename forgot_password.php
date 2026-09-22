@@ -19,7 +19,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
 
         body {
-            /* Idinagdag ang background image at overlay dito, habang nanatili ang ibang properties */
+            /* Idinagdag ang background images at overlay dito, habang nanatili ang ibang properties */
             background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('images/alawihao.jpg');
             background-size: cover;
             background-position: center;
