@@ -170,6 +170,10 @@ $is_home = ($current_page == 'user_dashboard.php');
         color: var(--sage); 
     }
 
+    [data-theme="dark"] .sidebar .brand-name {
+        color: #f3f7ed !important;
+    }
+
     .sidebar-header p {
         font-size: 0.58rem;
         color: var(--text-muted);

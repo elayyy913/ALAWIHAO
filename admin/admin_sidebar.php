@@ -131,6 +131,7 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         line-height: 1.2 !important;
     }
     .highlight-new { color: #8DAE74 !important; }
+    [data-theme="dark"] .brand-new { color: #f3f7ed !important; }
     .sub-brand-new { 
         font-size: 0.58rem !important; 
         color: #94A3B8 !important; 

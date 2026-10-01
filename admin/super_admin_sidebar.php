@@ -104,6 +104,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
         gap: 4px;
     }
     .brand-name span { color: var(--sage); }
+    [data-theme="dark"] .sidebar .brand-name { color: #f3f7ed !important; }
     .sidebar-header p {
         font-size: 0.65rem;
         color: var(--text-muted);
