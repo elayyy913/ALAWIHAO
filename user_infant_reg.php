@@ -99,6 +99,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             width: calc(100% - var(--sidebar-width));
         }
 
+        body.sidebar-closed #main {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+
         .form-card {
             background: #ffffff; 
             padding: 35px 45px; 
@@ -622,6 +627,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         applyCountryRules();
     });
 </script>
+
+<?php include 'admin/footer.php'; ?>
 
 </body>
 </html>

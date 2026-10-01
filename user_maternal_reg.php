@@ -473,7 +473,10 @@ $success_message = ($_GET['status'] ?? '') === 'success'
             <button type="submit" class="reg-btn">Confirm Registration</button>
         </form>
     </div>
+
 </div>
+
+<?php include 'admin/footer.php'; ?>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
