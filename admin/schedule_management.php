@@ -15,7 +15,7 @@ function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type
 
     // Try maternal_registration first
     $uid = null;
-    $s = $conn->prepare("SELECT user_id FROM maternal_registration WHERE TRIM(CONCAT(client_fname,' ',client_lname)) = ? LIMIT 1");
+    $s = $conn->prepare("SELECT user_id FROM maternal_registration WHERE LOWER(TRIM(CONCAT(client_fname,' ',client_lname))) = LOWER(TRIM(?)) LIMIT 1");
     $s->bind_param("s", $patient_name);
     $s->execute();
     $r = $s->get_result()->fetch_assoc();
@@ -24,7 +24,7 @@ function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type
 
     // Fall back to children table
     if (!$uid) {
-        $s2 = $conn->prepare("SELECT user_id FROM children WHERE TRIM(child_name) = ? LIMIT 1");
+        $s2 = $conn->prepare("SELECT user_id FROM children WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?)) LIMIT 1");
         $s2->bind_param("s", $patient_name);
         $s2->execute();
         $r2 = $s2->get_result()->fetch_assoc();
@@ -34,10 +34,31 @@ function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type
 
     if (!$uid) return; // patient not linked to any user
 
-    $ins = $conn->prepare("INSERT INTO notifications (user_id, schedule_id, title, message, type) VALUES (?, ?, ?, ?, ?)");
+    // target_role='User' required so get_notifications.php returns it to the user
+    $ins = $conn->prepare("INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type) VALUES (?, 'User', ?, ?, ?, ?)");
     $ins->bind_param("iisss", $uid, $schedule_id, $title, $message, $type);
     $ins->execute();
     $ins->close();
+}
+
+function notify_user_by_schedule($conn, $schedule_id, $patient_name, $title, $message, $type) {
+    $schedule_id = (int) $schedule_id;
+    $uid = 0;
+    $schedule = $conn->query("SELECT notes FROM schedules WHERE id = $schedule_id LIMIT 1")->fetch_assoc();
+
+    if ($schedule && preg_match('/\[Requester ID:\s*(\d+)\]/', $schedule['notes'] ?? '', $matches)) {
+        $uid = (int) $matches[1];
+    }
+
+    if ($uid > 0) {
+        $ins = $conn->prepare("INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type) VALUES (?, 'User', ?, ?, ?, ?)");
+        $ins->bind_param("iisss", $uid, $schedule_id, $title, $message, $type);
+        $ins->execute();
+        $ins->close();
+        return;
+    }
+
+    notify_user($conn, $patient_name, $schedule_id, $title, $message, $type);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -161,6 +182,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
 // Handle Delete Schedule
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
     $id = intval($_POST['schedule_id']);
+    $sched = $conn->query("SELECT patient_name, service_type, schedule_date FROM schedules WHERE id = $id")->fetch_assoc();
+
+    if ($sched) {
+        $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
+        notify_user($conn, $sched['patient_name'], $id,
+            "Schedule Cancelled",
+            "Your {$sched['service_type']} schedule on {$date_fmt} was cancelled by the health center.",
+            'cancelled_schedule'
+        );
+    }
+
     $sql = "DELETE FROM schedules WHERE id = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("i", $id);
@@ -209,7 +241,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             if ($sched) {
                 $date_fmt = date('F j, Y', strtotime($new_date));
                 $time_fmt = date('g:i A', strtotime($new_time));
-                notify_user($conn, $sched['patient_name'], $id,
+                notify_user_by_schedule($conn, $id, $sched['patient_name'],
                     "Reschedule Request Approved",
                     "Your reschedule request for {$sched['service_type']} has been approved. New date: {$date_fmt} at {$time_fmt}.",
                     'updated_schedule'
@@ -229,7 +261,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             if ($sched) {
                 $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
                 $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
-                notify_user($conn, $sched['patient_name'], $id,
+                notify_user_by_schedule($conn, $id, $sched['patient_name'],
                     "Reschedule Request Rejected",
                     "Your reschedule request for {$sched['service_type']} was not approved. The original schedule on {$date_fmt} at {$time_fmt} remains.",
                     'updated_schedule'
@@ -498,6 +530,8 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             border-left: 3px solid var(--sage-green); margin-bottom: 15px;
         }
     </style>
+
+<?php $notif_path='../'; include '../notif_assets.php'; ?>
 </head>
 <body>
 
@@ -514,7 +548,10 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         
         <div class="page-header">
             <h2>Schedule Management</h2>
-            <button class="btn-add" onclick="document.getElementById('addModal').style.display='block'">+ Add New Batch Schedule</button>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="btn-add" onclick="document.getElementById('addModal').style.display='block'">+ Add New Batch Schedule</button>
+                <?php include '../notif_bell.php'; ?>
+            </div>
         </div>
 
         <?php if(!empty($message)) echo "<div class='success-msg'>$message</div>"; ?>
@@ -904,7 +941,18 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         tabs.forEach(tab => tab.classList.remove('active'));
         
         document.getElementById(tabName).classList.add('active');
-        evt.currentTarget.classList.add('active');
+        if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+    }
+
+    function openTabFromUrl(tabName) {
+        var targetTab = document.getElementById(tabName);
+        var targetBtn = document.querySelector('[onclick*="' + tabName + '"]');
+        if (!targetTab) return;
+
+        document.querySelectorAll('.tab-content').forEach(function(content) { content.classList.remove('active'); });
+        document.querySelectorAll('.tab').forEach(function(button) { button.classList.remove('active'); });
+        targetTab.classList.add('active');
+        if (targetBtn) targetBtn.classList.add('active');
     }
 
     function filterPatientsByCategory() {
@@ -925,6 +973,13 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 
     window.addEventListener('DOMContentLoaded', () => {
         filterPatientsByCategory();
+
+        // Auto-open tab if ?tab= is in the URL (e.g. from notification redirect)
+        var urlParams = new URLSearchParams(window.location.search);
+        var tabParam  = urlParams.get('tab');
+        if (tabParam) {
+            openTabFromUrl(tabParam);
+        }
     });
 
     function openEditModal(id, patientName, category, serviceType, scheduleDate, scheduleTime, status, notes) {
@@ -950,5 +1005,6 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 </script>
 
 <?php include 'footer.php'; ?>
+<?php $notif_path='../'; include '../notif_js.php'; ?>
 </body>
 </html>

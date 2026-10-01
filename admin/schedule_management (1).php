@@ -40,6 +40,26 @@ function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type
     $ins->execute();
     $ins->close();
 }
+
+function notify_user_by_schedule($conn, $schedule_id, $patient_name, $title, $message, $type) {
+    $schedule_id = (int) $schedule_id;
+    $uid = 0;
+    $schedule = $conn->query("SELECT notes FROM schedules WHERE id = $schedule_id LIMIT 1")->fetch_assoc();
+
+    if ($schedule && preg_match('/\[Requester ID:\s*(\d+)\]/', $schedule['notes'] ?? '', $matches)) {
+        $uid = (int) $matches[1];
+    }
+
+    if ($uid > 0) {
+        $ins = $conn->prepare("INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type) VALUES (?, 'User', ?, ?, ?, ?)");
+        $ins->bind_param("iisss", $uid, $schedule_id, $title, $message, $type);
+        $ins->execute();
+        $ins->close();
+        return;
+    }
+
+    notify_user($conn, $patient_name, $schedule_id, $title, $message, $type);
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 $message = "";
@@ -210,7 +230,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             if ($sched) {
                 $date_fmt = date('F j, Y', strtotime($new_date));
                 $time_fmt = date('g:i A', strtotime($new_time));
-                notify_user($conn, $sched['patient_name'], $id,
+                notify_user_by_schedule($conn, $id, $sched['patient_name'],
                     "Reschedule Request Approved",
                     "Your reschedule request for {$sched['service_type']} has been approved. New date: {$date_fmt} at {$time_fmt}.",
                     'updated_schedule'
@@ -230,7 +250,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
             if ($sched) {
                 $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
                 $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
-                notify_user($conn, $sched['patient_name'], $id,
+                notify_user_by_schedule($conn, $id, $sched['patient_name'],
                     "Reschedule Request Rejected",
                     "Your reschedule request for {$sched['service_type']} was not approved. The original schedule on {$date_fmt} at {$time_fmt} remains.",
                     'updated_schedule'
@@ -246,14 +266,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
     $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
     $reason = mysqli_real_escape_string($conn, $_POST['reason']);
+    $requester_marker = '[Requester ID: ' . (int) $_SESSION['user_id'] . ']';
 
     $update_query = "UPDATE schedules 
                      SET status = 'Reschedule Requested', 
-                         notes = CONCAT(COALESCE(notes, ''), ' | Request: ', ?, ' ', ?, ' | Reason: ', ?)
+                         notes = CONCAT(COALESCE(notes, ''), ' | ', ?, ' Request: ', ?, ' ', ?, ' | Reason: ', ?)
                      WHERE id = ?";
 
     if ($stmt = $conn->prepare($update_query)) {
-        $stmt->bind_param("sssi", $new_date, $new_time, $reason, $schedule_id);
+        $stmt->bind_param("ssssi", $requester_marker, $new_date, $new_time, $reason, $schedule_id);
         
         if ($stmt->execute()) {
             $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";

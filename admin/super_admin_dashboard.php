@@ -8,6 +8,111 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
     exit();
 }
 
+function notify_schedule_user($conn, $patient_name, $schedule_id, $title, $message, $type) {
+    $user_id = 0;
+    $stmt = $conn->prepare("SELECT user_id FROM maternal_registration WHERE LOWER(TRIM(CONCAT(client_fname, ' ', client_lname))) = LOWER(TRIM(?)) LIMIT 1");
+    $stmt->bind_param("s", $patient_name);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($row = $result->fetch_assoc()) {
+        $user_id = (int) $row['user_id'];
+    }
+    $stmt->close();
+
+    if (!$user_id) {
+        $stmt = $conn->prepare("SELECT user_id FROM children WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?)) LIMIT 1");
+        $stmt->bind_param("s", $patient_name);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $user_id = (int) $row['user_id'];
+        }
+        $stmt->close();
+    }
+
+    if (!$user_id) return;
+
+    $stmt = $conn->prepare("INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type, created_at) VALUES (?, 'User', ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("iisss", $user_id, $schedule_id, $title, $message, $type);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// ── Handle reschedule directly in this file ──────────────────────────────────
+if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['reschedule_maternal']) || isset($_POST['reschedule_infant']))) {
+    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    
+    // Get schedule details
+    $sched_query = mysqli_query($conn, "SELECT * FROM schedules WHERE id = '$schedule_id'");
+    $sched = mysqli_fetch_assoc($sched_query);
+    
+    if ($sched) {
+        // Update schedule
+        mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Approved' WHERE id = '$schedule_id'");
+        
+        // Create notification for user
+        $date_fmt = date('F j, Y', strtotime($new_date));
+        $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
+        
+        $title = "Schedule Updated";
+        $message = isset($_POST['reschedule_maternal']) 
+            ? "Your schedule for {$sched['service_type']} has been rescheduled to {$date_fmt} at {$time_fmt}."
+            : "Your child's vaccination schedule for {$sched['service_type']} has been rescheduled to {$date_fmt} at {$time_fmt}.";
+
+        notify_schedule_user($conn, $sched['patient_name'], $schedule_id, $title, $message, 'updated_schedule');
+        
+        // Create admin notification
+        $admin_message = isset($_POST['reschedule_maternal']) 
+            ? "Maternal schedule for {$sched['patient_name']} ({$sched['service_type']}) was rescheduled to {$date_fmt}."
+            : "Child vaccination schedule for {$sched['patient_name']} ({$sched['service_type']}) was rescheduled to {$date_fmt}.";
+            
+        mysqli_query($conn, "INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type, created_at) 
+                           VALUES (0, 'Super Admin', '$schedule_id', 'Schedule Rescheduled', '$admin_message', 'updated_schedule', NOW())");
+    }
+    
+    // Redirect back with success message
+    header("Location: super_admin_dashboard.php?msg=RescheduleSuccess");
+    exit();
+}
+
+// ── Handle mark done directly in this file ──────────────────────────────────
+if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['mark_done_maternal']) || isset($_POST['mark_done_infant']))) {
+    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    
+    // Get schedule details for notification
+    $sched_query = mysqli_query($conn, "SELECT * FROM schedules WHERE id = '$schedule_id'");
+    $sched = mysqli_fetch_assoc($sched_query);
+    
+    // Update schedule status to completed
+    mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'");
+    
+    if ($sched) {
+        // Create notification for user
+        $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
+        $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
+        
+        $title = "Appointment Completed";
+        $message = isset($_POST['mark_done_maternal'])
+            ? "Your {$sched['service_type']} appointment on {$date_fmt} at {$time_fmt} has been completed."
+            : "Your child's {$sched['service_type']} appointment on {$date_fmt} at {$time_fmt} has been completed.";
+            
+        notify_schedule_user($conn, $sched['patient_name'], $schedule_id, $title, $message, 'completed_schedule');
+        
+        // Create admin notification
+        $admin_message = isset($_POST['mark_done_maternal'])
+            ? "Maternal appointment completed for {$sched['patient_name']} ({$sched['service_type']})."
+            : "Child appointment completed for {$sched['patient_name']} ({$sched['service_type']}).";
+            
+        mysqli_query($conn, "INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type, created_at) 
+                           VALUES (0, 'Super Admin', '$schedule_id', 'Appointment Completed', '$admin_message', 'completed_schedule', NOW())");
+    }
+    
+    // Redirect back with success message
+    header("Location: super_admin_dashboard.php?msg=MarkDoneSuccess");
+    exit();
+}
+
 // --- WORKER APPROVAL / REJECTION ---
 // Inalis na ang lokal na handler dito. Ang approve_worker_id / remove_worker_id
 // ay dapat na pumunta sa process_verification.php (mas kumpleto ang logic doon:
@@ -81,7 +186,11 @@ if (check_table_exists($conn, 'schedules')) {
 // ---------------------------------------------------------------------
 
 // --- FETCH LISTS ---
-$pending_workers = mysqli_query($conn, "SELECT * FROM users WHERE role='Admin' AND status='Pending' ORDER BY created_at DESC");
+$pending_workers = mysqli_query($conn, "SELECT u.*, COALESCE(u.created_at, hw.created_at) AS registration_date
+    FROM users u
+    LEFT JOIN health_workers hw ON hw.email = u.email
+    WHERE u.role='Admin' AND u.status='Pending'
+    ORDER BY registration_date DESC");
 $pending_list = mysqli_query($conn, "SELECT * FROM children WHERE status='Pending' ORDER BY created_at DESC");
 
 $pending_preg_list = mysqli_query($conn, "SELECT *, 
@@ -126,6 +235,10 @@ if (check_table_exists($conn, 'schedules')) {
 <head>
     <meta charset="UTF-8">
     <title>Super Admin Dashboard | Alawihao</title>
+    <script src="../theme.js?v=<?= time() ?>"></script>
+    <link rel="stylesheet" href="../theme.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?php $notif_path='../'; include '../notif_assets.php'; ?>
     <style>
         :root { --sage: #8DAE74; --dark-sage: #5A6B47; --beige: #F9F9F4; --white: #FFFFFF; --text: #2D2D2D; --border: #E1E1D7; }
         body { font-family: 'Inter', sans-serif; margin: 0; background-color: var(--beige); color: var(--text); display: flex; }
@@ -301,6 +414,11 @@ if (check_table_exists($conn, 'schedules')) {
         .sched-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .sched-date { font-weight: bold; font-size: 0.95rem; color: #2C3E50; }
         .status-badge { background: #E2E8F0; color: #4A5568; font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        .pending { background: #fef3c7; color: #92400e; }
+        .approved { background: #dcfce7; color: #166534; }
+        .completed { background: #f0f4f8; color: #2563eb; }
+        .reschedule-requested { background: #fef2f2; color: #dc2626; }
+        .cancelled { background: #f3f4f6; color: #6b7280; }
         
         .sched-patient-name { font-size: 1rem; font-weight: bold; color: #2D2D2D; margin-bottom: 4px; text-transform: capitalize; }
         .sched-type { font-size: 0.85rem; color: #666; margin-bottom: 12px; }
@@ -310,7 +428,14 @@ if (check_table_exists($conn, 'schedules')) {
         .btn-mark-done:hover { background: #badbcc; }
         
         .resched-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .date-input { padding: 5px 8px; border: 1px solid #CCC; border-radius: 4px; font-size: 0.8rem; font-family: inherit; background: white; }
+        .date-input { 
+            padding: 5px 8px; 
+            border: 1px solid #CCC; 
+            border-radius: 4px; 
+            font-size: 0.8rem; 
+            font-family: inherit; 
+            background: white; 
+        }
         .btn-resched { background: #FDE68A; color: #78350F; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
         .btn-resched:hover { background: #FCD34D; }
 
@@ -344,9 +469,22 @@ if (check_table_exists($conn, 'schedules')) {
 <?php include 'super_admin_sidebar.php'; ?>
 
 <div class="main-content" id="mainDashboard">
-    <div class="page-header">
+    <div class="page-header" style="display:flex; align-items:center; justify-content:space-between;">
         <h1>Super Admin Dashboard</h1>
+        <?php include '../notif_bell.php'; ?>
     </div>
+
+    <?php if (isset($_GET['msg']) && $_GET['msg'] == 'RescheduleSuccess'): ?>
+    <div style="background:#d4edda; color:#155724; padding:10px; border:1px solid #c3e6cb; border-radius:4px; margin-bottom:20px;">
+        ✅ Schedule rescheduled successfully! Notifications sent to user.
+    </div>
+    <?php endif; ?>
+
+    <?php if (isset($_GET['msg']) && $_GET['msg'] == 'MarkDoneSuccess'): ?>
+    <div style="background:#d4edda; color:#155724; padding:10px; border:1px solid #c3e6cb; border-radius:4px; margin-bottom:20px;">
+        ✅ Appointment marked as completed! Notifications sent to user.
+    </div>
+    <?php endif; ?>
 
     <div class="stats-grid">
         <div class="stat-card"><h4>TOTAL PATIENTS</h4><h2><?php echo $total_patients; ?></h2></div>
@@ -469,16 +607,20 @@ if (check_table_exists($conn, 'schedules')) {
                         $schedId = $sched['id'] ?? '';
                     ?>
                     <div class="schedule-item maternal-border">
+                        <?php 
+                        $schedStatus = $sched['status'] ?? 'Pending';
+                        $statusClass = strtolower(str_replace(' ', '-', $schedStatus));
+                        ?>
                         <div class="sched-header-row">
                             <span class="sched-date"><?php echo htmlspecialchars($schedDate); ?></span>
-                            <span class="status-badge">Pending</span>
+                            <span class="status-badge <?php echo $statusClass; ?>"><?php echo htmlspecialchars($schedStatus); ?></span>
                         </div>
                         <div class="sched-patient-name"><?php echo htmlspecialchars($patientName); ?></div>
                         <div class="sched-type">Type: <?php echo htmlspecialchars($serviceType); ?></div>
                         
-                        <form method="POST" action="process_verification.php" class="sched-actions">
+                        <form method="POST" action="" class="sched-actions">
                             <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
-                            <input type="hidden" name="redirect_to" value="super_admin_dashboard.php">
+                            <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
                             <button type="submit" name="mark_done_maternal" class="btn-mark-done">Mark Done</button>
                             <div class="resched-group">
                                 <input type="date" name="new_date" class="date-input" required>
@@ -509,9 +651,9 @@ if (check_table_exists($conn, 'schedules')) {
                         <div class="sched-patient-name"><?php echo htmlspecialchars($infantName); ?></div>
                         <div class="sched-type">Vaccine: <?php echo htmlspecialchars($vaccineType); ?></div>
                         
-                        <form method="POST" action="process_verification.php" class="sched-actions">
+                        <form method="POST" action="" class="sched-actions">
                             <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
-                            <input type="hidden" name="redirect_to" value="super_admin_dashboard.php">
+                            <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
                             <button type="submit" name="mark_done_infant" class="btn-mark-done">Mark Done</button>
                             <div class="resched-group">
                                 <input type="date" name="new_date" class="date-input" required>
@@ -558,6 +700,19 @@ if (check_table_exists($conn, 'schedules')) {
             return; 
         }
 
+        // Check if any date inputs have values - don't update if user is typing
+        var dateInputs = document.querySelectorAll('input[type="date"]');
+        var hasActiveInput = false;
+        dateInputs.forEach(function(input) {
+            if (input.value !== '' || input === document.activeElement) {
+                hasActiveInput = true;
+            }
+        });
+        
+        if (hasActiveInput) {
+            return; // Skip update if user is working with date fields
+        }
+
         fetch('fetch_dashboard_data.php')
             .then(response => response.json())
             .then(data => {
@@ -599,7 +754,7 @@ if (check_table_exists($conn, 'schedules')) {
                     `;
                 }
 
-                // 3. Update Tables and Schedule Lists smoothly
+                // 3. Update Tables and Schedule Lists ONLY if no date inputs are active
                 const tables = document.querySelectorAll('.table-container table tbody');
                 if(tables.length >= 3) {
                     tables[0].innerHTML = data.pending_workers_html;
@@ -617,5 +772,10 @@ if (check_table_exists($conn, 'schedules')) {
     }, 4000);
 </script>
 
+</script>
+
+</script>
+
+<?php $notif_path = '../'; include '../notif_js.php'; ?>
 </body>
 </html>
