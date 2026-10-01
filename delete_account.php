@@ -10,7 +10,7 @@ include 'db_connect.php';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user_id = $_SESSION['user_id'];
     $session_name = $_SESSION['name'];
-    $delete_password = $_POST['delete_password'];
+    $delete_password = $_POST['delete_password'] ?? '';
 
     // Subukang hanapin gamit ang ID
     $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
@@ -31,7 +31,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($row) {
         $db_id = $row['id'];
 
-        if ($delete_password === $row['password']) {
+        $db_password = (string)($row['password'] ?? '');
+        $is_password_correct = $delete_password !== '' && $db_password !== '' && (
+            password_verify($delete_password, $db_password) ||
+            hash_equals($db_password, $delete_password)
+        );
+
+        if ($is_password_correct) {
             $del_stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
             $del_stmt->bind_param("i", $db_id);
             
