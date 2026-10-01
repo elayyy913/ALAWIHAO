@@ -20,13 +20,20 @@ if (isset($_GET['approve_worker_id'])) {
     $worker = mysqli_fetch_assoc($user_data);
 
     if ($worker) {
-        $fname = $worker['first_name']; $lname = $worker['last_name'];
-        $email = $worker['email']; $pass = $worker['password'];
+        $email = mysqli_real_escape_string($conn, $worker['email']);
+        $worker_exists = mysqli_query($conn, "SELECT worker_id FROM health_workers WHERE email = '$email' LIMIT 1");
 
-        $insert_worker = "INSERT INTO health_workers (first_name, last_name, email, password, status, created_at) 
-                         VALUES ('$fname', '$lname', '$email', '$pass', 'Approved', NOW())";
-        
-        if (mysqli_query($conn, $insert_worker)) {
+        if ($worker_exists && mysqli_num_rows($worker_exists) > 0) {
+            $worker_saved = mysqli_query($conn, "UPDATE health_workers SET status = 'Approved' WHERE email = '$email'");
+        } else {
+            $fname = mysqli_real_escape_string($conn, $worker['first_name']);
+            $lname = mysqli_real_escape_string($conn, $worker['last_name']);
+            $pass = mysqli_real_escape_string($conn, $worker['password']);
+            $worker_saved = mysqli_query($conn, "INSERT INTO health_workers (first_name, last_name, email, password, status, created_at)
+                VALUES ('$fname', '$lname', '$email', '$pass', 'Approved', NOW())");
+        }
+
+        if ($worker_saved) {
             mysqli_query($conn, "UPDATE users SET status = 'Approved' WHERE id = '$id'");
             header("Location: $redirect_page?msg=WorkerApprovedAndRecorded");
             exit();

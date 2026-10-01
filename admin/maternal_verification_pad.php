@@ -29,25 +29,7 @@
  */
 ?>
         <div class="left-column">
-            <!-- PENDING WORKERS TABLE -->
-            <div class="table-container" id="pendingWorkersPad">
-                <h3>Pending Staff Worker Accounts</h3>
-                <table>
-                    <thead><tr><th>Name</th><th>Email</th><th>Action</th></tr></thead>
-                    <tbody>
-                        <?php if (mysqli_num_rows($pending_workers) > 0): while($row = mysqli_fetch_assoc($pending_workers)): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($row['first_name'] . " " . $row['last_name']); ?></td>
-                            <td><?php echo htmlspecialchars($row['email']); ?></td>
-                            <td>
-                                <a href="super_admin_dashboard.php?approve_worker_id=<?php echo $row['id']; ?>" class="btn-approve">APPROVE</a>
-                                <a href="super_admin_dashboard.php?remove_worker_id=<?php echo $row['id']; ?>" class="btn-reject" onclick="return confirm('Reject this worker?')">REJECT</a>
-                            </td>
-                        </tr>
-                        <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending worker accounts.</td></tr>"; endif; ?>
-                    </tbody>
-                </table>
-            </div>
+            <?php include '../worker_verification.php'; ?>
 
             <!-- NEWBORN REGISTRATION TABLE -->
             <div class="table-container">
