@@ -60,10 +60,24 @@ echo json_encode([
 ]);
 
 function time_ago($datetime) {
-    $diff = time() - strtotime($datetime);
+    $timezone = new DateTimeZone('Asia/Manila');
+    $now = new DateTime('now', $timezone);
+    $created = new DateTime($datetime, $timezone);
+    $diff = $now->getTimestamp() - $created->getTimestamp();
+
+    if ($diff < 0)      $diff = 0; // future timestamps treated as now
     if ($diff < 60)     return 'Just now';
-    if ($diff < 3600)   return floor($diff / 60) . ' minute(s) ago';
-    if ($diff < 86400)  return floor($diff / 3600) . ' hour(s) ago';
-    if ($diff < 604800) return floor($diff / 86400) . ' day(s) ago';
-    return date('M j, Y', strtotime($datetime));
+    if ($diff < 3600)   {
+        $mins = floor($diff / 60);
+        return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
+    }
+    if ($diff < 86400)  {
+        $hrs = floor($diff / 3600);
+        return $hrs . ' hour' . ($hrs > 1 ? 's' : '') . ' ago';
+    }
+    if ($diff < 604800) {
+        $days = floor($diff / 86400);
+        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+    }
+    return date('M j, Y g:i A', strtotime($datetime));
 }
