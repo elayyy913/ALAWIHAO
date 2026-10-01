@@ -10,8 +10,8 @@ include 'db_connect.php';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user_id = $_SESSION['user_id'];
     $session_name = $_SESSION['name'];
-    $current_password = trim($_POST['current_password']); // Tinatanggal ang extra spaces
-    $new_password = trim($_POST['new_password']);
+    $current_password = trim($_POST['current_password'] ?? '');
+    $new_password = trim($_POST['new_password'] ?? '');
 
     // Kunin ang record mula sa database
     $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
@@ -30,10 +30,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if ($row) {
         $db_id = $row['id'];
-        $db_password = trim($row['password']); // Tinatanggal din ang space sa database value
+        $db_password = (string)($row['password'] ?? '');
 
-        // Suriin kung tama ang password (sinusubukan ang parehong plain text at hashed kung sakali)
-        $is_password_correct = ($current_password === $db_password) || password_verify($current_password, $db_password);
+        $is_password_correct = $current_password !== '' && $db_password !== '' && (
+            password_verify($current_password, $db_password) ||
+            hash_equals($db_password, $current_password)
+        );
 
         if ($is_password_correct) {
             if (!empty($new_password)) {

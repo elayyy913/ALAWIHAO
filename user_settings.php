@@ -33,7 +33,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
     
     if ($conn->query($update_sql) === TRUE) {
         $message = "<div class='alert success'>Profile updated successfully!</div>";
-        // Refresh para makita agad ang bagong data
         $result = $conn->query("SELECT * FROM users WHERE id = '$user_id'");
         $user = $result->fetch_assoc();
     } else {
@@ -120,13 +119,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         }
 
         .topbar .hamburger-btn {
+            position: static;
             background: none;
             border: none;
             cursor: pointer;
             color: var(--green);
-            font-size: 20px;
-            padding: 4px 8px;
-            border-radius: 8px;
+            font-size: 1.4rem;
+            padding: 6px 10px;
+            border-radius: 6px;
             transition: background 0.2s;
             display: none;
             flex-shrink: 0;
@@ -134,25 +134,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         body.sidebar-closed .topbar .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
         .topbar .hamburger-btn:hover { background: #f0f4f0; }
 
-        .topbar .logo-img {
-            width: 42px;
-            height: 42px;
-            min-width: 42px;
+        .topbar img {
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid var(--green);
-            background: #eef2ee;
             flex-shrink: 0;
         }
 
-        .topbar .page-label { 
-            font-size: 1rem; 
-            font-weight: 600; 
-            color: var(--green); 
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        .topbar .logo-text { display: flex; flex-direction: column; }
+        .topbar .logo-text span { font-size: 0.78rem; color: var(--muted); font-weight: 500; letter-spacing: 0.5px; }
+        .topbar .logo-text strong { font-size: 1.15rem; color: var(--green); font-weight: 700; }
 
         /* MAIN CONTENT */
         #main {
@@ -221,23 +214,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         .edit-input { display: none; }
         .edit-input:focus, .settings-input:focus { outline: none; border-color: var(--green); }
 
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            margin-bottom: 15px;
-            cursor: pointer;
-            color: var(--text);
-            font-weight: 500;
-        }
-        .checkbox-group input {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--green);
-            cursor: pointer;
-        }
-
         .button-group { display: flex; gap: 12px; margin-top: 25px; }
         .btn { padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: 600; border: none; transition: 0.2s; text-align: center; font-size: 1rem; }
         .btn-edit { background: var(--green); color: white; flex: 1; }
@@ -260,9 +236,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         .alert { padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: 500; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
     </style>
 </head>
-<body class="sidebar-closed">
+<body>
 
 <div id="progressBar" class="progress-bar"></div>
 
@@ -271,13 +248,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
 </div>
 
 <div class="topbar">
-    <div class="topbar-brand">
-        <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
-            <i class="fa fa-bars"></i>
-        </button>
-        <img src="images/logo.jpg" alt="Brgy Logo" class="logo-img">
+    <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar"><i class="fa fa-bars"></i></button>
+    <img src="images/logo.jpg" alt="Brgy Logo">
+    <div class="logo-text">
+        <span>Barangay Alawihao Health Center</span>
+        <strong>ALAWIHAO HEALTH HUB</strong>
     </div>
-    <span class="page-label">Account Settings & Profile</span>
 </div>
 
 <div id="main">
@@ -289,7 +265,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         <div class="settings-card profile-card-header">
             <div class="settings-section-title"><i class="fa fa-user-circle"></i> My Profile Information</div>
             <form id="profileForm" method="POST">
-                
                 <div class="form-group">
                     <label>First Name</label>
                     <div class="info-value"><?php echo htmlspecialchars($user['first_name'] ?? ''); ?></div>
@@ -328,14 +303,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
             </form>
         </div>
 
-        <!-- 2. SECURITY & NOTIFICATIONS SECTION -->
+        <!-- 2. SECURITY SECTION -->
         <div class="settings-card">
             <form action="update_settings.php" method="POST">
                 <div class="settings-section-title"><i class="fa fa-shield-halved"></i> Security Credentials</div>
 
                 <div class="form-group">
                     <label for="current_password">Current Password</label>
-                    <input type="password" id="current_password" name="current_password" class="settings-input" placeholder="Enter current password to change password">
+                    <input type="password" id="current_password" name="current_password" class="settings-input" placeholder="Enter your current password to continue" autocomplete="current-password" required>
                 </div>
 
                 <div class="form-group">
@@ -343,20 +318,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
                     <input type="password" id="new_password" name="new_password" class="settings-input" placeholder="Leave blank if you don't wish to change">
                 </div>
 
-                <div class="settings-section-title" style="margin-top: 30px;"><i class="fa fa-bell"></i> Notification Preferences</div>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="sms_reminders" checked>
-                    Receive SMS notifications for upcoming check-up schedules
-                </label>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="email_updates">
-                    Receive email updates regarding health bulletins and advisories
-                </label>
-
                 <div style="margin-top: 25px;">
-                    <button type="submit" class="btn btn-primary-action">Save Security & Preferences</button>
+                    <button type="submit" class="btn btn-primary-action">Save Security Settings</button>
                 </div>
             </form>
         </div>
