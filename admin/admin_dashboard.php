@@ -159,18 +159,31 @@ if (check_table_exists($conn, 'schedules')) {
 
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
             margin-bottom: 30px;
         }
 
         .metric-card {
             background: var(--card-bg);
-            padding: 18px 20px;
+            min-height: 108px;
+            padding: 20px 22px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border: 1px solid var(--border-color);
             border-top: 4px solid var(--sage);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        @media (hover: hover) {
+            .metric-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 8px 16px rgba(30, 41, 59, 0.1);
+                border-color: var(--sage);
+            }
         }
 
         .metric-title {
@@ -183,7 +196,7 @@ if (check_table_exists($conn, 'schedules')) {
         }
 
         .metric-value {
-            font-size: 1.6rem;
+            font-size: 1.7rem;
             font-weight: 700;
             color: var(--text-main);
         }
@@ -374,6 +387,92 @@ if (check_table_exists($conn, 'schedules')) {
         .checkbox-label { font-size: 0.8rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-main); font-weight: normal; text-transform: none; }
         .checkbox-label input { width: 15px; height: 15px; cursor: pointer; }
         .section-tag { background: #F4F4ED; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; color: var(--dark-sage); border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid var(--sage); }
+
+        /* NOTIFICATION BELL */
+        .notif-wrapper { position: relative; margin-left: auto; }
+        .notif-bell-btn {
+            background: none; border: none; cursor: pointer;
+            font-size: 1.3rem; color: var(--dark-sage); position: relative;
+            padding: 6px 10px; border-radius: 8px; transition: background 0.2s;
+        }
+        .notif-bell-btn:hover { background: #F4F4ED; }
+        #notifBellBadge {
+            position: absolute; top: 2px; right: 4px;
+            background: #e53e3e; color: white;
+            font-size: 0.6rem; font-weight: 700;
+            width: 17px; height: 17px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .notif-dropdown {
+            display: none; position: fixed; 
+            width: 320px; background: white;
+            border: 1px solid var(--border-color); border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 99999; overflow: hidden;
+        }
+        .notif-dropdown.open { display: block; }
+        .notif-dropdown-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 16px; border-bottom: 1px solid var(--border-color);
+            font-weight: 700; font-size: 0.9rem; color: var(--dark-sage);
+        }
+        .notif-mark-all {
+            background: none; border: none; font-size: 0.75rem;
+            color: #888; cursor: pointer; font-weight: 600;
+        }
+        .notif-mark-all:hover { color: var(--dark-sage); }
+        .notif-list { max-height: 320px; overflow-y: auto; }
+        .notif-item {
+            padding: 12px 16px; border-bottom: 1px solid #f0f0f0;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .notif-item:hover { background: #F9F9F4; }
+        .notif-item.unread { background: #f0f5eb; }
+        .notif-item .notif-title { font-size: 0.85rem; font-weight: 700; color: #2D2D2D; margin-bottom: 3px; }
+        .notif-item .notif-msg  { font-size: 0.78rem; color: #666; line-height: 1.4; }
+        .notif-item .notif-time { font-size: 0.72rem; color: #aaa; margin-top: 4px; }
+        .notif-empty { text-align: center; padding: 30px 16px; color: #aaa; font-size: 0.85rem; }
+        .notif-empty i { font-size: 1.8rem; margin-bottom: 8px; display: block; }
+    </style>
+    <script src="../theme.js"></script>
+    <link rel="stylesheet" href="../theme.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        [data-theme="dark"] #main,
+        [data-theme="dark"] .modal-content {
+            --light-bg: var(--dm-bg);
+            --card-bg: var(--dm-surface);
+            --text-main: var(--dm-text);
+            --text-muted: var(--dm-text2);
+            --dark-sage: var(--dm-sage);
+            --border-color: var(--dm-border);
+        }
+
+        [data-theme="dark"] #main .metric-title { color: var(--dm-text2) !important; }
+        [data-theme="dark"] #main .metric-value,
+        [data-theme="dark"] #main strong,
+        [data-theme="dark"] .modal-content strong { color: var(--dm-text) !important; }
+
+        [data-theme="dark"] #main .sched-item,
+        [data-theme="dark"] #main .patient-info-box,
+        [data-theme="dark"] .modal-content .patient-info-box,
+        [data-theme="dark"] #main .checkbox-group,
+        [data-theme="dark"] .modal-content .checkbox-group,
+        [data-theme="dark"] #main .section-tag,
+        [data-theme="dark"] .modal-content .section-tag {
+            background-color: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+        }
+
+        [data-theme="dark"] #main .status-badge {
+            background-color: var(--dm-surface2) !important;
+            color: var(--dm-text2) !important;
+        }
+
+        [data-theme="dark"] #main .notif-title { color: var(--dm-text) !important; }
+        [data-theme="dark"] #main .notif-msg,
+        [data-theme="dark"] #main .notif-time,
+        [data-theme="dark"] #main .notif-empty,
+        [data-theme="dark"] #main .notif-mark-all { color: var(--dm-text2) !important; }
     </style>
 </head>
 <body>
@@ -381,7 +480,10 @@ if (check_table_exists($conn, 'schedules')) {
     <?php include('admin_sidebar.php'); ?>
 
     <div id="main">
-        <div class="welcome-title">Welcome, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?></div>
+        <div class="welcome-title" style="display:flex; align-items:center; justify-content:space-between;">
+            Welcome, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?>
+            <?php include '../notif_bell.php'; ?>
+        </div>
         
         <?php if (!empty($message)): ?>
             <div class="success-alert"><?php echo $message; ?></div>
@@ -488,7 +590,7 @@ if (check_table_exists($conn, 'schedules')) {
                                 Type: <?php echo htmlspecialchars($s['appointment_type']); ?>
                             </span>
                             
-                            <form method="POST" action="process_verification.php" class="sched-actions">
+                            <form method="POST" action="../process_verification.php" class="sched-actions">
                                 <input type="hidden" name="schedule_id" value="<?php echo $s['id']; ?>">
                                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
                                 <button type="submit" name="mark_done_maternal" class="btn-done">Mark Done</button>
@@ -523,7 +625,7 @@ if (check_table_exists($conn, 'schedules')) {
                                 Vaccine: <?php echo htmlspecialchars($s['vaccine_type'] ?? 'General Vaccine'); ?>
                             </span>
                             
-                            <form method="POST" action="process_verification.php" class="sched-actions">
+                            <form method="POST" action="../process_verification.php" class="sched-actions">
                                 <input type="hidden" name="schedule_id" value="<?php echo $s['id']; ?>">
                                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
                                 <button type="submit" name="mark_done_infant" class="btn-done">Mark Done</button>
@@ -632,7 +734,7 @@ if (check_table_exists($conn, 'schedules')) {
         <div class="modal-content">
             <h2 style="color:var(--dark-sage); margin-top:0; border-bottom:2px solid var(--border-color); padding-bottom:10px; font-size:1.2rem;">Maternal Client Record & Clinical Verification</h2>
             
-            <form method="POST" action="process_verification.php">
+            <form method="POST" action="../process_verification.php">
                 <input type="hidden" name="mother_id" id="modal_mother_id">
                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
                 
@@ -1053,6 +1155,8 @@ if (check_table_exists($conn, 'schedules')) {
             if (event.target == nbModal) nbModal.style.display = "none";
             if (event.target == matModal) matModal.style.display = "none";
         }
-    </script>
+
+</script>
+<?php $notif_path = '../'; include '../notif_js.php'; ?>
 </body>
 </html>
