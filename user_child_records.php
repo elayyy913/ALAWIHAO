@@ -274,7 +274,7 @@ while ($row = $result_children->fetch_assoc()) {
                 <h2 style="color: var(--primary-green); margin: 0; letter-spacing: 1px;">CHILD & INFANT RECORDS</h2>
                 <p style="color: #777; font-size: 0.8rem; margin-top: 5px;">Manage your children's profiles, age tracking, and vaccination history.</p>
             </div>
-            <a href="user_reg_newborn.php" class="btn-register">ADD NEW CHILD</a>
+            <a href="user_infant_reg.php" class="btn-register">ADD NEW CHILD</a>
         </div>
 
         <table>
