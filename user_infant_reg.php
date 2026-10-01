@@ -155,20 +155,108 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         .form-group input, .form-group select {
             width: 100%; 
-            padding: 8px 10px; 
-            border: 1px solid var(--border-color);
-            border-radius: 2px; 
-            background: #fff; 
+            padding: 9px 10px; 
+            border: 1px solid #d7dfce;
+            border-radius: 8px; 
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbf7 100%);
             box-sizing: border-box;
             font-family: inherit;
-            font-size: 0.95rem;
-            color: #111;
+            font-size: 0.88rem;
+            color: #1f2b1d;
             outline: none;
-            transition: border 0.2s;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            transition: all 0.22s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
         }
 
-        .form-group input:focus, .form-group select:focus { 
-            border-color: var(--sage-green); 
+        .form-group input:hover, .form-group select:hover,
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--sage-green);
+            background: linear-gradient(180deg, #ffffff 0%, #f3f8ea 100%);
+            box-shadow: 0 0 0 3px rgba(113, 131, 85, 0.12), 0 5px 16px rgba(113, 131, 85, 0.12);
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-width: 1.6px;
+        }
+
+        .phone-row {
+            display: grid;
+            grid-template-columns: 160px minmax(0, 1fr);
+            gap: 12px;
+            width: 100%;
+        }
+
+        .phone-code-group,
+        .phone-number-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .phone-code-group label,
+        .phone-number-group label {
+            font-size: 0.7rem;
+            color: #4b5563;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            letter-spacing: 0.3px;
+        }
+
+        .phone-country-select {
+            width: 100%;
+            padding: 9px 30px 9px 10px;
+            border: 1px solid #d7dfce;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbf7 100%);
+            color: #1f2b1d;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 10px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            transition: all 0.22s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .phone-country-select:hover,
+        .phone-country-select:focus,
+        .phone-input:hover,
+        .phone-input:focus {
+            border-color: var(--sage-green);
+            box-shadow: 0 0 0 3px rgba(113, 131, 85, 0.12);
+            outline: none;
+        }
+
+        .phone-input {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid #d7dfce;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbf7 100%);
+            padding: 9px 10px;
+            font-size: 0.88rem;
+            color: #1f2b1d;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            transition: all 0.22s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .field-hint {
+            margin-top: 4px;
+            color: #6b7280;
+            font-size: 0.68rem;
         }
 
         .vaccine-checklist {
@@ -358,6 +446,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
+            <div class="form-grid" style="margin-top: 12px;">
+                <div class="form-group" style="grid-column: span 2;">
+                    <div class="phone-row">
+                        <div class="phone-code-group">
+                            <label>Country code</label>
+                            <select id="countrySelect" class="phone-country-select" name="contact_country" aria-label="Choose country">
+                                <option value="PH" selected>🇵🇭 +63</option>
+                                <option value="US">🇺🇸 +1</option>
+                                <option value="UK">🇬🇧 +44</option>
+                                <option value="AU">🇦🇺 +61</option>
+                            </select>
+                        </div>
+                        <div class="phone-number-group">
+                            <label>Phone number</label>
+                            <input id="contactInput" class="phone-input" type="tel" name="contact" inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number" required>
+                        </div>
+                    </div>
+                    <small class="field-hint" id="contactHint">Philippine format: 09XXXXXXXXX</small>
+                </div>
+            </div>
+
             <div class="form-section-title">Immunization Records</div>
             <div class="form-group" style="margin-bottom: 10px;">
                 <label>Select Vaccines Taken & Date Administered</label>
@@ -468,6 +577,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (sidebar && mainContent) {
             mainContent.classList.add('main-content-active');
         }
+
+        const countrySelect = document.getElementById('countrySelect');
+        const contactInput = document.getElementById('contactInput');
+        const contactHint = document.getElementById('contactHint');
+
+        const countryRules = {
+            PH: { maxLength: 11, pattern: /^09\d{9}$/, hint: 'Philippine format: 09XXXXXXXXX', placeholder: '09123456789' },
+            US: { maxLength: 10, pattern: /^\d{10}$/, hint: 'US format: 10-digit number', placeholder: '5551234567' },
+            UK: { maxLength: 11, pattern: /^\d{10,11}$/, hint: 'UK format: 10-11 digits', placeholder: '7123456789' },
+            AU: { maxLength: 9, pattern: /^\d{9}$/, hint: 'Australia format: 9-digit number', placeholder: '412345678' }
+        };
+
+        function applyCountryRules() {
+            const country = countrySelect.value;
+            const rule = countryRules[country] || countryRules.PH;
+            contactInput.maxLength = rule.maxLength;
+            contactInput.placeholder = rule.placeholder;
+            contactInput.setAttribute('pattern', rule.pattern.source);
+            contactInput.setAttribute('title', 'Enter a valid ' + country + ' phone number.');
+            contactHint.textContent = rule.hint;
+            contactInput.value = contactInput.value.replace(/\D/g, '').slice(0, rule.maxLength);
+        }
+
+        countrySelect.addEventListener('change', applyCountryRules);
+
+        contactInput.addEventListener('input', function() {
+            const country = countrySelect.value;
+            const rule = countryRules[country] || countryRules.PH;
+            let digits = this.value.replace(/\D/g, '').slice(0, rule.maxLength);
+            this.value = digits;
+        });
+
+        contactInput.addEventListener('blur', function() {
+            const country = countrySelect.value;
+            const rule = countryRules[country] || countryRules.PH;
+            if (this.value && !rule.pattern.test(this.value)) {
+                this.setCustomValidity('Please enter a valid ' + country + ' phone number.');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+
+        applyCountryRules();
     });
 </script>
 
