@@ -6,11 +6,12 @@
  *   $notif_path = '';     // root pages
  */
 $notif_path = $notif_path ?? '';
+$is_admin_role = isset($_SESSION['role']) && in_array($_SESSION['role'], ['Admin', 'Super Admin'], true);
 ?>
 <script>
 (function() {
     var BASE     = '<?php echo $notif_path; ?>';  // API path ('' or '../')
-    var IS_ADMIN = (BASE === '../');               // true for admin/ pages
+    var IS_ADMIN = <?php echo $is_admin_role ? 'true' : 'false'; ?>;
 
     // ── Position fixed dropdown below the bell button ──────────
     function positionDropdown() {
@@ -89,10 +90,15 @@ $notif_path = $notif_path ?? '';
 
     // ── Redirect URL per notification type ─────────────────────
     function getNotifUrl(n) {
-        var type = (n.type || '').toLowerCase();
+        var type = String(n.type || '').trim().toLowerCase();
+        var title = String(n.title || '').trim().toLowerCase();
+        var message = String(n.message || '').trim().toLowerCase();
+        var isRescheduleRequest = type === 'reschedule_request'
+            || title.indexOf('reschedule request') !== -1
+            || message.indexOf('requested to reschedule') !== -1;
         if (IS_ADMIN) {
-            if (type === 'reschedule_request')
-                return 'schedule_management.php?tab=reschedTab';
+            if (isRescheduleRequest)
+                return new URL('schedule_management.php?tab=reschedTab', window.location.href).href;
             if (type === 'new_registration' || type === 'registration')
                 return 'super_admin_dashboard.php';
             if (type === 'updated_schedule')
@@ -109,17 +115,18 @@ $notif_path = $notif_path ?? '';
 
     // ── Mark as read → redirect or refresh list ─────────────────
     window.markRead = function(id, url) {
-        fetch(BASE + 'mark_notifications_read.php', {
+        var markRequest = fetch(BASE + 'mark_notifications_read.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'id=' + id
-        }).then(function() {
-            if (url) {
-                window.location.href = url;
-            } else {
-                fetchNotifications();
-            }
+            body: 'id=' + encodeURIComponent(id),
+            keepalive: true
         });
+
+        if (url) {
+            window.location.assign(url);
+        } else {
+            markRequest.then(fetchNotifications).catch(fetchNotifications);
+        }
     };
 
     window.markAllRead = function() {

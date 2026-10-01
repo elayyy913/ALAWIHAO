@@ -4,12 +4,10 @@ NEED FIXING:
 
 (super admin pages)
 
-1. create ng verification form for Pending Staff Worker Accounts
 2. yung schedule pad here specifically yung pag mark as done \& resched 
 3. sa pag confirm ng delete ng worker account need dapat non maglagay ng password ng addmin before proceeding for security purposes
 4. yung edit ng vaccine dapat since nag add na ng vaccine sa edit di na nababago yung name yung quantity na lang tapos need makikita 
 or iindicate dun yung kung sino ang nag make ng update 
-5. make sure na naffetch yung data sa record ng maternal sa inventory ito
 6. sa mternal health naman finalize yung print feature tapos wala sa update record yung vaccine na ittake needed yon ofc
 7. if my namissed na turok di dapat makakajump to other vaccine
 8. sa child health naman security na hindi dapat pwedee mabigyan ng another turok 
@@ -36,7 +34,6 @@ or iindicate dun yung kung sino ang nag make ng update
 
 (admin pages)
 
-1. sa home yung schedule tapos yung pag resched  (M)
 5. sa history needed na makikita dun yung ginawa nila just their movements  sa acc. pag confirm and verify etc(M)
 
 

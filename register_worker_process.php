@@ -31,8 +31,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // para lumabas ang bagong worker sa "Pending Staff Worker Accounts" pad.
         // Kapag 'Approved' agad, ma-sskip yung buong verification step at diretso na
         // itong lalabas sa Personnel Directory (admin_health_workers.php) bilang approved.
-        $sql_user = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status, last_activity) 
-                     VALUES ('$generated_id', '$first_name', '$last_name', '$email', '$password', 'Admin', 'Pending', NULL)";
+        $sql_user = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status, created_at, last_activity) 
+                 VALUES ('$generated_id', '$first_name', '$last_name', '$email', '$password', 'Admin', 'Pending', NOW(), NULL)";
         
         if (mysqli_query($conn, $sql_user)) {
             // Success sa dalawang table!
