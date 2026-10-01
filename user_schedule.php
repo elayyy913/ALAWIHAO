@@ -17,15 +17,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
     $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
     $reason = mysqli_real_escape_string($conn, $_POST['reason']);
+    $requester_marker = '[Requester ID: ' . (int) $user_id . ']';
 
     $update_query = "UPDATE schedules 
                      SET status = 'Reschedule Requested', 
-                         notes = CONCAT(COALESCE(notes, ''), ' | Request: ', ?, ' ', ?, ' | Reason: ', ?)
+                         notes = CONCAT(COALESCE(notes, ''), ' | ', ?, ' Request: ', ?, ' ', ?, ' | Reason: ', ?)
                      WHERE id = ?";
 
     if ($stmt = $conn->prepare($update_query)) {
-        $stmt->bind_param("sssi", $new_date, $new_time, $reason, $schedule_id);
+        $stmt->bind_param("ssssi", $requester_marker, $new_date, $new_time, $reason, $schedule_id);
         if ($stmt->execute()) {
+            $schedule_info = $conn->prepare("SELECT patient_name, service_type FROM schedules WHERE id = ? LIMIT 1");
+            $schedule_info->bind_param("i", $schedule_id);
+            $schedule_info->execute();
+            $schedule = $schedule_info->get_result()->fetch_assoc();
+            $schedule_info->close();
+
+            if ($schedule) {
+                $title = "New Reschedule Request";
+                $notification_message = "{$schedule['patient_name']} requested to reschedule {$schedule['service_type']} to "
+                    . date('F j, Y', strtotime($new_date)) . " at " . date('g:i A', strtotime($new_time)) . ".";
+                $notification = $conn->prepare("INSERT INTO notifications
+                    (user_id, target_role, schedule_id, title, message, type, created_at)
+                    VALUES (0, 'Super Admin', ?, ?, ?, 'reschedule_request', NOW())");
+                $notification->bind_param("iss", $schedule_id, $title, $notification_message);
+                $notification->execute();
+                $notification->close();
+            }
+
             $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
         } else {
             $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . $conn->error . "</div>";

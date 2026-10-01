@@ -36,20 +36,24 @@ $child_unsuccess_pct = ($child_total_reg > 0) ? round(($child_not_success / $chi
 // --- FETCH LISTS HTML BLOCKS (Para maiwasan masira ang tables at schedule items) ---
 // 1. Pending Workers
 $pending_workers_html = '';
-$pw_query = mysqli_query($conn, "SELECT * FROM users WHERE role='Admin' AND status='Pending' ORDER BY created_at DESC");
+$pw_query = mysqli_query($conn, "SELECT u.*, COALESCE(u.created_at, hw.created_at) AS registration_date
+    FROM users u
+    LEFT JOIN health_workers hw ON hw.email = u.email
+    WHERE u.role='Admin' AND u.status='Pending'
+    ORDER BY registration_date DESC");
 if (mysqli_num_rows($pw_query) > 0) {
     while($row = mysqli_fetch_assoc($pw_query)) {
+        $json_row = htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8');
         $pending_workers_html .= '<tr>';
-        $pending_workers_html .= '<td>' . htmlspecialchars($row['first_name'] . " " . $row['last_name']) . '</td>';
-        $pending_workers_html .= '<td>' . htmlspecialchars($row['email']) . '</td>';
-        $pending_workers_html .= '<td>';
-        $pending_workers_html .= '<a href="super_admin_dashboard.php?approve_worker_id=' . $row['id'] . '" class="btn-approve">APPROVE</a> ';
-        $pending_workers_html .= '<a href="super_admin_dashboard.php?remove_worker_id=' . $row['id'] . '" class="btn-reject" onclick="return confirm(\'Reject this worker?\')">REJECT</a>';
-        $pending_workers_html .= '</td>';
+        $pending_workers_html .= '<td><strong>' . htmlspecialchars(trim($row['first_name'] . " " . $row['last_name'])) . '</strong><br><small>' . htmlspecialchars($row['generated_id'] ?? 'No worker ID') . '</small></td>';
+        $pending_workers_html .= '<td>' . htmlspecialchars($row['email']) . '<br><small>' . htmlspecialchars($row['contact_number'] ?? 'No contact number') . '</small></td>';
+        $pending_workers_html .= '<td>' . (!empty($row['registration_date']) ? date('M d, Y', strtotime($row['registration_date'])) : 'N/A') . '</td>';
+        $pending_workers_html .= '<td><button type="button" class="btn-approve" onclick=\'openWorkerReview(' . $json_row . ')\'>REVIEW</button> ';
+        $pending_workers_html .= '<a href="process_verification.php?remove_worker_id=' . (int) $row['id'] . '&redirect=super_admin_dashboard.php" class="btn-reject" onclick="return confirm(\'Reject this worker?\')">REJECT</a></td>';
         $pending_workers_html .= '</tr>';
     }
 } else {
-    $pending_workers_html = '<tr><td colspan="3" align="center">No pending worker accounts.</td></tr>';
+    $pending_workers_html = '<tr><td colspan="4" align="center">No pending worker accounts.</td></tr>';
 }
 
 // 2. Pending Newborns
