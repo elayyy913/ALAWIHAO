@@ -6,6 +6,10 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
+
+$success_message = ($_GET['status'] ?? '') === 'success'
+    ? 'Registration submitted successfully. Your maternal record is now pending review.'
+    : '';
 ?>
 
 <!DOCTYPE html>
@@ -28,12 +32,19 @@ if (!isset($_SESSION['user_id'])) {
             font-family: 'Times New Roman', serif; 
         }
         
-        #main { 
-            margin-left: var(--sidebar-width); 
+        #main {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
             padding: 20px;
-            transition: all 0.3s ease-in-out;
+            box-sizing: border-box;
+            transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
         }
 
+        /* Kapag naka-close/collapse ang sidebar */
+        body.sidebar-closed #main {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
         .form-card {
             background: white; 
             padding: 30px; 
@@ -77,18 +88,94 @@ if (!isset($_SESSION['user_id'])) {
         }
 
         .form-group label {
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
             color: #333;
+            letter-spacing: 0.02em;
         }
 
         .form-group input, .form-group select {
-            padding: 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 2px;
-            font-size: 0.8rem;
+            padding: 9px 10px;
+            border: 1px solid #d7dfce;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbf7 100%);
+            color: #1f2b1d;
+            transition: all 0.22s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .form-group input:hover, .form-group select:hover,
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--sage-green);
+            background: linear-gradient(180deg, #ffffff 0%, #f3f8ea 100%);
+            box-shadow: 0 0 0 3px rgba(113, 131, 85, 0.12), 0 5px 16px rgba(113, 131, 85, 0.12);
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-width: 1.6px;
+        }
+
+        .phone-field {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            border: 1px solid #d7dfce;
+            border-radius: 8px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbf7 100%);
+            transition: all 0.22s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .phone-field:focus-within {
+            border-color: var(--sage-green);
+            box-shadow: 0 0 0 3px rgba(113, 131, 85, 0.12);
+        }
+
+        .phone-country-select {
+            width: 110px;
+            min-width: 110px;
+            padding: 9px 26px 9px 10px;
+            border: none;
+            border-right: 1px solid #d7dfce;
             background: #fff;
+            color: #1f2b1d;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 10px;
+            appearance: none;
+        }
+
+        .phone-country-select:focus {
+            outline: none;
+        }
+
+        .phone-input {
+            flex: 1;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            padding: 9px 10px;
+            font-size: 0.88rem;
+            color: #1f2b1d;
+        }
+
+        .phone-input:focus {
+            outline: none;
+        }
+
+        .field-hint {
+            margin-top: 4px;
+            color: #6b7280;
+            font-size: 0.68rem;
         }
 
         /* CUSTOM SELECT STYLE */
@@ -99,7 +186,7 @@ if (!isset($_SESSION['user_id'])) {
             border: 1px solid var(--border-color);
             background-color: #fafaf9;
             cursor: pointer;
-            background-images: url("data:images/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23718355%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23718355%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
             background-repeat: no-repeat;
             background-position: right 8px top 50%;
             background-size: 9px auto;
@@ -128,9 +215,38 @@ if (!isset($_SESSION['user_id'])) {
             margin-top: 25px; text-transform: uppercase; border-radius: 4px;
         }
 
-        @media (max-width: 768px) {
-            #main { margin-left: 0; }
+        .form-notification {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            color: #245b2a;
+            background: #eef8ef;
+            border: 1px solid #b9dfbd;
+            border-left: 4px solid #3f8f4a;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 0.85rem;
+            line-height: 1.45;
         }
+
+        .form-notification i {
+            color: #3f8f4a;
+            font-size: 1rem;
+            margin-top: 2px;
+        }
+
+        #hamburgerBtn.hamburger-btn {
+            color: #2d5016 !important;
+        }
+
+        @media (max-width: 768px) {
+    #main {
+        margin-left: 0;
+        width: 100%;
+    }
+}
     </style>
 </head>
 <body>
@@ -142,6 +258,13 @@ if (!isset($_SESSION['user_id'])) {
 <div id="main">
     <div class="form-card">
         <h2>MATERNAL REGISTRATION</h2>
+
+        <?php if ($success_message): ?>
+            <div class="form-notification" role="status">
+                <i class="fa fa-circle-check" aria-hidden="true"></i>
+                <span><?php echo htmlspecialchars($success_message); ?></span>
+            </div>
+        <?php endif; ?>
         
         <!-- FIX 1: Ayusin ang form tag mula sa '<<form' patungong '<form' -->
         <form method="POST" action="admin/save_maternal.php">
@@ -253,7 +376,19 @@ if (!isset($_SESSION['user_id'])) {
 
             <div class="row">
                 <div class="form-group"><label>AVERAGE MONTHLY INCOME:</label><input type="text" name="income"></div>
-                <div class="form-group"><label>CONTACT NUMBER:</label><input type="text" name="contact"></div>
+                <div class="form-group">
+                    <label>CONTACT NUMBER:</label>
+                    <div class="phone-field">
+                        <select id="countrySelect" class="phone-country-select" name="contact_country" aria-label="Choose country">
+                            <option value="PH" data-flag="🇵🇭" data-code="+63" data-pattern="^09\\d{9}$" selected>🇵🇭 +63</option>
+                            <option value="US" data-flag="🇺🇸" data-code="+1" data-pattern="^\\d{10}$">🇺🇸 +1</option>
+                            <option value="UK" data-flag="🇬🇧" data-code="+44" data-pattern="^\\d{10,11}$">🇬🇧 +44</option>
+                            <option value="AU" data-flag="🇦🇺" data-code="+61" data-pattern="^\\d{9}$">🇦🇺 +61</option>
+                        </select>
+                        <input id="contactInput" class="phone-input" type="tel" name="contact" inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number (11 digits starting with 09)" required>
+                    </div>
+                    <small class="field-hint" id="contactHint">Philippine format: 09XXXXXXXXX</small>
+                </div>
                 <div class="form-group"><label>PHIC CAT:</label><input type="text" name="phic_cat"></div>
                 <div class="form-group"><label>PHILHEALTH #:</label><input type="text" name="philhealth"></div>
             </div>
@@ -352,6 +487,65 @@ if (!isset($_SESSION['user_id'])) {
                 if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age--;
                 document.getElementById('age').value = age;
             });
+        }
+
+        const countrySelect = document.getElementById('countrySelect');
+        const contactInput = document.getElementById('contactInput');
+        const contactHint = document.getElementById('contactHint');
+
+        if (countrySelect && contactInput) {
+            const countryRules = {
+                PH: { maxLength: 11, pattern: /^09\d{9}$/, hint: 'Philippine format: 09XXXXXXXXX', placeholder: 'e.g. 09123456789' },
+                US: { maxLength: 10, pattern: /^\d{10}$/, hint: 'US format: 10-digit number', placeholder: 'e.g. 5551234567' },
+                UK: { maxLength: 11, pattern: /^\d{10,11}$/, hint: 'UK format: 10-11 digits', placeholder: 'e.g. 7123456789' },
+                AU: { maxLength: 9, pattern: /^\d{9}$/, hint: 'Australia format: 9-digit number', placeholder: 'e.g. 412345678' }
+            };
+
+            function applyCountryRules() {
+                const country = countrySelect.value;
+                const rule = countryRules[country] || countryRules.PH;
+
+                contactInput.maxLength = rule.maxLength;
+                contactInput.placeholder = rule.placeholder;
+                contactInput.setAttribute('pattern', rule.pattern.source);
+                contactInput.setAttribute('title', 'Enter a valid ' + country + ' phone number.');
+                contactHint.textContent = rule.hint;
+
+                contactInput.value = contactInput.value.replace(/\D/g, '').slice(0, rule.maxLength);
+                contactInput.setCustomValidity('');
+            }
+
+            countrySelect.addEventListener('change', applyCountryRules);
+
+            contactInput.addEventListener('input', function() {
+                const country = countrySelect.value;
+                const rule = countryRules[country] || countryRules.PH;
+                let digits = this.value.replace(/\D/g, '');
+
+                if (country === 'PH') {
+                    if (digits.startsWith('63')) digits = digits.slice(2);
+                    if (!digits.startsWith('0')) digits = digits.replace(/^/, '');
+                    digits = digits.slice(0, rule.maxLength);
+                } else {
+                    digits = digits.slice(0, rule.maxLength);
+                }
+
+                this.value = digits;
+            });
+
+            contactInput.addEventListener('blur', function() {
+                const country = countrySelect.value;
+                const rule = countryRules[country] || countryRules.PH;
+                const trimmed = this.value.trim();
+
+                if (trimmed && !rule.pattern.test(trimmed)) {
+                    this.setCustomValidity('Please enter a valid ' + country + ' phone number.');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+
+            applyCountryRules();
         }
 
         // Dynamic Table Columns
