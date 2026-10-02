@@ -3,6 +3,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $is_home = ($current_page == 'user_dashboard.php');
 ?>
 
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css">
+
 <!-- HAMBURGER BUTTON -->
 <button id="hamburgerBtn" class="hamburger-btn" onclick="toggleSidebar()">
     &#9776;

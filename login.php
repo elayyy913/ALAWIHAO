@@ -300,7 +300,7 @@ input:focus {
                 <div class="input-wrapper">
                     <input type="password" name="field_user_pass" id="loginPass" 
                            class="pass-input" placeholder="••••••••" required 
-                           autocomplete="new-password">
+                              autocomplete="new-password" onpaste="return false;">
                     <button type="button" class="toggle-pass" id="toggleBtn" onclick="togglePassword()">
                         <i data-lucide="eye"></i>
                     </button>

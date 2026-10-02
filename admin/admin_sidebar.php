@@ -6,6 +6,9 @@ $is_reg_active   = in_array($current_page, ['admin_maternal_reg.php', 'admin_chi
 $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_child_hr.php']);
 ?>
 
+<script src="../theme.js"></script>
+<link rel="stylesheet" href="../theme.css">
+
 <div id="mySidenav" class="side-nav-new">
     <span class="closebtn-new" onclick="closeNav()">&times;</span>
     
@@ -205,6 +208,11 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         document.getElementById("mySidenav").style.setProperty("width", "280px", "important");
         var mainEl = document.getElementById("main") || document.getElementById("main-wrapper") || document.querySelector(".main-content");
         if(mainEl) mainEl.style.setProperty("margin-left", "280px", "important");
+        var footerEl = document.querySelector(".site-footer-wrap");
+        if(footerEl) {
+            footerEl.style.setProperty("margin-left", "280px", "important");
+            footerEl.style.setProperty("width", "calc(100% - 280px)", "important");
+        }
         var ham = document.getElementById("hamBtn");
         if(ham) ham.style.visibility = "hidden";
     }
@@ -213,6 +221,11 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         document.getElementById("mySidenav").style.setProperty("width", "0", "important");
         var mainEl = document.getElementById("main") || document.getElementById("main-wrapper") || document.querySelector(".main-content");
         if(mainEl) mainEl.style.setProperty("margin-left", "0", "important");
+        var footerEl = document.querySelector(".site-footer-wrap");
+        if(footerEl) {
+            footerEl.style.setProperty("margin-left", "0", "important");
+            footerEl.style.setProperty("width", "100%", "important");
+        }
         var ham = document.getElementById("hamBtn");
         if(ham) ham.style.visibility = "visible";
     }
