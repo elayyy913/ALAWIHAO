@@ -7,6 +7,8 @@ $base_url = "/FINAL_CAPSTONE/admin/";
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="../theme.js"></script>
+<link rel="stylesheet" href="../theme.css">
 <style>
     :root {
         --sage: #8DAE74;
@@ -267,20 +269,30 @@ function hideSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const hamBtn = document.getElementById('hamBtn');
     const main = document.getElementById('main') || document.querySelector('.main-content');
+    const footer = document.querySelector('.site-footer-wrap');
 
     if(sidebar) sidebar.classList.add('is-hidden');
     if(hamBtn) hamBtn.style.display = 'block';
     if(main) main.style.marginLeft = "0";
+    if(footer) {
+        footer.style.marginLeft = "0";
+        footer.style.width = "100%";
+    }
 }
 
 function showSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const hamBtn = document.getElementById('hamBtn');
     const main = document.getElementById('main') || document.querySelector('.main-content');
+    const footer = document.querySelector('.site-footer-wrap');
 
     if(sidebar) sidebar.classList.remove('is-hidden');
     if(hamBtn) hamBtn.style.display = 'none';
     if(main) main.style.marginLeft = "280px";
+    if(footer) {
+        footer.style.marginLeft = "280px";
+        footer.style.width = "calc(100% - 280px)";
+    }
 }
 
 function toggleDropdown(id, btn) {

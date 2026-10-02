@@ -10,9 +10,15 @@ body { flex-wrap: wrap; }
     border-top: 3px solid #2d5016;
     padding: 32px 30px 18px;
     margin-top: 40px;
-    width: 100%;
+    margin-left: 280px;
+    width: calc(100% - 280px);
     flex-shrink: 0;
     box-sizing: border-box;
+    transition: margin-left 0.3s ease, width 0.3s ease;
+}
+body.sidebar-closed .site-footer-wrap {
+    margin-left: 0;
+    width: 100%;
 }
 .site-footer-inner {
     max-width: 1100px;
