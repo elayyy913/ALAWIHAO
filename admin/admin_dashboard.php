@@ -734,7 +734,7 @@ if (check_table_exists($conn, 'schedules')) {
         <div class="modal-content">
             <h2 style="color:var(--dark-sage); margin-top:0; border-bottom:2px solid var(--border-color); padding-bottom:10px; font-size:1.2rem;">Maternal Client Record & Clinical Verification</h2>
             
-            <form method="POST" action="../process_verification.php">
+            <form method="POST" action="process_verification.php">
                 <input type="hidden" name="mother_id" id="modal_mother_id">
                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
                 
