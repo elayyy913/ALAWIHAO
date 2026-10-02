@@ -80,6 +80,7 @@ $stmt_c->close();
 
 $upcoming_schedules = [];
 $history_schedules = [];
+$reschedule_history = [];
 
 if (count($patient_names) > 0) {
     $placeholders = implode(',', array_fill(0, count($patient_names), '?'));
@@ -97,10 +98,45 @@ if (count($patient_names) > 0) {
 
         while ($row = $result->fetch_assoc()) {
             $status = strtolower($row['status'] ?? '');
+            $notes = (string) ($row['notes'] ?? '');
             if ($status == 'completed' || $row['schedule_date'] < $today) {
                 $history_schedules[] = $row;
             } else {
                 $upcoming_schedules[] = $row;
+            }
+
+            if (preg_match('/Request:/i', $notes)
+                || preg_match('/Rescheduled \(Orig:/i', $notes)
+                || preg_match('/Reschedule Rejected/i', $notes)
+                || in_array($status, ['reschedule requested', 'rescheduled'], true)) {
+                preg_match_all('/Request:\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?/i', $notes, $requested_matches, PREG_SET_ORDER);
+                preg_match_all('/Rescheduled \(Orig:\s*(\d{4}-\d{2}-\d{2})\)/i', $notes, $original_matches, PREG_SET_ORDER);
+
+                if ($status === 'reschedule requested') {
+                    $row['reschedule_state'] = 'Reschedule Requested';
+                } elseif ($status === 'rescheduled' || preg_match('/Rescheduled \(Orig:/i', $notes)) {
+                    $row['reschedule_state'] = 'Rescheduled';
+                } elseif (preg_match('/Reschedule Rejected/i', $notes)) {
+                    $row['reschedule_state'] = 'Reschedule Rejected';
+                } else {
+                    $row['reschedule_state'] = 'Reschedule Approved';
+                }
+
+                $row['requested_dates'] = [];
+                foreach ($requested_matches as $request_match) {
+                    $requested_date = date('F j, Y', strtotime($request_match[1]));
+                    if (!empty($request_match[2])) {
+                        $requested_date .= ' at ' . date('g:i A', strtotime($request_match[2]));
+                    }
+                    $row['requested_dates'][] = $requested_date;
+                }
+
+                $row['original_dates'] = [];
+                foreach ($original_matches as $original_match) {
+                    $row['original_dates'][] = date('F j, Y', strtotime($original_match[1]));
+                }
+
+                $reschedule_history[] = $row;
             }
         }
         $stmt->close();
@@ -193,7 +229,8 @@ if (count($patient_names) > 0) {
             box-shadow: 0 4px 15px rgba(0,0,0,0.04);
         }
 
-        .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 20px; font-weight: 500; font-size: 0.95rem; text-align: center; }
+        .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 20px; font-weight: 500; font-size: 0.95rem; text-align: center; transition: opacity 0.4s ease; }
+        .alert.is-dismissing { opacity: 0; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 
@@ -257,7 +294,7 @@ if (count($patient_names) > 0) {
 
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('upcoming', event)">Upcoming (<?= count($upcoming_schedules) ?>)</button>
-            <button class="tab-btn" onclick="switchTab('history', event)">History (<?= count($history_schedules) ?>)</button>
+            <button class="tab-btn" onclick="switchTab('history', event)">History (<?= count($history_schedules) + count($reschedule_history) ?>)</button>
         </div>
 
         <!-- UPCOMING TAB -->
@@ -301,7 +338,7 @@ if (count($patient_names) > 0) {
 
         <!-- HISTORY TAB -->
         <div id="history-tab" class="tab-content">
-            <?php if(count($history_schedules) > 0): ?>
+            <?php if(count($history_schedules) > 0 || count($reschedule_history) > 0): ?>
                 <?php foreach($history_schedules as $row): ?>
                     <div class="sched-card" style="border-left-color: #cbd5e1;">
                         <div class="sched-left">
@@ -324,9 +361,34 @@ if (count($patient_names) > 0) {
                         </div>
                     </div>
                 <?php endforeach; ?>
+                <?php foreach($reschedule_history as $row): ?>
+                    <div class="sched-card" style="border-left-color: #d97706;">
+                        <div class="sched-left">
+                            <div class="date-badge" style="background: #fff7ed;">
+                                <span style="font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 600;">Appointment</span><br>
+                                <b style="font-size: 1.4rem; color: #b45309;"><?= date('d', strtotime($row['schedule_date'])) ?></b>
+                            </div>
+                            <div>
+                                <h3 style="margin:0; color: #333; font-size: 1.1rem;"><?= htmlspecialchars($row['patient_name']) ?></h3>
+                                <p style="margin:3px 0; color: var(--muted); font-size: 0.9rem;"><?= htmlspecialchars($row['service_type']) ?></p>
+                                <small style="color: #888;">Current date: <?= date('F j, Y', strtotime($row['schedule_date'])) ?></small>
+                                <?php foreach ($row['original_dates'] as $original_date): ?>
+                                    <small style="display:block; color: #888;">Previous date: <?= htmlspecialchars($original_date) ?></small>
+                                <?php endforeach; ?>
+                                <?php foreach ($row['requested_dates'] as $requested_date): ?>
+                                    <small style="display:block; color: #888;">Requested date: <?= htmlspecialchars($requested_date) ?></small>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="sched-right">
+                            <?php $reschedule_status_class = str_replace(' ', '-', strtolower($row['reschedule_state'])); ?>
+                            <div class="status-pill <?= htmlspecialchars($reschedule_status_class) ?>"><?= htmlspecialchars(strtoupper($row['reschedule_state'])) ?></div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             <?php else: ?>
                 <div class="no-schedule">
-                    <p>Wala pang nakatalang history ng bakuna.</p>
+                    <p>Wala pang nakatalang history ng appointment o reschedule.</p>
                 </div>
             <?php endif; ?>
         </div>
@@ -360,6 +422,16 @@ if (count($patient_names) > 0) {
 </div>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const successAlert = document.querySelector('.alert.success');
+        if (!successAlert) return;
+
+        window.setTimeout(function() {
+            successAlert.classList.add('is-dismissing');
+            window.setTimeout(function() { successAlert.remove(); }, 400);
+        }, 3000);
+    });
+
     function toggleSidebar() { document.body.classList.toggle('sidebar-closed'); }
     function switchTab(tabName, event) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
