@@ -201,12 +201,15 @@ if (count($patient_names) > 0) {
 
         .topbar-brand { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
         
-        /* Palaging kita ang hamburger button para ma-toggle */
+        #hamburgerBtn { display: none !important; }
+
         .topbar .hamburger-btn {
             background: none; border: none; cursor: pointer; color: var(--green);
             font-size: 20px; padding: 4px 8px; border-radius: 8px; 
             display: inline-flex; align-items: center; justify-content: center;
+            position: static; z-index: auto; flex-shrink: 0;
         }
+        body:not(.sidebar-closed) .topbar .hamburger-btn { display: none; }
 
         .topbar .logo-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid var(--green); background: #eef2ee; }
         .topbar .page-label { font-size: 1rem; font-weight: 600; color: var(--green); }
@@ -222,7 +225,7 @@ if (count($patient_names) > 0) {
         /* Kapag naka-close ang sidebar, sasakop sa buong screen ang main */
         body.sidebar-closed #main { margin-left: 0; width: 100%; }
 
-        .content-container { max-width: 800px; margin: 0 auto; }
+        .content-container { width: 100%; margin: 0 auto; }
         .header-box { 
             background: var(--white); padding: 25px; border-radius: 15px; 
             border-left: 6px solid var(--green); margin-bottom: 25px;
