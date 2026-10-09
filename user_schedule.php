@@ -99,6 +99,13 @@ if (count($patient_names) > 0) {
         while ($row = $result->fetch_assoc()) {
             $status = strtolower($row['status'] ?? '');
             $notes = (string) ($row['notes'] ?? '');
+            $has_reschedule_marker = preg_match('/Request:/i', $notes)
+                || preg_match('/Rescheduled \(Orig:/i', $notes);
+            $is_approved_reschedule = in_array($status, ['approved', 'rescheduled'], true)
+                && $has_reschedule_marker;
+            $row['display_status'] = $is_approved_reschedule
+                ? 'Request Approved'
+                : ($row['status'] ?? 'Pending');
             if ($status == 'completed' || $row['schedule_date'] < $today) {
                 $history_schedules[] = $row;
             } else {
@@ -114,10 +121,12 @@ if (count($patient_names) > 0) {
 
                 if ($status === 'reschedule requested') {
                     $row['reschedule_state'] = 'Reschedule Requested';
-                } elseif ($status === 'rescheduled' || preg_match('/Rescheduled \(Orig:/i', $notes)) {
-                    $row['reschedule_state'] = 'Rescheduled';
                 } elseif (preg_match('/Reschedule Rejected/i', $notes)) {
                     $row['reschedule_state'] = 'Reschedule Rejected';
+                } elseif ($is_approved_reschedule) {
+                    $row['reschedule_state'] = 'Request Approved';
+                } elseif ($status === 'rescheduled' || preg_match('/Rescheduled \(Orig:/i', $notes)) {
+                    $row['reschedule_state'] = 'Rescheduled';
                 } else {
                     $row['reschedule_state'] = 'Reschedule Approved';
                 }
@@ -255,7 +264,7 @@ if (count($patient_names) > 0) {
 
         .status-pill { padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
         .pending { background: #fffcf0; color: #b7791f; border: 1px solid #ecc94b; }
-        .approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .approved, .request-approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .completed { background: #f0f4e8; color: var(--green); border: 1px solid var(--light); }
         .reschedule-requested { background: #fef2f2; color: #b91c1c; border: 1px solid #f87171; }
 
@@ -322,7 +331,7 @@ if (count($patient_names) > 0) {
                         <div class="sched-right">
                             <?php 
                                 $status_raw = strtolower(trim($row['status'] ?? 'pending'));
-                                $display_status = strtoupper($row['status'] ?? 'Pending');
+                                $display_status = strtoupper($row['display_status'] ?? $row['status'] ?? 'Pending');
                                 $status_class = str_replace(' ', '-', $status_raw);
                             ?>
                             <div class="status-pill <?= $status_class ?>"><?= $display_status ?></div>

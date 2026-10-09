@@ -45,3 +45,8 @@ or iindicate dun yung kung sino ang nag make ng update
 
 
 
+
+USER 
+
+1. fix the health article , ifull wide ang pad niy then yung color iayon sa ui color natin, make the fonts bigger be inspired sa DOH page 
+2. sidebars 
