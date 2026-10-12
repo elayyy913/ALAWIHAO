@@ -51,7 +51,7 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         <!-- Direct Schedule Management Link -->
         <a href="schedule_management.php" class="nav-item-new <?php echo ($current_page == 'schedule_management.php') ? 'active' : ''; ?>">Schedule Management</a>
         <div class="menu-label-new">Others</div>
-        <a href="admin_history.php" class="nav-item-new <?php echo ($current_page == 'admin_history.php') ? 'active' : ''; ?>">History</a>
+        <a href="activity_logs.php" class="nav-item-new <?php echo ($current_page == 'activity_logs.php') ? 'active' : ''; ?>">History</a>
         <a href="admin_settings.php" class="nav-item-new <?php echo ($current_page == 'admin_settings.php') ? 'active' : ''; ?>">Settings</a>
     </div>
     <a href="/FINAL_CAPSTONE/logout.php" class="logout-link-new">Log out</a>

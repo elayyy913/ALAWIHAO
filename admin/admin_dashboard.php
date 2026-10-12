@@ -34,12 +34,20 @@ if (isset($_POST['action_type']) && isset($_POST['sched_id'])) {
     $s_id = mysqli_real_escape_string($conn, $_POST['sched_id']);
 
     if ($_POST['action_type'] === 'done') {
-        mysqli_query($conn, "UPDATE schedules SET status='Completed' WHERE id='$s_id'");
-        $message = "Schedule marked as Completed!";
+        if (mysqli_query($conn, "UPDATE schedules SET status='Completed' WHERE id='$s_id'")) {
+            logAdminAction($conn, "Marked schedule ID {$s_id} as completed.");
+            $message = "Schedule marked as Completed!";
+        } else {
+            $message = "Unable to update schedule: " . mysqli_error($conn);
+        }
     } elseif ($_POST['action_type'] === 'resched' && !empty($_POST['new_date'])) {
         $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-        mysqli_query($conn, "UPDATE schedules SET schedule_date='$new_date', status='Rescheduled' WHERE id='$s_id'");
-        $message = "Schedule successfully rescheduled!";
+        if (mysqli_query($conn, "UPDATE schedules SET schedule_date='$new_date', status='Rescheduled' WHERE id='$s_id'")) {
+            logAdminAction($conn, "Rescheduled schedule ID {$s_id} to {$new_date}.");
+            $message = "Schedule successfully rescheduled!";
+        } else {
+            $message = "Unable to reschedule: " . mysqli_error($conn);
+        }
     }
 }
 

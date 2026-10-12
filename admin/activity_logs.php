@@ -2,6 +2,11 @@
 session_start();
 include '../db_connect.php';
 
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['Admin', 'Super Admin'], true)) {
+    header("Location: login.php");
+    exit();
+}
+
 ensureActivityLogTable($conn);
 
 // Kunin ang mga logs mula sa database (pinakabago sa itaas)
@@ -72,7 +77,7 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
             transition: margin-left 0.3s ease, padding 0.3s ease;
         }
         body.sidebar-collapsed #main {
-            margin-left: 0;
+            margin-left: 0 !important;
         }
 
         .logs-container {
@@ -221,7 +226,11 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
 </head>
 <body>
 
-<?php include 'super_admin_sidebar.php'; ?>
+<?php if ($_SESSION['role'] === 'Super Admin'): ?>
+    <?php include 'super_admin_sidebar.php'; ?>
+<?php else: ?>
+    <?php include 'admin_sidebar.php'; ?>
+<?php endif; ?>
 
 <div class="topbar">
     <span class="page-label">System Activity Audit Logs</span>
@@ -230,7 +239,7 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
 <div id="main">
     <div class="logs-container">
         <div class="logs-header">
-            <div class="logs-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Admin & System Activities</div>
+            <div class="logs-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Admin, User & Schedule Activities</div>
         </div>
 
         <div class="logs-table-wrap">
@@ -290,17 +299,22 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const sidebar = document.getElementById('mainSidebar');
-        const toggleBodySidebarState = () => {
-            if (!sidebar) return;
-            document.body.classList.toggle('sidebar-collapsed', sidebar.classList.contains('is-hidden'));
-        };
+            const superAdminSidebar = document.getElementById('mainSidebar');
+            const adminSidebar = document.getElementById('mySidenav');
+            const toggleBodySidebarState = () => {
+                if (superAdminSidebar) {
+                    document.body.classList.toggle('sidebar-collapsed', superAdminSidebar.classList.contains('is-hidden'));
+                } else if (adminSidebar) {
+                    document.body.classList.toggle('sidebar-collapsed', adminSidebar.style.width === '0px');
+                }
+            };
 
-        if (sidebar) {
-            const observer = new MutationObserver(toggleBodySidebarState);
-            observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
-            toggleBodySidebarState();
-        }
+            const sidebar = superAdminSidebar || adminSidebar;
+            if (sidebar) {
+                const observer = new MutationObserver(toggleBodySidebarState);
+                observer.observe(sidebar, { attributes: true, attributeFilter: superAdminSidebar ? ['class'] : ['style'] });
+                toggleBodySidebarState();
+            }
     });
 </script>
 </body>
