@@ -211,7 +211,10 @@ if (isset($_POST['submit_maternal_approval'])) {
 // --- HANDLE SCHEDULE ACTIONS ---
 if (isset($_POST['mark_done_maternal'])) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
-    mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'");
+    if (mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'")
+        && mysqli_affected_rows($conn) > 0) {
+        logAdminAction($conn, "Marked maternal schedule ID {$schedule_id} as completed.");
+    }
     header("Location: $redirect_page?msg=MaternalMarkedDone");
     exit();
 }
@@ -219,14 +222,20 @@ if (isset($_POST['mark_done_maternal'])) {
 if (isset($_POST['reschedule_maternal'])) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
     $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-    mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'");
+    if (mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'")
+        && mysqli_affected_rows($conn) > 0) {
+        logAdminAction($conn, "Rescheduled maternal schedule ID {$schedule_id} to {$new_date}.");
+    }
     header("Location: $redirect_page?msg=MaternalRescheduled");
     exit();
 }
 
 if (isset($_POST['mark_done_infant'])) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
-    mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'");
+    if (mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'")
+        && mysqli_affected_rows($conn) > 0) {
+        logAdminAction($conn, "Marked child schedule ID {$schedule_id} as completed.");
+    }
     header("Location: $redirect_page?msg=InfantMarkedDone");
     exit();
 }
@@ -234,7 +243,10 @@ if (isset($_POST['mark_done_infant'])) {
 if (isset($_POST['reschedule_infant'])) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
     $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-    mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'");
+    if (mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'")
+        && mysqli_affected_rows($conn) > 0) {
+        logAdminAction($conn, "Rescheduled child schedule ID {$schedule_id} to {$new_date}.");
+    }
     header("Location: $redirect_page?msg=InfantRescheduled");
     exit();
 }

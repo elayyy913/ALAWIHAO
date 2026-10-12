@@ -61,7 +61,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['reschedule_maternal']
     
     if ($sched) {
         // Update schedule
-        mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Approved' WHERE id = '$schedule_id'");
+        if (mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Approved' WHERE id = '$schedule_id'")
+            && mysqli_affected_rows($conn) > 0) {
+            logAdminAction($conn, "Rescheduled schedule ID {$schedule_id} for {$sched['patient_name']} to {$new_date}.");
+        }
         
         // Create notification for user
         $date_fmt = date('F j, Y', strtotime($new_date));
@@ -97,7 +100,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['mark_done_maternal'])
     $sched = mysqli_fetch_assoc($sched_query);
     
     // Update schedule status to completed
-    mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'");
+    if (mysqli_query($conn, "UPDATE schedules SET status = 'Completed' WHERE id = '$schedule_id'")
+        && mysqli_affected_rows($conn) > 0) {
+        $patient_label = $sched['patient_name'] ?? 'unknown patient';
+        logAdminAction($conn, "Marked schedule ID {$schedule_id} for {$patient_label} as completed.");
+    }
     
     if ($sched) {
         // Create notification for user

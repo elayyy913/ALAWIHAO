@@ -8,6 +8,93 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'Admin' && $_SESSION[
     exit();
 }
 
+if (!ensureRescheduleRequestsTable($conn)) {
+    die("Unable to prepare reschedule requests: " . mysqli_error($conn));
+}
+
+$legacy_pattern = '/(?:\[Requester ID:\s*(\d+)\]\s*)?Request:\s*(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)\s*\|\s*Reason:\s*(.*?)(?=\s*\|\s*(?:\[Requester ID:\s*\d+\]\s*)?Request:|\s*\|\s*Rescheduled \(Orig:|$)/s';
+$legacy_result = $conn->query("SELECT id, notes FROM schedules WHERE status = 'Reschedule Requested'");
+if (!$legacy_result) {
+    die("Unable to load legacy reschedule requests: " . $conn->error);
+}
+while ($legacy_schedule = $legacy_result->fetch_assoc()) {
+    $legacy_notes = $legacy_schedule['notes'] ?? '';
+    if (!preg_match_all($legacy_pattern, $legacy_notes, $legacy_matches, PREG_SET_ORDER)) {
+        continue;
+    }
+
+    $legacy_schedule_id = (int) $legacy_schedule['id'];
+    $legacy_seen = [];
+    $legacy_existing_counts = [];
+    foreach ($legacy_matches as $legacy_match) {
+        $legacy_requester_id = isset($legacy_match[1]) ? (int) $legacy_match[1] : 0;
+        $legacy_date = $legacy_match[2];
+        $legacy_time = $legacy_match[3];
+        $legacy_reason = trim($legacy_match[4]);
+
+        $legacy_key = hash('sha256', json_encode([
+            $legacy_schedule_id,
+            $legacy_requester_id,
+            $legacy_date,
+            $legacy_time,
+            $legacy_reason
+        ]));
+        $legacy_seen[$legacy_key] = ($legacy_seen[$legacy_key] ?? 0) + 1;
+
+        if (!array_key_exists($legacy_key, $legacy_existing_counts)) {
+            $count_request = $conn->prepare("SELECT COUNT(*) AS request_count
+                FROM schedule_reschedule_requests
+                WHERE schedule_id = ? AND requester_id = ? AND requested_date = ?
+                    AND requested_time = ? AND reason = ?");
+            if (!$count_request) {
+                die("Unable to check legacy reschedule request: " . $conn->error);
+            }
+            $count_request->bind_param(
+                "iisss",
+                $legacy_schedule_id,
+                $legacy_requester_id,
+                $legacy_date,
+                $legacy_time,
+                $legacy_reason
+            );
+            if (!$count_request->execute()) {
+                $count_error = $count_request->error;
+                $count_request->close();
+                die("Unable to check legacy reschedule request: " . $count_error);
+            }
+            $legacy_existing_counts[$legacy_key] = (int) $count_request->get_result()->fetch_assoc()['request_count'];
+            $count_request->close();
+        }
+
+        if ($legacy_seen[$legacy_key] <= $legacy_existing_counts[$legacy_key]) {
+            continue;
+        }
+
+        $legacy_insert = $conn->prepare("INSERT INTO schedule_reschedule_requests
+            (schedule_id, requester_id, requested_date, requested_time, reason)
+            VALUES (?, ?, ?, ?, ?)");
+        if (!$legacy_insert) {
+            die("Unable to import legacy reschedule request: " . $conn->error);
+        }
+        $legacy_insert->bind_param(
+            "iisss",
+            $legacy_schedule_id,
+            $legacy_requester_id,
+            $legacy_date,
+            $legacy_time,
+            $legacy_reason
+        );
+        if (!$legacy_insert->execute()) {
+            $legacy_error = $legacy_insert->error;
+            $legacy_insert->close();
+            die("Unable to import legacy reschedule request: " . $legacy_error);
+        }
+        $legacy_insert->close();
+        $legacy_existing_counts[$legacy_key]++;
+    }
+}
+$legacy_result->free();
+
 // ── Notification helper ───────────────────────────────────────────────────────
 // Resolves patient_name → user_id, then inserts a notification row.
 function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type = 'new_schedule') {
@@ -101,6 +188,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
                             $success_count++;
                             // ── Notify the patient's user ──
                             $new_schedule_id = $conn->insert_id;
+                            logAdminAction(
+                                $conn,
+                                "Created {$category} schedule ID {$new_schedule_id} for {$patient_name} ({$service_type}) on {$schedule_date} at {$schedule_time}."
+                            );
                             $date_fmt = date('F j, Y', strtotime($schedule_date));
                             $time_fmt = date('g:i A', strtotime($schedule_time));
                             notify_user(
@@ -137,7 +228,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
 
     // Fetch old values to detect changes
     $old_row = null;
-    $old_stmt = $conn->prepare("SELECT schedule_date, schedule_time, status FROM schedules WHERE id = ?");
+    $old_stmt = $conn->prepare("SELECT patient_name, service_type, schedule_date, schedule_time, status FROM schedules WHERE id = ?");
     $old_stmt->bind_param("i", $id);
     $old_stmt->execute();
     $old_row = $old_stmt->get_result()->fetch_assoc();
@@ -148,6 +239,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
         $stmt->bind_param("sssssssi", $patient_name, $category, $schedule_date, $schedule_time, $service_type, $notes, $status, $id);
         if ($stmt->execute()) {
             $message = "Schedule updated successfully!";
+            logAdminAction(
+                $conn,
+                "Updated schedule ID {$id} for {$patient_name} ({$service_type}) to {$schedule_date} at {$schedule_time}, status: {$status}."
+            );
 
             // ── Notify user of meaningful changes ──
             $date_fmt = date('F j, Y', strtotime($schedule_date));
@@ -182,7 +277,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
 // Handle Delete Schedule
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
     $id = intval($_POST['schedule_id']);
-    $sched = $conn->query("SELECT patient_name, service_type, schedule_date FROM schedules WHERE id = $id")->fetch_assoc();
+    $sched_stmt = $conn->prepare("SELECT patient_name, service_type, schedule_date FROM schedules WHERE id = ?");
+    $sched = null;
+    if ($sched_stmt) {
+        $sched_stmt->bind_param("i", $id);
+        if ($sched_stmt->execute()) {
+            $sched = $sched_stmt->get_result()->fetch_assoc();
+        }
+        $sched_stmt->close();
+    }
 
     if ($sched) {
         $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
@@ -198,6 +301,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
         $stmt->bind_param("i", $id);
         if ($stmt->execute()) {
             $message = "Schedule deleted successfully!";
+            if ($sched) {
+                logAdminAction(
+                    $conn,
+                    "Deleted schedule ID {$id} for {$sched['patient_name']} ({$sched['service_type']}) dated {$sched['schedule_date']}."
+                );
+            } else {
+                logAdminAction($conn, "Deleted schedule ID {$id}.");
+            }
         } else {
             $message = "Error deleting schedule: " . $conn->error;
         }
@@ -207,65 +318,133 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
 
 // Handle Reschedule Confirmation (Approve / Reject)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) {
-    $id = intval($_POST['schedule_id']);
-    $action = $_POST['reschedule_action']; 
-
-    if ($action == 'approve') {
-        $new_date = $_POST['proposed_date'];
-        $new_time = $_POST['proposed_time'];
-        
-        $get_orig = $conn->prepare("SELECT schedule_date, notes FROM schedules WHERE id = ?");
-        $get_orig->bind_param("i", $id);
-        $get_orig->execute();
-        $res_orig = $get_orig->get_result();
-        $orig_row = $res_orig->fetch_assoc();
-        $old_date = $orig_row['schedule_date'] ?? '';
-        $current_notes = $orig_row['notes'] ?? '';
-        $get_orig->close();
-
-        if (strpos($current_notes, 'Rescheduled (Orig:') === false) {
-            $updated_notes = trim($current_notes . ' | Rescheduled (Orig: ' . $old_date . ')');
-        } else {
-            $updated_notes = $current_notes;
-        }
-
-        $sql = "UPDATE schedules SET schedule_date=?, schedule_time=?, status='Approved', notes=? WHERE id=?";
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssi", $new_date, $new_time, $updated_notes, $id);
-            $stmt->execute();
-            $stmt->close();
-            $message = "Reschedule request approved successfully!";
-
-            // ── Notify user ──
-            $sched = $conn->query("SELECT patient_name, service_type FROM schedules WHERE id = $id")->fetch_assoc();
-            if ($sched) {
-                $date_fmt = date('F j, Y', strtotime($new_date));
-                $time_fmt = date('g:i A', strtotime($new_time));
-                notify_user_by_schedule($conn, $id, $sched['patient_name'],
-                    "Reschedule Request Approved",
-                    "Your reschedule request for {$sched['service_type']} has been approved. New date: {$date_fmt} at {$time_fmt}.",
-                    'updated_schedule'
-                );
-            }
-        }
+    $request_id = (int) ($_POST['reschedule_request_id'] ?? 0);
+    $action = $_POST['reschedule_action'] ?? '';
+    if ($request_id < 1 || !in_array($action, ['approve', 'reject'], true)) {
+        $message = "Invalid reschedule request.";
     } else {
-        $sql = "UPDATE schedules SET status='Pending', notes = CONCAT(COALESCE(notes, ''), ' | Reschedule Rejected') WHERE id=?";
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $stmt->close();
-            $message = "Reschedule request rejected.";
+        $conn->begin_transaction();
+        $request_stmt = $conn->prepare("SELECT r.schedule_id, r.requester_id, r.requested_date,
+                r.requested_time, s.patient_name, s.service_type, s.schedule_date, s.schedule_time, s.notes
+            FROM schedule_reschedule_requests r
+            JOIN schedules s ON s.id = r.schedule_id
+            WHERE r.id = ? AND r.status = 'Pending'
+            FOR UPDATE");
+        if (!$request_stmt) {
+            $conn->rollback();
+            $message = "Unable to load reschedule request: " . $conn->error;
+        } else {
+            $request_stmt->bind_param("i", $request_id);
+            if (!$request_stmt->execute()) {
+                $request_error = $request_stmt->error;
+                $request_stmt->close();
+                $conn->rollback();
+                $message = "Unable to load reschedule request: " . $request_error;
+            } else {
+                $request = $request_stmt->get_result()->fetch_assoc();
+                $request_stmt->close();
 
-            // ── Notify user ──
-            $sched = $conn->query("SELECT patient_name, service_type, schedule_date, schedule_time FROM schedules WHERE id = $id")->fetch_assoc();
-            if ($sched) {
-                $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
-                $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
-                notify_user_by_schedule($conn, $id, $sched['patient_name'],
-                    "Reschedule Request Rejected",
-                    "Your reschedule request for {$sched['service_type']} was not approved. The original schedule on {$date_fmt} at {$time_fmt} remains.",
-                    'updated_schedule'
-                );
+                if (!$request) {
+                    $conn->rollback();
+                    $message = "This reschedule request has already been processed.";
+                } else {
+                    $new_request_status = $action === 'approve' ? 'Approved' : 'Rejected';
+                    $update_request = $conn->prepare("UPDATE schedule_reschedule_requests
+                        SET status = ? WHERE id = ? AND status = 'Pending'");
+                    $update_request->bind_param("si", $new_request_status, $request_id);
+                    $request_updated = $update_request->execute() && $update_request->affected_rows === 1;
+                    $update_error = $update_request->error;
+                    $update_request->close();
+
+                    if (!$request_updated) {
+                        $conn->rollback();
+                        $message = "Unable to process reschedule request: " . $update_error;
+                    } else {
+                        $schedule_id = (int) $request['schedule_id'];
+                        $pending_stmt = $conn->prepare("SELECT
+                            SUM(status = 'Pending') AS pending_count,
+                            SUM(status = 'Approved') AS approved_count
+                            FROM schedule_reschedule_requests WHERE schedule_id = ?");
+                        $pending_stmt->bind_param("i", $schedule_id);
+                        $pending_stmt->execute();
+                        $counts = $pending_stmt->get_result()->fetch_assoc();
+                        $pending_stmt->close();
+                        $schedule_status = (int) ($counts['pending_count'] ?? 0) > 0
+                            ? 'Reschedule Requested'
+                            : ((int) ($counts['approved_count'] ?? 0) > 0 ? 'Approved' : 'Pending');
+
+                        $old_date = $request['schedule_date'];
+                        $notes = $request['notes'] ?? '';
+                        if ($action === 'approve' && strpos($notes, 'Rescheduled (Orig:') === false) {
+                            $notes = trim($notes . ' | Rescheduled (Orig: ' . $old_date . ')');
+                        }
+
+                        if ($action === 'approve') {
+                            $update_schedule = $conn->prepare("UPDATE schedules
+                                SET schedule_date = ?, schedule_time = ?, status = ?, notes = ? WHERE id = ?");
+                            $update_schedule->bind_param(
+                                "ssssi",
+                                $request['requested_date'],
+                                $request['requested_time'],
+                                $schedule_status,
+                                $notes,
+                                $schedule_id
+                            );
+                        } else {
+                            $update_schedule = $conn->prepare("UPDATE schedules SET status = ? WHERE id = ?");
+                            $update_schedule->bind_param("si", $schedule_status, $schedule_id);
+                        }
+
+                        if (!$update_schedule->execute()) {
+                            $schedule_error = $update_schedule->error;
+                            $update_schedule->close();
+                            $conn->rollback();
+                            $message = "Unable to update schedule: " . $schedule_error;
+                        } else {
+                            $update_schedule->close();
+                            $conn->commit();
+                            $message = $action === 'approve'
+                                ? "Reschedule request approved successfully!"
+                                : "Reschedule request rejected.";
+                            $reschedule_action_label = $action === 'approve' ? 'Approved' : 'Rejected';
+                            $reschedule_action_detail = $action === 'approve'
+                                ? "to {$request['requested_date']} at {$request['requested_time']}"
+                                : "requested for {$request['requested_date']} at {$request['requested_time']}";
+                            logAdminAction(
+                                $conn,
+                                "{$reschedule_action_label} reschedule request ID {$request_id} for schedule ID {$schedule_id} ({$request['patient_name']}) {$reschedule_action_detail}."
+                            );
+
+                            $requester_id = (int) $request['requester_id'];
+                            if ($requester_id > 0) {
+                                $date = $action === 'approve' ? $request['requested_date'] : $request['schedule_date'];
+                                $time = $action === 'approve' ? $request['requested_time'] : $request['schedule_time'];
+                                $date_fmt = date('F j, Y', strtotime($date));
+                                $time_fmt = date('g:i A', strtotime($time));
+                                $title = $action === 'approve'
+                                    ? "Reschedule Request Approved"
+                                    : "Reschedule Request Rejected";
+                                $notification_message = $action === 'approve'
+                                    ? "Your reschedule request for {$request['service_type']} has been approved. New date: {$date_fmt} at {$time_fmt}."
+                                    : "Your reschedule request for {$request['service_type']} was not approved. The current schedule on {$date_fmt} at {$time_fmt} remains.";
+                                $notification = $conn->prepare("INSERT INTO notifications
+                                    (user_id, target_role, schedule_id, title, message, type)
+                                    VALUES (?, 'User', ?, ?, ?, 'updated_schedule')");
+                                if ($notification) {
+                                    $notification->bind_param(
+                                        "iiss",
+                                        $requester_id,
+                                        $schedule_id,
+                                        $title,
+                                        $notification_message
+                                    );
+                                    $notification->execute();
+                                    $notification->close();
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -274,9 +453,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
 // Handle Reschedule Request Form Submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule'])) {
     $schedule_id = intval($_POST['schedule_id']);
-    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-    $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
-    $reason = mysqli_real_escape_string($conn, $_POST['reason']);
+    $new_date = trim($_POST['new_date'] ?? '');
+    $new_time = trim($_POST['new_time'] ?? '');
+    $reason = trim($_POST['reason'] ?? '');
 
     $update_query = "UPDATE schedules 
                      SET status = 'Reschedule Requested', 
@@ -287,9 +466,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
         $stmt->bind_param("sssi", $new_date, $new_time, $reason, $schedule_id);
         
         if ($stmt->execute()) {
-            $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
+            $request_insert = $conn->prepare("INSERT INTO schedule_reschedule_requests
+                (schedule_id, requester_id, requested_date, requested_time, reason)
+                VALUES (?, 0, ?, ?, ?)");
+            if ($request_insert) {
+                $request_insert->bind_param("isss", $schedule_id, $new_date, $new_time, $reason);
+                if ($request_insert->execute()) {
+                    $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
+                    logAdminAction(
+                        $conn,
+                        "Submitted a reschedule request for schedule ID {$schedule_id}: {$new_date} at {$new_time}. Reason: {$reason}"
+                    );
+                } else {
+                    $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-save ng request: " . htmlspecialchars($request_insert->error) . "</div>";
+                }
+                $request_insert->close();
+            } else {
+                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-save ng request: " . htmlspecialchars($conn->error) . "</div>";
+            }
         } else {
-            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . $conn->error . "</div>";
+            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($stmt->error) . "</div>";
         }
         $stmt->close();
     }
@@ -297,7 +493,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
 // SECURED QUERIES 
 $result_child = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'child' AND (status = 'Pending' OR status = 'Approved') ORDER BY schedule_date ASC, schedule_time ASC");
 $result_maternal = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'maternal' AND (status = 'Pending' OR status = 'Approved') ORDER BY schedule_date ASC, schedule_time ASC");
-$result_reschedule = $conn->query("SELECT * FROM schedules WHERE status = 'Reschedule Requested' ORDER BY schedule_date ASC");
+$result_reschedule = $conn->query("SELECT r.id AS request_id, r.requester_id, r.requested_date,
+        r.requested_time, r.reason, r.created_at, s.id, s.patient_name, s.service_type,
+        s.schedule_date, s.schedule_time, s.category
+    FROM schedule_reschedule_requests r
+    JOIN schedules s ON s.id = r.schedule_id
+    WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'
+    ORDER BY r.created_at ASC, r.id ASC");
 $result_completed = $conn->query("SELECT * FROM schedules WHERE status = 'Completed' ORDER BY schedule_date DESC, schedule_time DESC");
 
 $result_infants = $conn->query("SELECT id, child_name AS full_name, 'Child' AS category FROM children ORDER BY child_name ASC");
@@ -328,14 +530,22 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 
         #main { 
             margin-left: var(--sidebar-width); 
+            width: calc(100% - var(--sidebar-width));
             padding: 20px 30px;
             box-sizing: border-box;
             min-height: 100vh;
+            transition: margin-left 0.3s ease, width 0.3s ease;
+        }
+
+        body.sidebar-collapsed #main {
+            margin-left: 0 !important;
+            width: 100%;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: none;
+            margin: 0;
         }
 
         .page-header {
@@ -427,6 +637,19 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             border-collapse: collapse;
             font-size: 0.9rem;
         }
+
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .reschedule-requests-table {
+            min-width: 1000px;
+        }
+
+        .reschedule-requests-table th:nth-child(1) { min-width: 145px; }
+        .reschedule-requests-table th:nth-child(4) { min-width: 150px; }
+        .reschedule-requests-table th:nth-child(5) { min-width: 240px; }
 
         th, td {
             padding: 12px 15px;
@@ -529,6 +752,40 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             color: #166534; background: #f0fdf4; padding: 10px;
             border-left: 3px solid var(--sage-green); margin-bottom: 15px;
         }
+
+        @media (max-width: 900px) {
+            #main {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px;
+            }
+            .page-header {
+                align-items: flex-start;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .page-header > div {
+                flex-wrap: wrap;
+            }
+            .btn-add {
+                margin-right: 0;
+            }
+            .tab-content {
+                padding: 14px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            #main { padding: 14px 12px; }
+            .page-header h2 { font-size: 1rem; }
+            .tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .tab { padding: 10px 13px; font-size: 0.75rem; }
+            th, td { padding: 10px 12px; }
+        }
     </style>
 
 <?php $notif_path='../'; include '../notif_assets.php'; ?>
@@ -565,6 +822,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 
         <!-- Child Schedule Tab Content -->
         <div id="childTab" class="tab-content active">
+            <div class="table-scroll">
             <table>
                 <thead>
                     <tr>
@@ -621,10 +879,12 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Maternal Schedule Tab Content -->
         <div id="maternalTab" class="tab-content">
+            <div class="table-scroll">
             <table>
                 <thead>
                     <tr>
@@ -681,17 +941,20 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Reschedule Requests Tab Content -->
         <div id="reschedTab" class="tab-content">
-            <table>
+            <div class="table-scroll">
+            <table class="reschedule-requests-table">
                 <thead>
                     <tr>
                         <th>Patient Name</th>
                         <th>Service / Check-up</th>
                         <th>Current Schedule</th>
-                        <th>Requested Details</th>
+                        <th>Requested Date &amp; Time</th>
+                        <th>Reason</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -700,37 +963,35 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                     <?php if ($result_reschedule && $result_reschedule->num_rows > 0): ?>
                         <?php while($row = $result_reschedule->fetch_assoc()): ?>
                             <tr>
-                                <td><strong><?= htmlspecialchars($row['patient_name']) ?></strong></td>
-                                <td><?= htmlspecialchars($row['service_type']) ?></td>
+                                <td><strong><?= htmlspecialchars($row['patient_name'] ?? '') ?></strong><br><small>Request #<?= (int) $row['request_id'] ?></small></td>
+                                <td><?= htmlspecialchars($row['service_type'] ?? '') ?></td>
                                 <td><?= date('M d, Y', strtotime($row['schedule_date'])) ?> <br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small></td>
-                                <td><span style="color: #92400e; font-weight: bold;"><?= htmlspecialchars($row['notes']) ?></span></td>
+                                <td><?= date('M d, Y', strtotime($row['requested_date'])) ?><br><small><?= date('h:i A', strtotime($row['requested_time'])) ?></small></td>
+                                <td><?= nl2br(htmlspecialchars($row['reason'] ?? 'No reason provided')) ?></td>
                                 <td><span class="badge badge-resched">Resched Requested</span></td>
                                 <td>
-                                    <div style="display: flex; gap: 5px; align-items: center;">
-                                        <button class="btn-add" style="padding: 4px 8px; font-size: 0.75rem;" 
-                                            onclick="openReschedModal(
-                                                '<?= $row['id'] ?>', 
-                                                '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                                '<?= $row['schedule_date'] ?>', 
-                                                '<?= $row['schedule_time'] ?>'
-                                            )">Review</button>
-                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
-                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
-                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
-                                        </form>
-                                    </div>
+                                    <button class="btn-add" style="padding: 4px 8px; font-size: 0.75rem;"
+                                        onclick='openReschedModal(
+                                            <?= (int) $row["request_id"] ?>,
+                                            <?= json_encode($row["patient_name"] ?? "", JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
+                                            <?= json_encode($row["requested_date"], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
+                                            <?= json_encode(substr($row["requested_time"], 0, 5), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
+                                            <?= json_encode($row["reason"] ?? "", JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>
+                                        )'>Review</button>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr><td colspan="6" style="text-align:center;">No pending reschedule requests.</td></tr>
+                        <tr><td colspan="7" style="text-align:center;">No pending reschedule requests.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Completed Appointments Tab Content -->
         <div id="completedTab" class="tab-content">
+            <div class="table-scroll">
             <table>
                 <thead>
                     <tr>
@@ -780,6 +1041,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
     </div>
@@ -902,23 +1164,27 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 <div id="reschedModal" class="modal">
     <div class="modal-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; text-transform: uppercase; font-size: 1rem;">Confirm Reschedule Request</h3>
+            <h3 style="margin: 0; text-transform: uppercase; font-size: 1rem;">Review Reschedule Request</h3>
             <span style="cursor: pointer; font-weight: bold;" onclick="document.getElementById('reschedModal').style.display='none'">&times;</span>
         </div>
         
         <form method="POST">
-            <input type="hidden" name="schedule_id" id="resched_schedule_id">
+            <input type="hidden" name="reschedule_request_id" id="resched_request_id">
             <div class="form-group">
                 <label>Patient Name</label>
                 <input type="text" id="resched_patient_name" readonly style="background: #f3f4f6;">
             </div>
             <div class="form-group">
-                <label>New Proposed Date</label>
-                <input type="date" name="proposed_date" id="resched_proposed_date" required>
+                <label>Requested Date</label>
+                <input type="date" id="resched_proposed_date" readonly style="background: #f3f4f6;">
             </div>
             <div class="form-group">
-                <label>New Proposed Time</label>
-                <input type="time" name="proposed_time" id="resched_proposed_time" required>
+                <label>Requested Time</label>
+                <input type="time" id="resched_proposed_time" readonly style="background: #f3f4f6;">
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <textarea id="resched_reason" rows="3" readonly style="background: #f3f4f6;"></textarea>
             </div>
             <div class="form-group">
                 <label>Action</label>
@@ -974,6 +1240,19 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
     window.addEventListener('DOMContentLoaded', () => {
         filterPatientsByCategory();
 
+        const main = document.getElementById('main');
+        const sidebar = document.getElementById('mainSidebar') || document.getElementById('mySidenav');
+        if (main && sidebar) {
+            const syncMainWidth = () => {
+                const sidebarClosed = sidebar.classList.contains('is-hidden')
+                    || sidebar.getBoundingClientRect().width === 0;
+                document.body.classList.toggle('sidebar-collapsed', sidebarClosed);
+            };
+            const sidebarObserver = new MutationObserver(syncMainWidth);
+            sidebarObserver.observe(sidebar, { attributes: true, attributeFilter: ['class', 'style'] });
+            syncMainWidth();
+        }
+
         // Auto-open tab if ?tab= is in the URL (e.g. from notification redirect)
         var urlParams = new URLSearchParams(window.location.search);
         var tabParam  = urlParams.get('tab');
@@ -995,11 +1274,12 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         document.getElementById('editModal').style.display = 'block';
     }
 
-    function openReschedModal(id, patientName, scheduleDate, scheduleTime) {
-        document.getElementById('resched_schedule_id').value = id;
+    function openReschedModal(requestId, patientName, scheduleDate, scheduleTime, reason) {
+        document.getElementById('resched_request_id').value = requestId;
         document.getElementById('resched_patient_name').value = patientName;
         document.getElementById('resched_proposed_date').value = scheduleDate;
         document.getElementById('resched_proposed_time').value = scheduleTime;
+        document.getElementById('resched_reason').value = reason;
         document.getElementById('reschedModal').style.display = 'block';
     }
 </script>
