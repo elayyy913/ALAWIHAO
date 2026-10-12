@@ -48,6 +48,8 @@ if (isset($_POST['id']) && isset($_POST['type']) && isset($_POST['confirm_passwo
         $del_stmt->close();
     }
 
+    logAdminAction($conn, "Deleted {$type} account ID: {$id}.");
+
     header("Location: admin_health_workers.php?msg=" . urlencode("Personnel deleted successfully."));
     exit();
 } else {
