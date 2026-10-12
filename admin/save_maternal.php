@@ -77,6 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt->execute()) {
         $patient_id = $conn->insert_id; 
         $stmt->close(); // Isara ang main statement bago mag-loop sa history
+        logAdminAction($conn, "Registered maternal record (Patient ID: {$patient_id}).");
 
         // 4. I-save ang Pregnancy History
         if ($num_preg > 0 && isset($_POST['h_date'])) {
@@ -113,10 +114,88 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $redirect_page = '../user_maternal_records.php';
         }
 
-        echo "<script>
-                alert('Registration submitted successfully!');
-                window.location.href = '$redirect_page';
-            </script>";
+        $redirect_url = json_encode($redirect_page);
+        echo "<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Registration Complete | Alawihao Health Center</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: #f4f7f1;
+            color: #253321;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .notice {
+            width: min(100%, 440px);
+            padding: 34px;
+            border: 1px solid #e1e9db;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 18px 50px rgba(38, 58, 28, .12);
+            text-align: center;
+            animation: appear .3s ease-out;
+        }
+        .notice-mark {
+            width: 58px;
+            height: 58px;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 18px;
+            border-radius: 50%;
+            background: #edf5e8;
+            color: #52763c;
+        }
+        .notice-mark svg { width: 28px; height: 28px; }
+        h1 { margin: 0 0 10px; font-size: 1.35rem; color: #2d5016; }
+        p { margin: 0; color: #65715f; line-height: 1.6; }
+        .continue-link {
+            display: inline-flex;
+            justify-content: center;
+            margin-top: 24px;
+            padding: 12px 20px;
+            border-radius: 9px;
+            background: #5a7c3a;
+            color: #fff;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background .2s ease;
+        }
+        .continue-link:hover { background: #45652c; }
+        @keyframes appear {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <main class='notice' role='status' aria-live='polite'>
+        <div class='notice-mark' aria-hidden='true'>
+            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
+                <path d='m5 12 4 4L19 6'></path>
+            </svg>
+        </div>
+        <h1>Registration submitted</h1>
+        <p>The maternal record was saved successfully and is pending review.</p>
+        <a class='continue-link' href='" . htmlspecialchars($redirect_page, ENT_QUOTES, 'UTF-8') . "'>Continue to dashboard</a>
+    </main>
+    <script>
+        window.setTimeout(function () {
+            window.location.replace(" . $redirect_url . ");
+        }, 2800);
+    </script>
+</body>
+</html>";
         exit();
     } else {
         echo "Error sa pag-save: " . $stmt->error;

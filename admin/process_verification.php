@@ -13,6 +13,45 @@ $redirect_page = isset($_POST['redirect_to']) ? $_POST['redirect_to'] : (isset($
 
 // --- HANDLE APPROVAL/REMOVE LOGIC ---
 
+// Infant approval with editable birth measurements from the review form
+if (isset($_POST['approve_child_id'])) {
+    $id = filter_var($_POST['approve_child_id'], FILTER_VALIDATE_INT);
+    $weight = filter_var($_POST['weight_kg'] ?? null, FILTER_VALIDATE_FLOAT);
+    $height = filter_var($_POST['height_cm'] ?? null, FILTER_VALIDATE_FLOAT);
+    $redirectTarget = basename($_POST['redirect_to'] ?? 'super_admin_dashboard.php');
+    if (!in_array($redirectTarget, ['admin_dashboard.php', 'super_admin_dashboard.php'], true)) {
+        $redirectTarget = 'super_admin_dashboard.php';
+    }
+
+    if ($id === false || $weight === false || $height === false || $weight < 0 || $weight > 100 || $height < 0 || $height > 250) {
+        header("Location: {$redirectTarget}?msg=ChildApprovalError");
+        exit();
+    }
+
+    $stmt = $conn->prepare("UPDATE children SET weight_kg = ?, height_cm = ?, status = 'Approved' WHERE id = ?");
+    if (!$stmt) {
+        error_log("Unable to prepare child approval update: " . $conn->error);
+        header("Location: {$redirectTarget}?msg=ChildApprovalError");
+        exit();
+    }
+
+    $stmt->bind_param("ddi", $weight, $height, $id);
+    $updated = $stmt->execute();
+    $affectedRows = $stmt->affected_rows;
+    $stmt->close();
+
+    if ($updated && $affectedRows > 0) {
+        logAdminAction($conn, "Approved child record ID: {$id} and updated birth measurements (weight: {$weight} kg, height: {$height} cm).");
+        header("Location: {$redirectTarget}?msg=ApprovedAndRecorded");
+    } else {
+        if (!$updated) {
+            error_log("Unable to update child record {$id}: " . $conn->error);
+        }
+        header("Location: {$redirectTarget}?msg=ChildApprovalError");
+    }
+    exit();
+}
+
 // Worker Account Approval (Super Admin lang dapat)
 if (isset($_GET['approve_worker_id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['approve_worker_id']);
@@ -35,6 +74,7 @@ if (isset($_GET['approve_worker_id'])) {
 
         if ($worker_saved) {
             mysqli_query($conn, "UPDATE users SET status = 'Approved' WHERE id = '$id'");
+            logAdminAction($conn, "Approved worker account for user ID: {$id}.");
             header("Location: $redirect_page?msg=WorkerApprovedAndRecorded");
             exit();
         }
@@ -53,6 +93,7 @@ if (isset($_GET['approve_id'])) {
         $update_query = "UPDATE children SET status = 'Approved' WHERE id = '$id'";
         
         if (mysqli_query($conn, $update_query)) {
+            logAdminAction($conn, "Approved infant record ID: {$id}.");
             header("Location: $redirect_page?msg=ApprovedAndRecorded");
             exit();
         }
@@ -157,6 +198,8 @@ if (isset($_POST['submit_maternal_approval'])) {
     }
 
     if (mysqli_query($conn, $history_sql)) {
+        $patientName = trim($client_fname . ' ' . $client_lname);
+        logAdminAction($conn, "Verified and approved maternal patient registration ID: {$mother_id} ({$patientName}).");
         header("Location: $redirect_page?msg=MaternalApproved"); 
         exit();
     } else {
@@ -198,29 +241,47 @@ if (isset($_POST['reschedule_infant'])) {
 
 // --- REMOVE LOGIC ---
 if (isset($_GET['remove_id'])) {
-    $id = mysqli_real_escape_string($conn, $_GET['remove_id']);
-    // Diretang ide-delete gamit ang tamang table id at child_name column
-    mysqli_query($conn, "DELETE FROM children WHERE id = '$id'");
+    $id = (int) $_GET['remove_id'];
+    $child_result = mysqli_query($conn, "SELECT child_name FROM children WHERE id = $id LIMIT 1");
+    $child = $child_result ? mysqli_fetch_assoc($child_result) : null;
+    $deleted = mysqli_query($conn, "DELETE FROM children WHERE id = $id");
+    if ($deleted && mysqli_affected_rows($conn) > 0) {
+        $childName = $child['child_name'] ?? '';
+        $subject = $childName !== '' ? " ({$childName})" : '';
+        logAdminAction($conn, "Rejected child patient registration ID: {$id}{$subject}.");
+    }
     header("Location: $redirect_page?msg=Removed"); 
     exit();
 }
 
 if (isset($_GET['remove_preg_id'])) {
-    $id = mysqli_real_escape_string($conn, $_GET['remove_preg_id']);
-    mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = '$id'");
+    $id = (int) $_GET['remove_preg_id'];
+    $patient_result = mysqli_query($conn, "SELECT client_fname, client_lname FROM maternal_registration WHERE id = $id LIMIT 1");
+    $patient = $patient_result ? mysqli_fetch_assoc($patient_result) : null;
+    $deleted = mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = $id");
+    if ($deleted && mysqli_affected_rows($conn) > 0) {
+        $patientName = trim(($patient['client_fname'] ?? '') . ' ' . ($patient['client_lname'] ?? ''));
+        $subject = $patientName !== '' ? " ({$patientName})" : '';
+        logAdminAction($conn, "Rejected maternal patient registration ID: {$id}{$subject}.");
+    }
     header("Location: $redirect_page?msg=Removed"); 
     exit();
 }
 
 if (isset($_GET['remove_worker_id'])) {
-    $id = mysqli_real_escape_string($conn, $_GET['remove_worker_id']);
-    $get_email = mysqli_query($conn, "SELECT email FROM users WHERE id = '$id'");
-    $user = mysqli_fetch_assoc($get_email);
+    $id = (int) $_GET['remove_worker_id'];
+    $get_email = mysqli_query($conn, "SELECT email, first_name, last_name FROM users WHERE id = $id LIMIT 1");
+    $user = $get_email ? mysqli_fetch_assoc($get_email) : null;
     if ($user) {
         $email = mysqli_real_escape_string($conn, $user['email']);
         mysqli_query($conn, "DELETE FROM health_workers WHERE email = '$email'");
     }
-    mysqli_query($conn, "DELETE FROM users WHERE id = '$id'");
+    $deleted = mysqli_query($conn, "DELETE FROM users WHERE id = $id");
+    if ($deleted && mysqli_affected_rows($conn) > 0) {
+        $workerName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+        $subject = $workerName !== '' ? " ({$workerName})" : '';
+        logAdminAction($conn, "Rejected worker account ID: {$id}{$subject}.");
+    }
     header("Location: $redirect_page?msg=Removed"); 
     exit();
 }

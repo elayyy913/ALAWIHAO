@@ -43,7 +43,7 @@
                             <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
                             <td>
                                 <button type="button" class="btn-approve" onclick='openNewbornModal(<?php echo json_encode($row); ?>)'>REVIEW</button>
-                                <a href="process_verification.php?remove_id=<?php echo $row['id']; ?>&redirect=super_admin_dashboard.php" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
+                                <a href="process_verification.php?remove_id=<?php echo $row['id']; ?>&redirect=super_admin_dashboard.php" class="btn-reject">REJECT</a>
                             </td>
                         </tr>
                         <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending newborn records.</td></tr>"; endif; ?>
@@ -64,7 +64,7 @@
                             <td><?php echo htmlspecialchars($row['display_name']); ?></td>
                             <td>
                                 <button type="button" class="btn-approve" onclick='openVerifyModal(<?php echo json_encode($row); ?>)'>VERIFY & ENROLL</button>
-                                <a href="process_verification.php?remove_preg_id=<?php echo $row['id']; ?>&redirect=super_admin_dashboard.php" class="btn-reject" onclick="return confirm('Reject this registration?')">REJECT</a>
+                                <a href="process_verification.php?remove_preg_id=<?php echo $row['id']; ?>&redirect=super_admin_dashboard.php" class="btn-reject">REJECT</a>
                             </td>
                         </tr>
                         <?php endwhile; else: echo "<tr><td colspan='2' align='center'>No pending maternal registration.</td></tr>"; endif; ?>
@@ -76,7 +76,9 @@
 <div id="newbornVerifyModal" class="modal">
     <div class="modal-content" style="width: 750px;">
         <h2 style="color:var(--dark-sage); margin-top:0; border-bottom:2px solid var(--border); padding-bottom:10px; font-size:1.2rem;">Infant Registration Review</h2>
-        
+        <form method="POST" action="process_verification.php" id="newbornReviewForm">
+            <input type="hidden" name="approve_child_id" id="nb_child_id">
+            <input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars(basename($_SERVER['PHP_SELF']), ENT_QUOTES, 'UTF-8'); ?>">
         <div class="section-tag" style="margin-top:0;">ADMINISTRATIVE DETAILS</div>
         <div class="patient-info-box" style="grid-template-columns: 1fr 1fr;">
             <div class="form-group">
@@ -109,11 +111,11 @@
             </div>
             <div class="form-group">
                 <label>Birth Weight (kg)</label>
-                <input type="text" id="nb_weight" readonly style="background: #e9e9e1;">
+                <input type="number" id="nb_weight" name="weight_kg" min="0" max="100" step="0.01" required>
             </div>
             <div class="form-group">
                 <label>Birth Height (cm)</label>
-                <input type="text" id="nb_height" readonly style="background: #e9e9e1;" placeholder="N/A">
+                <input type="number" id="nb_height" name="height_cm" min="0" max="250" step="0.1" required>
             </div>
             <div class="form-group">
                 <label>Place of Birth</label>
@@ -151,8 +153,9 @@
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
             <button type="button" class="btn-reject" style="background: #95a5a6; padding: 8px 15px; cursor:pointer;" onclick="closeNewbornModal()">Cancel</button>
-            <a href="#" id="confirmNewbornBtn" class="btn-approve" style="padding: 8px 15px; text-align: center; text-decoration:none;">CONFIRM / ACCEPT</a>
+            <button type="submit" class="btn-approve" style="padding: 8px 15px; text-align: center; text-decoration:none;">CONFIRM / ACCEPT</button>
         </div>
+        </form>
     </div>
 </div>
 
@@ -514,6 +517,7 @@
 
 <script>
     function openNewbornModal(data) {
+        document.getElementById('nb_child_id').value = data.id || '';
         document.getElementById('nb_child_name').value = data.child_name || '';
         document.getElementById('nb_birth_date').value = data.birth_date || '';
         document.getElementById('nb_gender').value = data.gender || '';
@@ -543,7 +547,6 @@
             container.innerHTML = '<span style="font-size: 0.80rem; color: #777; font-style: italic;">No immunization records checked/provided.</span>';
         }
 
-        document.getElementById('confirmNewbornBtn').href = "process_verification.php?approve_id=" + data.id + "&redirect=super_admin_dashboard.php";
         document.getElementById('newbornVerifyModal').style.display = 'block';
     }
 
