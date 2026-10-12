@@ -11,11 +11,32 @@ $user_id = $_SESSION['user_id'];
 
 // Logic para sa Delete/Remove
 if (isset($_GET['delete_id'])) {
-    $delete_id = $_GET['delete_id'];
+    $delete_id = filter_var($_GET['delete_id'], FILTER_VALIDATE_INT);
+    if ($delete_id === false || $delete_id < 1) {
+        header("Location: " . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit();
+    }
+    $childStmt = $conn->prepare("SELECT child_name FROM children WHERE id = ? AND user_id = ? AND status != 'Approved' LIMIT 1");
+    $childStmt->bind_param("ii", $delete_id, $user_id);
+    $childStmt->execute();
+    $childData = $childStmt->get_result()->fetch_assoc();
+    $childStmt->close();
+
     $del_query = "DELETE FROM children WHERE id = ? AND user_id = ? AND status != 'Approved'";
     $del_stmt = $conn->prepare($del_query);
     $del_stmt->bind_param("ii", $delete_id, $user_id);
-    $del_stmt->execute();
+    if ($del_stmt->execute() && $del_stmt->affected_rows > 0) {
+        $childName = $childData['child_name'] ?? '';
+        $subject = $childName !== '' ? " ({$childName})" : '';
+        logActivity(
+            $conn,
+            $_SESSION['name'] ?? 'User',
+            $_SESSION['role'] ?? 'User',
+            "Deleted own pending child registration ID: {$delete_id}{$subject}.",
+            $user_id
+        );
+    }
+    $del_stmt->close();
     header("Location: " . strtok($_SERVER['REQUEST_URI'], '?'));
     exit();
 }

@@ -9,10 +9,15 @@ if (!isset($_SESSION['user_id'])) {
 
 // 1. DELETE LOGIC
 if (isset($_GET['delete_id'])) {
-    $id_to_delete = mysqli_real_escape_string($conn, $_GET['delete_id']);
+    $id_to_delete = (int) $_GET['delete_id'];
+    $patient_result = mysqli_query($conn, "SELECT client_fname, client_lname FROM maternal_registration WHERE id = $id_to_delete LIMIT 1");
+    $patient = $patient_result ? mysqli_fetch_assoc($patient_result) : null;
     mysqli_query($conn, "DELETE FROM maternal_records WHERE mother_id = '$id_to_delete'");
     mysqli_query($conn, "DELETE FROM pregnancy_history WHERE patient_id = '$id_to_delete'");
-    if (mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = '$id_to_delete'")) {
+    if (mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = $id_to_delete") && mysqli_affected_rows($conn) > 0) {
+        $patientName = trim(($patient['client_fname'] ?? '') . ' ' . ($patient['client_lname'] ?? ''));
+        $subject = $patientName !== '' ? " ({$patientName})" : '';
+        logAdminAction($conn, "Deleted maternal patient record ID: {$id_to_delete}{$subject}.");
         header("Location: admin_maternal_rec.php?msg=deleted");
         exit();
     }
