@@ -45,7 +45,7 @@ $worker_redirect = basename($_SERVER['PHP_SELF']);
                         <td><?php echo !empty($worker['registration_date']) ? date('M d, Y', strtotime($worker['registration_date'])) : 'N/A'; ?></td>
                         <td>
                             <button type="button" class="btn-approve" onclick='openWorkerReview(<?php echo htmlspecialchars(json_encode($worker), ENT_QUOTES, "UTF-8"); ?>)'>REVIEW</button>
-                            <a href="process_verification.php?remove_worker_id=<?php echo (int) $worker['id']; ?>&redirect=<?php echo urlencode($worker_redirect); ?>" class="btn-reject" onclick="return confirm('Reject this worker?')">REJECT</a>
+                            <a href="process_verification.php?remove_worker_id=<?php echo (int) $worker['id']; ?>&redirect=<?php echo urlencode($worker_redirect); ?>" class="btn-reject">REJECT</a>
                         </td>
                     </tr>
                 <?php endwhile; ?>
@@ -72,7 +72,7 @@ $worker_redirect = basename($_SERVER['PHP_SELF']);
         </div>
         <div class="worker-review-actions">
             <button type="button" class="btn-review-cancel" onclick="closeWorkerReview()">CANCEL</button>
-            <a id="reviewWorkerReject" class="btn-reject" href="#" onclick="return confirm('Reject this worker?')">REJECT</a>
+            <a id="reviewWorkerReject" class="btn-reject" href="#">REJECT</a>
             <a id="reviewWorkerApprove" class="btn-approve" href="#">APPROVE</a>
         </div>
     </div>
