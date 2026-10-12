@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $message = "";
+$message_type = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user_id = $_SESSION['user_id']; 
@@ -52,13 +53,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("issssdsssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines, $administered_by);
         if ($stmt->execute()) {
+            $child_id = $conn->insert_id;
+            logAdminAction($conn, "Registered child record (Child ID: {$child_id}).");
             $message = "Baby enrolled successfully! " . ($status === "Pending" ? "Pending for admin review." : "");
+            $message_type = "success";
         } else {
             $message = "Error: " . $conn->error;
+            $message_type = "error";
         }
         $stmt->close();
     } else {
         $message = "Database error: Could not prepare statement.";
+        $message_type = "error";
     }
 }
 ?>
@@ -237,14 +243,89 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .enroll-btn:hover { background-color: #5c6c44; }
         
-        .success-msg { 
-            color: #166534; 
-            background: #f0fdf4;
-            padding: 10px 15px;
-            border-radius: 2px;
-            font-size: 0.9rem;
-            margin-bottom: 20px;
-            border-left: 3px solid var(--sage-green);
+        .registration-toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 5000;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            width: min(440px, calc(100vw - 32px));
+            padding: 18px 48px 18px 18px;
+            border: 1px solid #dce9d5;
+            border-left: 4px solid #5c7c43;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 14px 38px rgba(31, 45, 26, .16);
+            color: #253321;
+            animation: toast-in .28s ease-out;
+        }
+        .registration-toast.error {
+            border-color: #f1d5d2;
+            border-left-color: #b5473c;
+        }
+        .toast-mark {
+            flex: 0 0 34px;
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: #edf5e8;
+            color: #52763c;
+        }
+        .registration-toast.error .toast-mark {
+            background: #fff0ee;
+            color: #a63b32;
+        }
+        .toast-mark svg { width: 18px; height: 18px; }
+        .toast-copy { min-width: 0; }
+        .toast-title {
+            margin: 0 0 4px;
+            font-size: .94rem;
+            font-weight: 700;
+            color: #2d5016;
+        }
+        .registration-toast.error .toast-title { color: #9f342c; }
+        .toast-message {
+            margin: 0;
+            color: #586356;
+            font-size: .88rem;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+        .toast-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            width: 30px;
+            height: 30px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: #687365;
+            font-size: 1.25rem;
+            cursor: pointer;
+        }
+        .toast-close:hover { background: #f3f5f1; }
+        .registration-toast.is-hiding {
+            animation: toast-out .2s ease-in forwards;
+        }
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toast-out {
+            to { opacity: 0; transform: translateY(-6px); }
+        }
+        @media (max-width: 560px) {
+            .registration-toast { top: 12px; right: 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .registration-toast, .registration-toast.is-hiding {
+                animation-duration: .01ms;
+            }
         }
 
         @media (max-width: 992px) {
@@ -275,7 +356,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="form-card">
         <h2>Infant Registration Form</h2>
         
-        <?php if($message) echo "<div class='success-msg'>$message</div>"; ?>
+        <?php if ($message): ?>
+            <div class="registration-toast <?php echo htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8'); ?>" id="registrationToast" role="<?php echo $message_type === 'error' ? 'alert' : 'status'; ?>" aria-live="<?php echo $message_type === 'error' ? 'assertive' : 'polite'; ?>">
+                <span class="toast-mark" aria-hidden="true">
+                    <?php if ($message_type === 'error'): ?>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                    <?php else: ?>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"></path></svg>
+                    <?php endif; ?>
+                </span>
+                <div class="toast-copy">
+                    <p class="toast-title"><?php echo $message_type === 'error' ? 'Registration could not be completed' : 'Registration submitted'; ?></p>
+                    <p class="toast-message"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></p>
+                </div>
+                <button type="button" class="toast-close" aria-label="Dismiss notification">&times;</button>
+            </div>
+        <?php endif; ?>
 
         <form method="POST">
             
@@ -482,6 +578,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         if (sidebar) {
             mainContent.classList.add('main-content-active');
+        }
+
+        const toast = document.getElementById('registrationToast');
+        if (toast) {
+            const dismissToast = function() {
+                toast.classList.add('is-hiding');
+                window.setTimeout(function() {
+                    toast.remove();
+                }, 220);
+            };
+            toast.querySelector('.toast-close').addEventListener('click', dismissToast);
+            window.setTimeout(dismissToast, 6000);
         }
     });
 </script>

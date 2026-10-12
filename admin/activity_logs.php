@@ -2,38 +2,7 @@
 session_start();
 include '../db_connect.php';
 
-// Function para mag-record ng activity logs
-function logAction($conn, $userName, $role, $actionDesc) {
-    $userName = mysqli_real_escape_string($conn, $userName);
-    $role = mysqli_real_escape_string($conn, $role);
-    $actionDesc = mysqli_real_escape_string($conn, $actionDesc);
-    $ipAddress = $_SERVER['REMOTE_ADDR'];
-
-    // Siguraduhing may table para sa logs
-    $create_table = "CREATE TABLE IF NOT EXISTS activity_logs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_name VARCHAR(100),
-        role VARCHAR(50),
-        action_description TEXT,
-        ip_address VARCHAR(45),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )";
-    mysqli_query($conn, $create_table);
-
-    $sql = "INSERT INTO activity_logs (user_name, role, action_description, ip_address) 
-            VALUES ('$userName', '$role', '$actionDesc', '$ipAddress')";
-    @mysqli_query($conn, $sql);
-}
-// Siguraduhing may table para sa logs kung sakaling wala pa
-$create_table = "CREATE TABLE IF NOT EXISTS activity_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_name VARCHAR(100),
-    role VARCHAR(50),
-    action_description TEXT,
-    ip_address VARCHAR(45),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)";
-mysqli_query($conn, $create_table);
+ensureActivityLogTable($conn);
 
 // Kunin ang mga logs mula sa database (pinakabago sa itaas)
 $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 100");
@@ -55,46 +24,63 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
             --text: #333333;
             --sidebar-width: 280px;
             --border-color: #edf2ed;
+            --muted: #5d6b63;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
 
         .topbar {
             background: var(--white);
             border-bottom: 3px solid var(--green);
-            padding: 12px 20px;
+            padding: 18px 28px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 15px;
             position: sticky;
             top: 0;
             z-index: 200;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
             margin-left: var(--sidebar-width);
             width: calc(100% - var(--sidebar-width));
+            transition: margin-left 0.3s ease, width 0.3s ease;
         }
-        .topbar .page-label { 
-            font-size: 1.1rem; 
-            font-weight: 600; 
-            color: var(--green); 
+        body.sidebar-collapsed .topbar {
+            margin-left: 0;
+            width: 100%;
+            padding-left: 76px;
+        }
+        .topbar .page-label {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--green);
+            letter-spacing: 0.02em;
         }
 
         #main {
             margin-left: var(--sidebar-width);
-            padding: 30px 24px 60px;
+            padding: 44px 36px 80px;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             min-height: calc(100vh - 70px);
+            transition: margin-left 0.3s ease, padding 0.3s ease;
+        }
+        body.sidebar-collapsed #main {
+            margin-left: 0;
         }
 
         .logs-container {
             width: 100%;
-            max-width: 1000px;
             background: var(--white);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+            padding: 40px 36px 30px;
+            border-radius: 16px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.05);
             border: 1px solid #eef2ee;
         }
 
@@ -102,8 +88,8 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
+            margin-bottom: 22px;
+            padding-bottom: 12px;
             border-bottom: 2px solid var(--border-color);
         }
 
@@ -118,25 +104,35 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
             gap: 10px;
         }
 
+        .logs-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+
         .logs-table {
             width: 100%;
+            min-width: 1000px;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            table-layout: fixed;
         }
 
         .logs-table th {
             background: var(--soft-sage);
             color: var(--green);
-            padding: 12px 15px;
-            font-weight: 600;
+            padding: 18px 20px;
+            font-weight: 700;
             border-bottom: 1px solid #d5e1cc;
+            vertical-align: middle;
         }
 
         .logs-table td {
-            padding: 12px 15px;
+            padding: 20px;
             border-bottom: 1px solid var(--border-color);
             color: var(--text);
+            vertical-align: top;
+            overflow-wrap: anywhere;
         }
 
         .logs-table tr:hover {
@@ -146,17 +142,80 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
         .badge-role {
             background: var(--soft-sage);
             color: var(--green);
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .user-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .user-name {
+            font-weight: 700;
+            color: var(--text);
+            overflow-wrap: anywhere;
+        }
+
+        .user-id-tag {
+            display: inline-block;
+            font-size: 0.76rem;
+            color: var(--muted);
+            background: #f3f7f1;
+            border: 1px solid #e4ebdf;
+            padding: 5px 9px;
+            border-radius: 999px;
+            width: fit-content;
+            white-space: nowrap;
+        }
+
+        .action-cell {
+            line-height: 1.5;
+            color: #3c4442;
+        }
+
+        .ip-cell {
+            color: #777; font-size: 0.82rem; white-space: nowrap;
         }
 
         .no-logs {
             text-align: center;
-            padding: 30px;
+            padding: 32px 18px;
             color: #666;
             font-style: italic;
+        }
+
+        @media (max-width: 900px) {
+            .topbar {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px 20px;
+            }
+            #main {
+                margin-left: 0;
+                padding: 24px 20px 60px;
+            }
+            .logs-container {
+                padding: 24px 20px 18px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            #main {
+                padding: 18px 12px 40px;
+            }
+            .logs-container {
+                padding: 20px 14px 14px;
+                border-radius: 12px;
+            }
+            .logs-header {
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
@@ -174,36 +233,75 @@ $logs_result = mysqli_query($conn, "SELECT * FROM activity_logs ORDER BY created
             <div class="logs-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Admin & System Activities</div>
         </div>
 
-        <table class="logs-table">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Action Performed</th>
-                    <th>IP Address</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (mysqli_num_rows($logs_result) > 0): ?>
-                    <?php while($row = mysqli_fetch_assoc($logs_result)): ?>
-                        <tr>
-                            <td style="white-space: nowrap; color: #555;"><?php echo $row['created_at']; ?></td>
-                            <td><strong><?php echo htmlspecialchars($row['user_name']); ?></strong></td>
-                            <td><span class="badge-role"><?php echo htmlspecialchars($row['role']); ?></span></td>
-                            <td><?php echo htmlspecialchars($row['action_description']); ?></td>
-                            <td style="color: #777; font-size: 0.85rem;"><?php echo $row['ip_address']; ?></td>
-                        </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
+        <div class="logs-table-wrap">
+            <table class="logs-table">
+                <colgroup>
+                    <col style="width: 18%;">
+                    <col style="width: 18%;">
+                    <col style="width: 13%;">
+                    <col style="width: 37%;">
+                    <col style="width: 14%;">
+                </colgroup>
+                <thead>
                     <tr>
-                        <td colspan="5" class="no-logs">No activity logs recorded yet.</td>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Action Performed</th>
+                        <th>IP Address</th>
                     </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php if (mysqli_num_rows($logs_result) > 0): ?>
+                        <?php while($row = mysqli_fetch_assoc($logs_result)): ?>
+                            <tr>
+                                <td style="white-space: nowrap; color: #555;"><?php echo $row['created_at']; ?></td>
+                                <td>
+                                    <div class="user-cell">
+                                        <?php
+                                            $loggedUserName = (string) $row['user_name'];
+                                            $actorId = null;
+                                            if (preg_match('/\s*\(ID:\s*(\d+)\)\s*$/', $loggedUserName, $idMatch)) {
+                                                $actorId = $idMatch[1];
+                                                $loggedUserName = preg_replace('/\s*\(ID:\s*\d+\)\s*$/', '', $loggedUserName);
+                                            }
+                                        ?>
+                                        <span class="user-name"><?php echo htmlspecialchars($loggedUserName); ?></span>
+                                        <?php if ($actorId !== null): ?>
+                                            <span class="user-id-tag">ID: <?php echo htmlspecialchars($actorId); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td><span class="badge-role"><?php echo htmlspecialchars($row['role']); ?></span></td>
+                                <td class="action-cell"><?php echo htmlspecialchars($row['action_description']); ?></td>
+                                <td class="ip-cell"><?php echo $row['ip_address']; ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="5" class="no-logs">No activity logs recorded yet.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const sidebar = document.getElementById('mainSidebar');
+        const toggleBodySidebarState = () => {
+            if (!sidebar) return;
+            document.body.classList.toggle('sidebar-collapsed', sidebar.classList.contains('is-hidden'));
+        };
+
+        if (sidebar) {
+            const observer = new MutationObserver(toggleBodySidebarState);
+            observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+            toggleBodySidebarState();
+        }
+    });
+</script>
 </body>
 </html>
