@@ -25,6 +25,24 @@ if (!function_exists('ensureActivityLogTable')) {
     }
 }
 
+if (!function_exists('ensureRescheduleRequestsTable')) {
+    function ensureRescheduleRequestsTable($conn) {
+        $create_table = "CREATE TABLE IF NOT EXISTS schedule_reschedule_requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            schedule_id INT NOT NULL,
+            requester_id INT NOT NULL,
+            requested_date DATE NOT NULL,
+            requested_time TIME NOT NULL,
+            reason TEXT NOT NULL,
+            status VARCHAR(30) NOT NULL DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_schedule_request_status (schedule_id, status),
+            INDEX idx_requester_id (requester_id)
+        )";
+        return mysqli_query($conn, $create_table);
+    }
+}
+
 if (!function_exists('logActivity')) {
     function logActivity($conn, $userName, $role, $actionDesc, $userId = null) {
         if (!$conn) {

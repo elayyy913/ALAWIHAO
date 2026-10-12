@@ -13,20 +13,54 @@ $message = "";
 
 // Handle Reschedule Request Form Submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule'])) {
+    if (!ensureRescheduleRequestsTable($conn)) {
+        die("Unable to prepare reschedule requests: " . mysqli_error($conn));
+    }
+
     $schedule_id = intval($_POST['schedule_id']);
-    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
-    $new_time = mysqli_real_escape_string($conn, $_POST['new_time']);
-    $reason = mysqli_real_escape_string($conn, $_POST['reason']);
+    $new_date = trim($_POST['new_date'] ?? '');
+    $new_time = trim($_POST['new_time'] ?? '');
+    $reason = trim($_POST['reason'] ?? '');
     $requester_marker = '[Requester ID: ' . (int) $user_id . ']';
 
-    $update_query = "UPDATE schedules 
-                     SET status = 'Reschedule Requested', 
+    $conn->begin_transaction();
+    $update_query = "UPDATE schedules
+                     SET status = 'Reschedule Requested',
                          notes = CONCAT(COALESCE(notes, ''), ' | ', ?, ' Request: ', ?, ' ', ?, ' | Reason: ', ?)
                      WHERE id = ?";
-
-    if ($stmt = $conn->prepare($update_query)) {
+    $stmt = $conn->prepare($update_query);
+    if ($stmt) {
         $stmt->bind_param("ssssi", $requester_marker, $new_date, $new_time, $reason, $schedule_id);
-        if ($stmt->execute()) {
+        $update_succeeded = $stmt->execute();
+        $updated = $update_succeeded && $stmt->affected_rows > 0;
+        $update_error = $stmt->error;
+        $stmt->close();
+
+        if ($updated) {
+            $insert_request = $conn->prepare("INSERT INTO schedule_reschedule_requests
+                (schedule_id, requester_id, requested_date, requested_time, reason)
+                VALUES (?, ?, ?, ?, ?)");
+            if (!$insert_request) {
+                $conn->rollback();
+                die("Unable to save reschedule request: " . $conn->error);
+            }
+            $insert_request->bind_param("iisss", $schedule_id, $user_id, $new_date, $new_time, $reason);
+            if (!$insert_request->execute()) {
+                $insert_error = $insert_request->error;
+                $insert_request->close();
+                $conn->rollback();
+                die("Unable to save reschedule request: " . $insert_error);
+            }
+            $insert_request->close();
+            $conn->commit();
+            $requester_name = trim($_SESSION['name'] ?? $_SESSION['username'] ?? 'User');
+            logActivity(
+                $conn,
+                $requester_name . ' (ID: ' . (int) $user_id . ')',
+                'User',
+                "Requested a reschedule for schedule ID {$schedule_id} to {$new_date} at {$new_time}. Reason: {$reason}"
+            );
+
             $schedule_info = $conn->prepare("SELECT patient_name, service_type FROM schedules WHERE id = ? LIMIT 1");
             $schedule_info->bind_param("i", $schedule_id);
             $schedule_info->execute();
@@ -47,9 +81,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
 
             $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
         } else {
-            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . $conn->error . "</div>";
+            $conn->rollback();
+            $message = $update_succeeded
+                ? "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi mahanap ang schedule para sa request.</div>"
+                : "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($update_error) . "</div>";
         }
-        $stmt->close();
+    } else {
+        $conn->rollback();
+        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . $conn->error . "</div>";
     }
 }
 
