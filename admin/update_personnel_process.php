@@ -26,6 +26,7 @@ if (isset($_POST['update_submit']) && $_SESSION['role'] === 'Super Admin') {
     }
 
     if (mysqli_query($conn, $sql)) {
+        logAdminAction($conn, "Updated personnel contact details for user ID: {$uid} ({$role_type}).");
         echo "<script>alert('Account contact details updated!'); window.location.href='admin_health_workers.php';</script>";
     } else {
         echo "Error updating record: " . mysqli_error($conn);

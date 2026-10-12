@@ -8,6 +8,18 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
     exit();
 }
 
+$dashboardMessages = [
+    'RescheduleSuccess' => 'Schedule rescheduled successfully. Notifications were sent to the user.',
+    'MarkDoneSuccess' => 'Appointment marked as completed. Notifications were sent to the user.',
+    'WorkerApprovedAndRecorded' => 'Worker account approved successfully.',
+    'ApprovedAndRecorded' => 'Child registration approved successfully.',
+    'MaternalApproved' => 'Maternal registration approved successfully.',
+    'ChildApprovalError' => 'The child measurements could not be saved. Check the values and try again.',
+    'Removed' => 'The selected registration or worker account was rejected and removed.'
+];
+$dashboardNotice = $dashboardMessages[$_GET['msg'] ?? ''] ?? null;
+$dashboardNoticeIsError = ($_GET['msg'] ?? '') === 'ChildApprovalError';
+
 function notify_schedule_user($conn, $patient_name, $schedule_id, $title, $message, $type) {
     $user_id = 0;
     $stmt = $conn->prepare("SELECT user_id FROM maternal_registration WHERE LOWER(TRIM(CONCAT(client_fname, ' ', client_lname))) = LOWER(TRIM(?)) LIMIT 1");
@@ -461,7 +473,148 @@ if (check_table_exists($conn, 'schedules')) {
         padding-bottom: 15px;
         margin-bottom: 30px;
     }
-    </style>
+        .dashboard-notice {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 5000;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            width: min(460px, calc(100vw - 32px));
+            padding: 18px 48px 18px 18px;
+            border: 1px solid #dce9d5;
+            border-left: 4px solid #5c7c43;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 14px 38px rgba(31, 45, 26, .16);
+            color: #253321;
+            animation: dashboard-notice-in .28s ease-out;
+        }
+        .dashboard-notice.is-error {
+            border-color: #f1d5d2;
+            border-left-color: #b5473c;
+        }
+        .dashboard-notice-mark {
+            flex: 0 0 34px;
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: #edf5e8;
+            color: #52763c;
+        }
+        .dashboard-notice.is-error .dashboard-notice-mark {
+            background: #fff0ee;
+            color: #a63b32;
+        }
+        .dashboard-notice-mark svg { width: 18px; height: 18px; }
+        .dashboard-notice-copy { min-width: 0; }
+        .dashboard-notice-title {
+            margin: 0 0 4px;
+            color: #2d5016;
+            font-size: .94rem;
+            font-weight: 700;
+        }
+        .dashboard-notice.is-error .dashboard-notice-title { color: #9f342c; }
+        .dashboard-notice-message {
+            margin: 0;
+            color: #586356;
+            font-size: .88rem;
+            line-height: 1.45;
+        }
+        .dashboard-notice-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            width: 30px;
+            height: 30px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: #687365;
+            font-size: 1.25rem;
+            cursor: pointer;
+        }
+        .dashboard-notice-close:hover { background: #f3f5f1; }
+        .dashboard-notice.is-hiding { animation: dashboard-notice-out .2s ease-in forwards; }
+        @keyframes dashboard-notice-in {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dashboard-notice-out {
+            to { opacity: 0; transform: translateY(-6px); }
+        }
+        @media (max-width: 560px) {
+            .dashboard-notice { top: 12px; right: 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .dashboard-notice, .dashboard-notice.is-hiding { animation-duration: .01ms; }
+        }
+        .reject-confirm-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 6000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(23, 32, 21, .48);
+            backdrop-filter: blur(3px);
+        }
+        .reject-confirm-backdrop.is-open { display: flex; }
+        .reject-confirm-dialog {
+            width: min(100%, 420px);
+            padding: 28px;
+            border: 1px solid #e5e9e1;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 24px 70px rgba(20, 30, 18, .24);
+            animation: dashboard-notice-in .2s ease-out;
+        }
+        .reject-confirm-dialog h2 {
+            margin: 0 0 9px;
+            color: #2d3a29;
+            font-size: 1.18rem;
+        }
+        .reject-confirm-dialog p {
+            margin: 0;
+            color: #647060;
+            font-size: .92rem;
+            line-height: 1.55;
+        }
+        .reject-confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        .reject-confirm-actions button {
+            min-height: 40px;
+            padding: 9px 16px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font: inherit;
+            font-size: .85rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .reject-confirm-cancel {
+            border-color: #dce2d8 !important;
+            background: #fff;
+            color: #53604d;
+        }
+        .reject-confirm-cancel:hover { background: #f5f7f3; }
+        .reject-confirm-submit {
+            background: #b5473c;
+            color: #fff;
+        }
+        .reject-confirm-submit:hover { background: #96392f; }
+        @media (prefers-reduced-motion: reduce) {
+            .reject-confirm-dialog { animation-duration: .01ms; }
+        }
+        </style>
     
 </head>
 <body>
@@ -474,17 +627,31 @@ if (check_table_exists($conn, 'schedules')) {
         <?php include '../notif_bell.php'; ?>
     </div>
 
-    <?php if (isset($_GET['msg']) && $_GET['msg'] == 'RescheduleSuccess'): ?>
-    <div style="background:#d4edda; color:#155724; padding:10px; border:1px solid #c3e6cb; border-radius:4px; margin-bottom:20px;">
-        ✅ Schedule rescheduled successfully! Notifications sent to user.
+    <?php if ($dashboardNotice !== null): ?>
+    <div class="dashboard-notice<?php echo $dashboardNoticeIsError ? ' is-error' : ''; ?>" id="dashboardNotice" role="<?php echo $dashboardNoticeIsError ? 'alert' : 'status'; ?>" aria-live="<?php echo $dashboardNoticeIsError ? 'assertive' : 'polite'; ?>">
+        <span class="dashboard-notice-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m5 12 4 4L19 6"></path>
+            </svg>
+        </span>
+        <div class="dashboard-notice-copy">
+            <p class="dashboard-notice-title">Action completed</p>
+            <p class="dashboard-notice-message"><?php echo htmlspecialchars($dashboardNotice, ENT_QUOTES, 'UTF-8'); ?></p>
+        </div>
+        <button type="button" class="dashboard-notice-close" aria-label="Dismiss notification">&times;</button>
     </div>
     <?php endif; ?>
 
-    <?php if (isset($_GET['msg']) && $_GET['msg'] == 'MarkDoneSuccess'): ?>
-    <div style="background:#d4edda; color:#155724; padding:10px; border:1px solid #c3e6cb; border-radius:4px; margin-bottom:20px;">
-        ✅ Appointment marked as completed! Notifications sent to user.
+    <div class="reject-confirm-backdrop" id="rejectConfirm" aria-hidden="true">
+        <section class="reject-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rejectConfirmTitle" aria-describedby="rejectConfirmDescription">
+            <h2 id="rejectConfirmTitle">Confirm rejection</h2>
+            <p id="rejectConfirmDescription">This will reject and remove the selected pending record. This action cannot be undone.</p>
+            <div class="reject-confirm-actions">
+                <button type="button" class="reject-confirm-cancel" id="cancelReject">Cancel</button>
+                <button type="button" class="reject-confirm-submit" id="confirmReject">Reject record</button>
+            </div>
+        </section>
     </div>
-    <?php endif; ?>
 
     <div class="stats-grid">
         <div class="stat-card"><h4>TOTAL PATIENTS</h4><h2><?php echo $total_patients; ?></h2></div>
@@ -674,6 +841,58 @@ if (check_table_exists($conn, 'schedules')) {
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
+        const rejectDialog = document.getElementById("rejectConfirm");
+        const cancelReject = document.getElementById("cancelReject");
+        const confirmReject = document.getElementById("confirmReject");
+        let pendingRejectUrl = null;
+        let rejectTrigger = null;
+
+        const closeRejectDialog = () => {
+            rejectDialog.classList.remove("is-open");
+            rejectDialog.setAttribute("aria-hidden", "true");
+            pendingRejectUrl = null;
+            if (rejectTrigger) rejectTrigger.focus();
+        };
+
+        document.addEventListener("click", event => {
+            const rejectLink = event.target.closest("a.btn-reject");
+            if (rejectLink && rejectLink.href && !rejectLink.href.endsWith("#")) {
+                event.preventDefault();
+                pendingRejectUrl = rejectLink.href;
+                rejectTrigger = rejectLink;
+                rejectDialog.classList.add("is-open");
+                rejectDialog.setAttribute("aria-hidden", "false");
+                confirmReject.focus();
+                return;
+            }
+
+            if (event.target === rejectDialog) closeRejectDialog();
+        });
+
+        cancelReject.addEventListener("click", closeRejectDialog);
+        confirmReject.addEventListener("click", () => {
+            if (pendingRejectUrl) window.location.assign(pendingRejectUrl);
+        });
+        document.addEventListener("keydown", event => {
+            if (event.key === "Escape" && rejectDialog.classList.contains("is-open")) {
+                closeRejectDialog();
+            }
+        });
+
+        const notice = document.getElementById("dashboardNotice");
+        if (notice) {
+            const dismissNotice = () => {
+                notice.classList.add("is-hiding");
+                window.setTimeout(() => notice.remove(), 220);
+            };
+            notice.querySelector(".dashboard-notice-close").addEventListener("click", dismissNotice);
+            window.setTimeout(dismissNotice, 6000);
+
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.delete("msg");
+            window.history.replaceState({}, document.title, currentUrl.pathname + currentUrl.search + currentUrl.hash);
+        }
+
         const cards = document.querySelectorAll(".analytic-card");
 
         cards.forEach(card => {
