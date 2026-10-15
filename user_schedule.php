@@ -24,71 +24,128 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     $requester_marker = '[Requester ID: ' . (int) $user_id . ']';
 
     $conn->begin_transaction();
-    $update_query = "UPDATE schedules
-                     SET status = 'Reschedule Requested',
-                         notes = CONCAT(COALESCE(notes, ''), ' | ', ?, ' Request: ', ?, ' ', ?, ' | Reason: ', ?)
-                     WHERE id = ?";
-    $stmt = $conn->prepare($update_query);
-    if ($stmt) {
-        $stmt->bind_param("ssssi", $requester_marker, $new_date, $new_time, $reason, $schedule_id);
-        $update_succeeded = $stmt->execute();
-        $updated = $update_succeeded && $stmt->affected_rows > 0;
-        $update_error = $stmt->error;
-        $stmt->close();
-
-        if ($updated) {
-            $insert_request = $conn->prepare("INSERT INTO schedule_reschedule_requests
-                (schedule_id, requester_id, requested_date, requested_time, reason)
-                VALUES (?, ?, ?, ?, ?)");
-            if (!$insert_request) {
-                $conn->rollback();
-                die("Unable to save reschedule request: " . $conn->error);
-            }
-            $insert_request->bind_param("iisss", $schedule_id, $user_id, $new_date, $new_time, $reason);
-            if (!$insert_request->execute()) {
-                $insert_error = $insert_request->error;
-                $insert_request->close();
-                $conn->rollback();
-                die("Unable to save reschedule request: " . $insert_error);
-            }
-            $insert_request->close();
-            $conn->commit();
-            $requester_name = trim($_SESSION['name'] ?? $_SESSION['username'] ?? 'User');
-            logActivity(
-                $conn,
-                $requester_name . ' (ID: ' . (int) $user_id . ')',
-                'User',
-                "Requested a reschedule for schedule ID {$schedule_id} to {$new_date} at {$new_time}. Reason: {$reason}"
-            );
-
-            $schedule_info = $conn->prepare("SELECT patient_name, service_type FROM schedules WHERE id = ? LIMIT 1");
-            $schedule_info->bind_param("i", $schedule_id);
-            $schedule_info->execute();
-            $schedule = $schedule_info->get_result()->fetch_assoc();
-            $schedule_info->close();
-
-            if ($schedule) {
-                $title = "New Reschedule Request";
-                $notification_message = "{$schedule['patient_name']} requested to reschedule {$schedule['service_type']} to "
-                    . date('F j, Y', strtotime($new_date)) . " at " . date('g:i A', strtotime($new_time)) . ".";
-                $notification = $conn->prepare("INSERT INTO notifications
-                    (user_id, target_role, schedule_id, title, message, type, created_at)
-                    VALUES (0, 'Super Admin', ?, ?, ?, 'reschedule_request', NOW())");
-                $notification->bind_param("iss", $schedule_id, $title, $notification_message);
-                $notification->execute();
-                $notification->close();
-            }
-
-            $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul!</div>";
-        } else {
-            $conn->rollback();
-            $message = $update_succeeded
-                ? "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi mahanap ang schedule para sa request.</div>"
-                : "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($update_error) . "</div>";
-        }
-    } else {
+    $schedule_stmt = $conn->prepare("SELECT s.status FROM schedules s
+        WHERE s.id = ?
+          AND (
+              (s.category = 'Maternal' AND EXISTS (
+                  SELECT 1 FROM maternal_registration m
+                  WHERE m.user_id = ?
+                    AND LOWER(TRIM(CONCAT(m.client_fname, ' ', m.client_lname))) = LOWER(TRIM(s.patient_name))
+              ))
+              OR (s.category = 'Child' AND EXISTS (
+                  SELECT 1 FROM children c
+                  WHERE c.user_id = ?
+                    AND LOWER(TRIM(c.child_name)) = LOWER(TRIM(s.patient_name))
+              ))
+          )
+        FOR UPDATE");
+    if (!$schedule_stmt) {
         $conn->rollback();
-        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . $conn->error . "</div>";
+        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($conn->error) . "</div>";
+    } else {
+        $schedule_stmt->bind_param("iii", $schedule_id, $user_id, $user_id);
+        if (!$schedule_stmt->execute()) {
+            $schedule_error = $schedule_stmt->error;
+            $schedule_stmt->close();
+            $conn->rollback();
+            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($schedule_error) . "</div>";
+        } else {
+            $schedule = $schedule_stmt->get_result()->fetch_assoc();
+            $schedule_stmt->close();
+            if (!$schedule) {
+                $conn->rollback();
+                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi mahanap ang appointment sa iyong account.</div>";
+            } elseif (strtolower($schedule['status']) === 'reschedule requested') {
+                $conn->rollback();
+                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> May nakabinbin ka pang reschedule request para sa appointment na ito.</div>";
+            } else {
+                $count_stmt = $conn->prepare("SELECT COUNT(*) AS request_count FROM schedule_reschedule_requests WHERE schedule_id = ?");
+                if (!$count_stmt) {
+                    $conn->rollback();
+                    $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi mabilang ang mga naunang request: " . htmlspecialchars($conn->error) . "</div>";
+                } else {
+                    $count_stmt->bind_param("i", $schedule_id);
+                    if (!$count_stmt->execute()) {
+                        $count_error = $count_stmt->error;
+                        $count_stmt->close();
+                        $conn->rollback();
+                        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi mabilang ang mga naunang request: " . htmlspecialchars($count_error) . "</div>";
+                    } else {
+                        $request_count = (int) $count_stmt->get_result()->fetch_assoc()['request_count'];
+                        $count_stmt->close();
+
+                        if ($request_count >= 3) {
+                            $conn->rollback();
+                            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Naabot na ang limit na 3 reschedule request para sa appointment na ito.</div>";
+                        } else {
+                            $update_query = "UPDATE schedules
+                                SET status = 'Reschedule Requested',
+                                    notes = CONCAT(COALESCE(notes, ''), ' | ', ?, ' Request: ', ?, ' ', ?, ' | Reason: ', ?)
+                                WHERE id = ?";
+                            $stmt = $conn->prepare($update_query);
+                            if (!$stmt) {
+                                $conn->rollback();
+                                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($conn->error) . "</div>";
+                            } else {
+                                $stmt->bind_param("ssssi", $requester_marker, $new_date, $new_time, $reason, $schedule_id);
+                                $update_succeeded = $stmt->execute();
+                                $update_error = $stmt->error;
+                                $stmt->close();
+
+                                if ($update_succeeded) {
+                                    $insert_request = $conn->prepare("INSERT INTO schedule_reschedule_requests
+                                        (schedule_id, requester_id, requested_date, requested_time, reason)
+                                        VALUES (?, ?, ?, ?, ?)");
+                                    if (!$insert_request) {
+                                        $conn->rollback();
+                                        die("Unable to save reschedule request: " . $conn->error);
+                                    }
+                                    $insert_request->bind_param("iisss", $schedule_id, $user_id, $new_date, $new_time, $reason);
+                                    if (!$insert_request->execute()) {
+                                        $insert_error = $insert_request->error;
+                                        $insert_request->close();
+                                        $conn->rollback();
+                                        die("Unable to save reschedule request: " . $insert_error);
+                                    }
+                                    $insert_request->close();
+                                    $conn->commit();
+                                    $requester_name = trim($_SESSION['name'] ?? $_SESSION['username'] ?? 'User');
+                                    logActivity(
+                                        $conn,
+                                        $requester_name . ' (ID: ' . (int) $user_id . ')',
+                                        'User',
+                                        "Requested a reschedule for schedule ID {$schedule_id} to {$new_date} at {$new_time}. Reason: {$reason}"
+                                    );
+
+                                    $schedule_info = $conn->prepare("SELECT patient_name, service_type FROM schedules WHERE id = ? LIMIT 1");
+                                    $schedule_info->bind_param("i", $schedule_id);
+                                    $schedule_info->execute();
+                                    $schedule = $schedule_info->get_result()->fetch_assoc();
+                                    $schedule_info->close();
+
+                                    if ($schedule) {
+                                        $title = "New Reschedule Request";
+                                        $notification_message = "{$schedule['patient_name']} requested to reschedule {$schedule['service_type']} to "
+                                            . date('F j, Y', strtotime($new_date)) . " at " . date('g:i A', strtotime($new_time)) . ".";
+                                        $notification = $conn->prepare("INSERT INTO notifications
+                                            (user_id, target_role, schedule_id, title, message, type, created_at)
+                                            VALUES (0, 'Super Admin', ?, ?, ?, 'reschedule_request', NOW())");
+                                        $notification->bind_param("iss", $schedule_id, $title, $notification_message);
+                                        $notification->execute();
+                                        $notification->close();
+                                    }
+
+                                    $message = "<div class='alert success'><i class='fa fa-check-circle'></i> Tagumpay na naipadala ang iyong request para sa pagbabago ng iskedyul! (" . ($request_count + 1) . " sa 3 request)</div>";
+                                } else {
+                                    $conn->rollback();
+                                    $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Nabigo ang pag-request: " . htmlspecialchars($update_error) . "</div>";
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -141,7 +198,12 @@ if (count($patient_names) > 0) {
     $latest_request_select = $has_reschedule_requests
         ? ", latest_request.status AS latest_reschedule_status"
         : ", NULL AS latest_reschedule_status";
-    $sched_query = "SELECT s.*{$latest_request_select}
+    $request_count_select = $has_reschedule_requests
+        ? "(SELECT COUNT(*) FROM schedule_reschedule_requests request_count WHERE request_count.schedule_id = s.id) AS reschedule_request_count"
+        : "0 AS reschedule_request_count";
+    $sched_query = "SELECT s.*,
+            {$request_count_select}
+            {$latest_request_select}
         FROM schedules s{$latest_request_join}
         WHERE s.patient_name IN ($placeholders)
         ORDER BY s.schedule_date ASC, s.schedule_time ASC";
@@ -155,6 +217,7 @@ if (count($patient_names) > 0) {
         $result = $stmt->get_result();
 
         while ($row = $result->fetch_assoc()) {
+            $row['reschedule_request_count'] = (int) ($row['reschedule_request_count'] ?? 0);
             $status = strtolower($row['status'] ?? '');
             $latest_reschedule_status = strtolower($row['latest_reschedule_status'] ?? '');
             $notes = (string) ($row['notes'] ?? '');
@@ -336,6 +399,7 @@ if (count($patient_names) > 0) {
             padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600;
         }
         .btn-resched:hover { background: var(--sage); color: white; }
+        .btn-resched:disabled { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; cursor: not-allowed; }
 
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal-content { background: var(--white); padding: 30px; border-radius: 15px; width: 100%; max-width: 450px; border-top: 6px solid var(--green); position: relative; }
@@ -395,10 +459,23 @@ if (count($patient_names) > 0) {
                             <?php 
                                 $display_status = strtoupper($row['display_status'] ?? $row['status'] ?? 'Pending');
                                 $status_class = $row['display_status_class'] ?? str_replace(' ', '-', strtolower(trim($row['status'] ?? 'pending')));
+                                $request_count = (int) ($row['reschedule_request_count'] ?? 0);
+                                $request_pending = strtolower($row['status'] ?? '') === 'reschedule requested';
+                                $request_limit_reached = $request_count >= 3;
                             ?>
                             <div class="status-pill <?= $status_class ?>"><?= $display_status ?></div>
-                            <button class="btn-resched" onclick="openReschedModal('<?= $row['id'] ?>', '<?= $row['schedule_date'] ?>', '<?= htmlspecialchars($row['patient_name']) ?>')">
-                                <i class="fa fa-calendar-days"></i> Request Resched
+                            <button class="btn-resched" <?= ($request_limit_reached || $request_pending) ? 'disabled' : '' ?>
+                                <?php if (!$request_limit_reached && !$request_pending): ?>
+                                    onclick="openReschedModal('<?= (int) $row['id'] ?>', '<?= htmlspecialchars($row['schedule_date'], ENT_QUOTES) ?>', '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>')"
+                                <?php endif; ?>>
+                                <i class="fa fa-calendar-days"></i>
+                                <?php if ($request_limit_reached): ?>
+                                    Reschedule limit reached (3/3)
+                                <?php elseif ($request_pending): ?>
+                                    Awaiting review (<?= $request_count ?>/3)
+                                <?php else: ?>
+                                    Request Resched (<?= $request_count ?>/3)
+                                <?php endif; ?>
                             </button>
                         </div>
                     </div>
