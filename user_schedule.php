@@ -125,7 +125,26 @@ if (count($patient_names) > 0) {
     $placeholders = implode(',', array_fill(0, count($patient_names), '?'));
     $types = str_repeat('s', count($patient_names));
     
-    $sched_query = "SELECT * FROM schedules WHERE patient_name IN ($placeholders) ORDER BY schedule_date ASC, schedule_time ASC";
+    $request_table_result = mysqli_query($conn, "SHOW TABLES LIKE 'schedule_reschedule_requests'");
+    $has_reschedule_requests = $request_table_result && mysqli_num_rows($request_table_result) > 0;
+    $latest_request_join = $has_reschedule_requests
+        ? " LEFT JOIN (
+                SELECT request_rows.schedule_id, request_rows.status
+                FROM schedule_reschedule_requests request_rows
+                INNER JOIN (
+                    SELECT schedule_id, MAX(id) AS latest_id
+                    FROM schedule_reschedule_requests
+                    GROUP BY schedule_id
+                ) latest ON latest.latest_id = request_rows.id
+            ) latest_request ON latest_request.schedule_id = s.id"
+        : "";
+    $latest_request_select = $has_reschedule_requests
+        ? ", latest_request.status AS latest_reschedule_status"
+        : ", NULL AS latest_reschedule_status";
+    $sched_query = "SELECT s.*{$latest_request_select}
+        FROM schedules s{$latest_request_join}
+        WHERE s.patient_name IN ($placeholders)
+        ORDER BY s.schedule_date ASC, s.schedule_time ASC";
     if ($stmt = $conn->prepare($sched_query)) {
         $bind_params = array_merge([$types], $patient_names);
         $tmp = [];
@@ -137,14 +156,19 @@ if (count($patient_names) > 0) {
 
         while ($row = $result->fetch_assoc()) {
             $status = strtolower($row['status'] ?? '');
+            $latest_reschedule_status = strtolower($row['latest_reschedule_status'] ?? '');
             $notes = (string) ($row['notes'] ?? '');
             $has_reschedule_marker = preg_match('/Request:/i', $notes)
                 || preg_match('/Rescheduled \(Orig:/i', $notes);
-            $is_approved_reschedule = in_array($status, ['approved', 'rescheduled'], true)
-                && $has_reschedule_marker;
+            $is_approved_reschedule = $status !== 'reschedule requested'
+                && ($latest_reschedule_status === 'approved'
+                    || (!$has_reschedule_requests
+                        && in_array($status, ['approved', 'rescheduled'], true)
+                        && $has_reschedule_marker));
             $row['display_status'] = $is_approved_reschedule
-                ? 'Request Approved'
+                ? 'Reschedule Approved'
                 : ($row['status'] ?? 'Pending');
+            $row['display_status_class'] = strtolower(str_replace(' ', '-', $row['display_status']));
             if ($status == 'completed' || $row['schedule_date'] < $today) {
                 $history_schedules[] = $row;
             } else {
@@ -163,7 +187,7 @@ if (count($patient_names) > 0) {
                 } elseif (preg_match('/Reschedule Rejected/i', $notes)) {
                     $row['reschedule_state'] = 'Reschedule Rejected';
                 } elseif ($is_approved_reschedule) {
-                    $row['reschedule_state'] = 'Request Approved';
+                    $row['reschedule_state'] = 'Reschedule Approved';
                 } elseif ($status === 'rescheduled' || preg_match('/Rescheduled \(Orig:/i', $notes)) {
                     $row['reschedule_state'] = 'Rescheduled';
                 } else {
@@ -303,7 +327,7 @@ if (count($patient_names) > 0) {
 
         .status-pill { padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
         .pending { background: #fffcf0; color: #b7791f; border: 1px solid #ecc94b; }
-        .approved, .request-approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .approved, .request-approved, .reschedule-approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .completed { background: #f0f4e8; color: var(--green); border: 1px solid var(--light); }
         .reschedule-requested { background: #fef2f2; color: #b91c1c; border: 1px solid #f87171; }
 
@@ -369,9 +393,8 @@ if (count($patient_names) > 0) {
                         
                         <div class="sched-right">
                             <?php 
-                                $status_raw = strtolower(trim($row['status'] ?? 'pending'));
                                 $display_status = strtoupper($row['display_status'] ?? $row['status'] ?? 'Pending');
-                                $status_class = str_replace(' ', '-', $status_raw);
+                                $status_class = $row['display_status_class'] ?? str_replace(' ', '-', strtolower(trim($row['status'] ?? 'pending')));
                             ?>
                             <div class="status-pill <?= $status_class ?>"><?= $display_status ?></div>
                             <button class="btn-resched" onclick="openReschedModal('<?= $row['id'] ?>', '<?= $row['schedule_date'] ?>', '<?= htmlspecialchars($row['patient_name']) ?>')">
