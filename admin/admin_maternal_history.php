@@ -449,6 +449,7 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
                         <th>Trimester</th>
                         <th>AOG (Weeks)</th>
                         <th>Weight / BP</th>
+                        <th>Bakunang Ibinigay</th>
                         <th>Remarks / Details</th>
                     </tr>
                 </thead>
@@ -460,12 +461,13 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
                                 <td><?php echo htmlspecialchars($chk['trimester'] ?? 'N/A'); ?></td>
                                 <td><span style="color: #3182CE; font-weight: bold;"><?php echo htmlspecialchars($chk['gestational_age_weeks'] ?? 'Not specified'); ?> Weeks</span></td>
                                 <td><?php echo htmlspecialchars($chk['weight_kg'] ?? '0'); ?> kg / <?php echo htmlspecialchars($chk['bp'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($chk['vaccine_given'] ?? 'Wala'); ?></td>
                                 <td><?php echo htmlspecialchars(substr($chk['remarks'] ?? 'Walang remarks', 0, 40)) . '...'; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="5" class="no-records">Wala pang naitalang session o check-up record ang pasyenteng ito mula sa Maternal Records.</td>
+                            <td colspan="6" class="no-records">Wala pang naitalang session o check-up record ang pasyenteng ito mula sa Maternal Records.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -502,6 +504,16 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
     <script>
         const checkupsData = <?php echo json_encode($checkups); ?>;
         const patientData = <?php echo json_encode($patient); ?>;
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
+        }
 
         function openPrintModal(index) {
             // Kung walang check-up records, gamitin ang default na structure para hindi mag-error
@@ -584,7 +596,8 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
                             </div>
                             <div>
                                 <p style="font-size: 8pt; text-transform: uppercase; font-weight: bold; color: #2D3748; font-family: Arial, sans-serif; margin-bottom: 5px;">Iba pang Detalye:</p>
-                                <p style="margin: 0;"><strong>Fetal Heart Rate:</strong> ${chk.fetal_heart_rate || 'N/A'}<br>
+                                <p style="margin: 0;"><strong>Bakunang ibinigay:</strong> ${escapeHtml(chk.vaccine_given || 'Wala')}<br>
+                                   <strong>Fetal Heart Rate:</strong> ${chk.fetal_heart_rate || 'N/A'}<br>
                                    <strong>Trimester:</strong> ${chk.trimester || 'Standard Check-up'}</p>
                             </div>
                         </div>

@@ -28,12 +28,16 @@ $result = mysqli_query($conn, $sql);
 
 $schedulePatientColumn = mysqli_query($conn, "SHOW COLUMNS FROM schedules LIKE 'patient_id'");
 $recordScheduleColumn = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'schedule_id'");
+$recordVaccineColumn = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'vaccine_given'");
+$vaccineFieldReady = $recordVaccineColumn && mysqli_num_rows($recordVaccineColumn) > 0;
 $scheduleLinkSchemaReady = $schedulePatientColumn && mysqli_num_rows($schedulePatientColumn) > 0
     && $recordScheduleColumn && mysqli_num_rows($recordScheduleColumn) > 0;
 $scheduledResult = false;
 $scheduleLoadError = null;
 $openScheduledPatient = null;
 $openScheduleNotice = null;
+$immunizationAppointments = [];
+$checkupAppointments = [];
 
 if ($scheduleLinkSchemaReady) {
     $scheduledStmt = $conn->prepare("SELECT s.id AS schedule_id, s.schedule_date, s.schedule_time,
@@ -48,6 +52,13 @@ if ($scheduleLinkSchemaReady) {
         $scheduleLoadError = $conn->error;
     } elseif ($scheduledStmt->execute()) {
         $scheduledResult = $scheduledStmt->get_result();
+        while ($schedule = $scheduledResult->fetch_assoc()) {
+            if (preg_match('/immuniz|vaccin/i', $schedule['service_type'] ?? '')) {
+                $immunizationAppointments[] = $schedule;
+            } else {
+                $checkupAppointments[] = $schedule;
+            }
+        }
     } else {
         $scheduleLoadError = $scheduledStmt->error;
     }
@@ -147,11 +158,12 @@ if (!$recordNotice && isset($_GET['success'])) {
         }
 
         table { width: 100%; min-width: 620px; border-collapse: collapse; }
-        .patient-panels {
+        .scheduled-panels {
             display: grid;
-            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             align-items: start;
             gap: 20px;
+            margin-bottom: 20px;
         }
         .patient-panel h3 {
             margin: 0 0 16px;
@@ -249,7 +261,7 @@ if (!$recordNotice && isset($_GET['success'])) {
             .tri-btn { padding: 9px 5px; font-size: 0.72rem; }
         }
         @media (max-width: 1100px) {
-            .patient-panels { grid-template-columns: minmax(0, 1fr); }
+            .scheduled-panels { grid-template-columns: minmax(0, 1fr); }
         }
     </style>
 </head>
@@ -285,15 +297,68 @@ if (!$recordNotice && isset($_GET['success'])) {
             <div class="record-notice error" role="alert">
                 Run <code>database_maternal_schedule_links.sql</code> in phpMyAdmin to enable schedule-to-patient linking.
             </div>
-        <?php elseif ($scheduleLoadError !== null): ?>
+        <?php endif; ?>
+
+        <?php if (!$vaccineFieldReady): ?>
+            <div class="record-notice error" role="alert">
+                Run <code>database_maternal_vaccine_field.sql</code> in phpMyAdmin to save vaccine names in maternal health records.
+            </div>
+        <?php endif; ?>
+
+        <?php if ($scheduleLinkSchemaReady && $scheduleLoadError !== null): ?>
             <div class="record-notice error" role="alert">
                 Could not load scheduled maternal patients: <?php echo htmlspecialchars($scheduleLoadError, ENT_QUOTES, 'UTF-8'); ?>
             </div>
         <?php endif; ?>
 
-        <div class="patient-panels">
-            <section class="table-container patient-panel">
-                <h3>Scheduled Patients</h3>
+        <section class="table-container patient-panel" style="margin-bottom:20px;">
+            <h3>All Maternal Patients</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mother Name</th>
+                        <th>Current Gestational Age</th>
+                        <th>Last Visit</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($result && mysqli_num_rows($result) > 0): ?>
+                        <?php while ($row = mysqli_fetch_assoc($result)):
+                            $patientId = (int) $row['mother_id'];
+                            $aog = $row['current_aog'] ?? 0;
+                        ?>
+                            <tr>
+                                <td>
+                                    <span style="font-weight: 600; color: #2D3748;"><?php echo htmlspecialchars($row['full_name'], ENT_QUOTES, 'UTF-8'); ?></span><br>
+                                    <small style="color: #A0AEC0;"><?php echo (int) ($row['checkup_count'] ?? 0); ?> total check-ups</small>
+                                </td>
+                                <td><span style="font-weight: 600; color: #2b6cb0;"><?php echo $aog ? (int) $aog . ' Weeks' : 'Not specified'; ?></span></td>
+                                <td style="color: #4A5568;">
+                                    <?php echo ($row['last_visit']) ? date("M d, Y", strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="admin_maternal_history.php?id=<?php echo $patientId; ?>" class="btn-history">View History</a>
+                                        <button type="button" class="btn-update" onclick='openUpdateModal(<?php echo $patientId; ?>, <?php echo json_encode($row['full_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Add Record</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr><td colspan="4" style="text-align: center; color: #A0AEC0; padding: 30px;">No verified maternal records found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </section>
+
+        <div class="scheduled-panels">
+            <?php foreach ([
+                'Immunization Appointments' => $immunizationAppointments,
+                'Check-up Appointments' => $checkupAppointments
+            ] as $appointmentTitle => $appointments): ?>
+                <section class="table-container patient-panel">
+                <h3><?php echo htmlspecialchars($appointmentTitle, ENT_QUOTES, 'UTF-8'); ?> (<?php echo count($appointments); ?>)</h3>
                 <table class="scheduled-table">
                     <thead>
                         <tr>
@@ -305,8 +370,8 @@ if (!$recordNotice && isset($_GET['success'])) {
                     <tbody>
                         <?php if ($scheduleLoadError !== null): ?>
                             <tr><td colspan="3" style="text-align:center; color:#991b1b; padding:24px;">Could not load scheduled patients.</td></tr>
-                        <?php elseif ($scheduledResult && $scheduledResult->num_rows > 0): ?>
-                            <?php while ($schedule = $scheduledResult->fetch_assoc()): ?>
+                        <?php elseif ($appointments): ?>
+                            <?php foreach ($appointments as $schedule): ?>
                                 <tr>
                                     <td>
                                         <strong><?php echo htmlspecialchars($schedule['full_name'], ENT_QUOTES, 'UTF-8'); ?></strong><br>
@@ -321,54 +386,14 @@ if (!$recordNotice && isset($_GET['success'])) {
                                         </a>
                                     </td>
                                 </tr>
-                            <?php endwhile; ?>
+                            <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="3" style="text-align:center; color:#A0AEC0; padding:24px;">No active maternal appointments found.</td></tr>
+                            <tr><td colspan="3" style="text-align:center; color:#A0AEC0; padding:24px;">No <?php echo strtolower($appointmentTitle); ?> found.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </section>
-
-            <section class="table-container patient-panel">
-                <h3>All Maternal Patients</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mother Name</th>
-                            <th>Current Gestational Age</th>
-                            <th>Last Visit</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($result && mysqli_num_rows($result) > 0): ?>
-                            <?php while ($row = mysqli_fetch_assoc($result)):
-                                $patientId = (int) $row['mother_id'];
-                                $aog = $row['current_aog'] ?? 0;
-                            ?>
-                                <tr>
-                                    <td>
-                                        <span style="font-weight: 600; color: #2D3748;"><?php echo htmlspecialchars($row['full_name'], ENT_QUOTES, 'UTF-8'); ?></span><br>
-                                        <small style="color: #A0AEC0;"><?php echo (int) ($row['checkup_count'] ?? 0); ?> total check-ups</small>
-                                    </td>
-                                    <td><span style="font-weight: 600; color: #2b6cb0;"><?php echo $aog ? (int) $aog . ' Weeks' : 'Not specified'; ?></span></td>
-                                    <td style="color: #4A5568;">
-                                        <?php echo ($row['last_visit']) ? date("M d, Y", strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="admin_maternal_history.php?id=<?php echo $patientId; ?>" class="btn-history">View History</a>
-                                            <button type="button" class="btn-update" onclick='openUpdateModal(<?php echo $patientId; ?>, <?php echo json_encode($row['full_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Add Record</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr><td colspan="4" style="text-align: center; color: #A0AEC0; padding: 30px;">No verified maternal records found.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </section>
+            <?php endforeach; ?>
         </div>
     </div>
 
@@ -443,6 +468,9 @@ if (!$recordNotice && isset($_GET['success'])) {
 
                 <label>Laboratory test done:</label>
                 <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
+
+                <label>Bakunang ibinigay (kung mayroon):</label>
+                <input type="text" name="vaccine_given" maxlength="255" placeholder="Pangalan ng bakuna">
 
                 <!-- ================= 1ST TRIMESTER SPECIFIC FIELDS ================= -->
                 <div id="section_tri1" class="trimester-section active-section">

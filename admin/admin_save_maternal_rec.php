@@ -28,10 +28,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $next_visit_date = mysqli_real_escape_string($conn, $_POST['next_visit_date']);
     $provider_name = mysqli_real_escape_string($conn, $_POST['provider_name']);
     $hospital_referral = mysqli_real_escape_string($conn, $_POST['hospital_referral']);
+    $vaccine_given = mysqli_real_escape_string($conn, trim($_POST['vaccine_given'] ?? ''));
 
     $schedule_column = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'schedule_id'");
     $has_schedule_column = $schedule_column && mysqli_num_rows($schedule_column) > 0;
+    $vaccine_column = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'vaccine_given'");
+    $has_vaccine_column = $vaccine_column && mysqli_num_rows($vaccine_column) > 0;
     $schedule_transaction_started = false;
+
+    if ($vaccine_given !== '' && !$has_vaccine_column) {
+        $_SESSION['maternal_record_notice'] = [
+            'type' => 'error',
+            'message' => 'Run database_maternal_vaccine_field.sql in phpMyAdmin before saving the vaccine name.'
+        ];
+        header("Location: admin_maternal_hr.php");
+        exit();
+    }
 
     if ($schedule_id > 0) {
         if (!$has_schedule_column) {
@@ -157,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         mother_id, " . ($has_schedule_column ? "schedule_id, " : "") . "checkup_date, weight_kg, height_cm, gestational_age_weeks, bp,
         nutritional_status, pagsusuri_kalagayan, mga_payo, birthplan_changes, 
         pagsusuri_ngipin, lab_test_done, hemoglobin_count, urinalysis, cbc, 
-        stool_exam, acetic_acid_wash, tetanus_vaccine_date, treatments_given, 
+        stool_exam, acetic_acid_wash, tetanus_vaccine_date, " . ($has_vaccine_column ? "vaccine_given, " : "") . "treatments_given,
         serbisyong_binigay, next_visit_date, provider_name, hospital_referral
     ) VALUES (
         '$mother_id', " . ($has_schedule_column ? ($schedule_id > 0 ? "'$schedule_id'" : "NULL") . ", " : "") . "'$checkup_date', '$weight_kg', '$height_cm', '$gestational_age_weeks', '$bp',
@@ -165,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         '$pagsusuri_ngipin', '$lab_test_done', " . ($hemoglobin_count ? "'$hemoglobin_count'" : "NULL") . ", 
         " . ($urinalysis ? "'$urinalysis'" : "NULL") . ", " . ($cbc ? "'$cbc'" : "NULL") . ", 
         " . ($stool_exam ? "'$stool_exam'" : "NULL") . ", " . ($acetic_acid_wash ? "'$acetic_acid_wash'" : "NULL") . ", 
-        " . ($tetanus_vaccine_date ? "'$tetanus_vaccine_date'" : "NULL") . ", '$treatments_given_esc', 
+        " . ($tetanus_vaccine_date ? "'$tetanus_vaccine_date'" : "NULL") . ", " . ($has_vaccine_column ? ($vaccine_given !== '' ? "'$vaccine_given'" : "NULL") . ", " : "") . "'$treatments_given_esc',
         '$serbisyong_binigay_esc', " . ($next_visit_date ? "'$next_visit_date'" : "NULL") . ", '$provider_name', '$hospital_referral'
     )";
 
