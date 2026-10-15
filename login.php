@@ -4,7 +4,11 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 include 'db_connect.php';
 
+$loginAlert = $_SESSION['auth_alert'] ?? null;
+unset($_SESSION['auth_alert']);
+
 if (isset($_POST['login'])) {
+    $loginAlert = null;
     $login_input = trim($_POST['field_user_id']);
     $pass        = trim($_POST['field_user_pass']); 
 
@@ -22,24 +26,19 @@ if (isset($_POST['login'])) {
         // Strict validation base sa role:
         if ($role == 'Super Admin' || $role == 'User') {
             if ($login_input !== $db_email) {
-                echo "<script>alert('Please use your Email.'); window.location.href='login.php';</script>";
-                exit();
+                $loginAlert = ['type' => 'error', 'title' => 'Use your email', 'message' => 'Please sign in with the email address linked to this account.'];
             }
         } else {
             if ($login_input !== $db_generated_id) {
-                echo "<script>alert('Please use your code(ex.2026-001).'); window.location.href='login.php';</script>";
-                exit();
+                $loginAlert = ['type' => 'error', 'title' => 'Use your worker code', 'message' => 'Please sign in with your assigned system code.'];
             }
         }
 
-        // Pagkatapos masigurong tama ang uri ng input, i-check ang password:
-        if ($pass == $row['password']) {
-            
-            if ($row['role'] !== 'Super Admin' && strtolower($row['status']) !== 'approved') {
-                echo "<script>alert('Your account is still pending approval.'); window.location.href='login.php';</script>";
-                exit();
-            }
-
+        if ($loginAlert === null && $pass != $row['password']) {
+            $loginAlert = ['type' => 'error', 'title' => 'Incorrect password', 'message' => 'The password you entered is incorrect. Please try again.'];
+        } elseif ($loginAlert === null && $row['role'] !== 'Super Admin' && strtolower($row['status']) !== 'approved') {
+            $loginAlert = ['type' => 'warning', 'title' => 'Account awaiting approval', 'message' => 'Your account is still pending approval. Please try again later.'];
+        } elseif ($loginAlert === null) {
             $_SESSION['user_id'] = $row['id'];
             $_SESSION['role']    = $row['role']; 
             $_SESSION['name']    = $row['first_name'];
@@ -60,14 +59,9 @@ if (isset($_POST['login'])) {
                 header("Location: main_user.php");
                 exit();
             }
-
-        } else {
-            echo "<script>alert('Wrong Password.'); window.location.href='login.php';</script>";
-            exit();
         }
     } else {
-        echo "<script>alert('Account not Found.'); window.location.href='login.php';</script>";
-        exit();
+        $loginAlert = ['type' => 'error', 'title' => 'Account not found', 'message' => 'We could not find an account matching those details. Check your email or system ID and try again.'];
     }
 }
 ?>
@@ -269,6 +263,114 @@ input:focus {
     text-decoration: underline; 
 }
 
+.auth-alert-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.55);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    animation: alert-fade-in 0.18s ease-out;
+}
+
+.auth-alert-overlay[hidden] {
+    display: none;
+}
+
+.auth-alert-card {
+    position: relative;
+    width: min(100%, 390px);
+    padding: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+    text-align: center;
+    animation: alert-pop-in 0.22s ease-out;
+}
+
+.auth-alert-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    border: 0;
+    background: transparent;
+    color: #718096;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.auth-alert-icon {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: #FEF2F2;
+    color: #DC2626;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.auth-alert-overlay.warning .auth-alert-icon {
+    background: #FFFBEB;
+    color: #D97706;
+}
+
+.auth-alert-overlay.success .auth-alert-icon {
+    background: #ECFDF3;
+    color: #15803D;
+}
+
+.auth-alert-card h2 {
+    margin: 0 0 8px;
+    color: #1A202C;
+    font-size: 1.3rem;
+}
+
+.auth-alert-card p {
+    margin: 0;
+    color: #64748B;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.auth-alert-button {
+    width: 100%;
+    margin-top: 24px;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sage);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.auth-alert-button:hover {
+    background: var(--sage-hover);
+    transform: translateY(-1px);
+}
+
+@keyframes alert-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes alert-pop-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @media (max-width: 480px) { 
     .login-card { 
         padding: 32px 20px; 
@@ -277,6 +379,16 @@ input:focus {
 </style> 
 </head>
 <body>
+
+    <div class="auth-alert-overlay" id="authAlert" role="alertdialog" aria-modal="true" aria-labelledby="authAlertTitle" aria-describedby="authAlertMessage" hidden>
+        <div class="auth-alert-card">
+            <button type="button" class="auth-alert-close" aria-label="Close alert" onclick="closeAuthAlert()">&times;</button>
+            <div class="auth-alert-icon" id="authAlertIcon" aria-hidden="true">!</div>
+            <h2 id="authAlertTitle"></h2>
+            <p id="authAlertMessage"></p>
+            <button type="button" class="auth-alert-button" id="authAlertButton" onclick="closeAuthAlert()">Okay</button>
+        </div>
+    </div>
 
     <div class="login-card">
         <div class="logo-area">
@@ -334,6 +446,32 @@ input:focus {
             
             lucide.createIcons();
         }
+
+        function showAuthAlert(alert) {
+            const overlay = document.getElementById('authAlert');
+            overlay.classList.toggle('warning', alert.type === 'warning');
+            overlay.classList.toggle('success', alert.type === 'success');
+            document.getElementById('authAlertIcon').textContent = alert.type === 'success' ? '✓' : (alert.type === 'warning' ? '!' : '×');
+            document.getElementById('authAlertTitle').textContent = alert.title;
+            document.getElementById('authAlertMessage').textContent = alert.message;
+            overlay.hidden = false;
+            document.getElementById('authAlertButton').focus();
+        }
+
+        function closeAuthAlert() {
+            document.getElementById('authAlert').hidden = true;
+        }
+
+        document.getElementById('authAlert').addEventListener('click', function(event) {
+            if (event.target === this) closeAuthAlert();
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeAuthAlert();
+        });
+
+        <?php if ($loginAlert !== null): ?>
+        showAuthAlert(<?php echo json_encode($loginAlert, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>);
+        <?php endif; ?>
     </script>
 </body>
 </html>

@@ -768,7 +768,7 @@ if (check_table_exists($conn, 'schedules')) {
         <?php // include 'infant_verification_pad.php'; -- idadagdag pagkatapos ma-split ?>
 
         <!-- RIGHT COLUMN -->
-        <div class="right-column">s
+        <div class="right-column">
             
             <!-- Upcoming Maternal Check-ups -->
             <div class="table-container">

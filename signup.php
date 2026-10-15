@@ -1,5 +1,8 @@
 <?php
+session_start();
 include 'db_connect.php';
+
+$signupAlert = null;
 
 if (isset($_POST['signup'])) {
     $fname = mysqli_real_escape_string($conn, $_POST['first_name']);
@@ -9,33 +12,34 @@ if (isset($_POST['signup'])) {
 
     $check_email = mysqli_query($conn, "SELECT email FROM users WHERE email = '$email'");
     if (mysqli_num_rows($check_email) > 0) {
-        echo "<script>alert('Error: Ang email na ito ay gamit na!'); window.history.back();</script>";
-        exit();
-    }
-
-    $res = mysqli_query($conn, "SELECT COUNT(*) as total FROM users");
-    $count = mysqli_fetch_assoc($res)['total'];
-    
-    if ($count == 0) {
-        $final_role = 'Super Admin';
-        $year = date("Y");
-        $new_id_num = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        $generated_id = "ALW-$year-$new_id_num";
-        $success_message = "Registration Successful! Your System ID is: $generated_id";
-        $id_value = "'$generated_id'";
+        $signupAlert = ['type' => 'error', 'title' => 'Email already registered', 'message' => 'May account na gamit ang email na ito. Subukan ang ibang email o mag-log in sa account mo.'];
     } else {
-        $final_role = 'User';
-        $success_message = "Registration Successful! You can now log in using your email.";
-        $id_value = "NULL";
-    }
+        $res = mysqli_query($conn, "SELECT COUNT(*) as total FROM users");
+        $count = mysqli_fetch_assoc($res)['total'];
 
-    $sql = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status, created_at) 
-            VALUES ($id_value, '$fname', '$lname', '$email', '$pass', '$final_role', 'Approved', NOW())";
+        if ($count == 0) {
+            $final_role = 'Super Admin';
+            $year = date("Y");
+            $new_id_num = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+            $generated_id = "ALW-$year-$new_id_num";
+            $success_message = "Registration Successful! Your System ID is: $generated_id";
+            $id_value = "'$generated_id'";
+        } else {
+            $final_role = 'User';
+            $success_message = "Registration Successful! You can now log in using your email.";
+            $id_value = "NULL";
+        }
 
-    if (mysqli_query($conn, $sql)) {
-        echo "<script>alert('$success_message'); window.location='login.php';</script>";
-    } else {
-        echo "Error: " . mysqli_error($conn);
+        $sql = "INSERT INTO users (generated_id, first_name, last_name, email, password, role, status, created_at)
+                VALUES ($id_value, '$fname', '$lname', '$email', '$pass', '$final_role', 'Approved', NOW())";
+
+        if (mysqli_query($conn, $sql)) {
+            $_SESSION['auth_alert'] = ['type' => 'success', 'title' => 'Registration successful', 'message' => $success_message];
+            header('Location: login.php');
+            exit();
+        } else {
+            $signupAlert = ['type' => 'error', 'title' => 'Registration failed', 'message' => 'We could not create your account. ' . mysqli_error($conn)];
+        }
     }
 }
 ?>
@@ -115,9 +119,32 @@ if (isset($_POST['signup'])) {
         .card-footer { text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); }
         .card-footer p { font-size: 14px; color: #4A5568; }
         .card-footer a { color: #2F855A; text-decoration: none; font-weight: bold; }
+
+        .auth-alert-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, 0.55); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); animation: alert-fade-in 0.18s ease-out; }
+        .auth-alert-overlay[hidden] { display: none; }
+        .auth-alert-card { position: relative; width: min(100%, 390px); padding: 32px; border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 20px; background: #fff; box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25); text-align: center; animation: alert-pop-in 0.22s ease-out; }
+        .auth-alert-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: #718096; font-size: 24px; line-height: 1; cursor: pointer; }
+        .auth-alert-icon { display: grid; place-items: center; width: 58px; height: 58px; margin: 0 auto 16px; border-radius: 50%; background: #FEF2F2; color: #DC2626; font-size: 28px; font-weight: 700; }
+        .auth-alert-overlay.success .auth-alert-icon { background: #ECFDF3; color: #15803D; }
+        .auth-alert-card h2 { margin: 0 0 8px; color: #1A202C; font-size: 1.3rem; }
+        .auth-alert-card p { margin: 0; color: #64748B; font-size: 0.95rem; line-height: 1.6; overflow-wrap: anywhere; }
+        .auth-alert-button { width: 100%; margin-top: 24px; padding: 12px 18px; border: 0; border-radius: 10px; background: var(--sage); color: #fff; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.2s; }
+        .auth-alert-button:hover { background: var(--dark-sage); transform: translateY(-1px); }
+        @keyframes alert-fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes alert-pop-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
     </style>
 </head>
 <body>
+    <div class="auth-alert-overlay" id="authAlert" role="alertdialog" aria-modal="true" aria-labelledby="authAlertTitle" aria-describedby="authAlertMessage" hidden>
+        <div class="auth-alert-card">
+            <button type="button" class="auth-alert-close" aria-label="Close alert" onclick="closeAuthAlert()">&times;</button>
+            <div class="auth-alert-icon" id="authAlertIcon" aria-hidden="true">!</div>
+            <h2 id="authAlertTitle"></h2>
+            <p id="authAlertMessage"></p>
+            <button type="button" class="auth-alert-button" id="authAlertButton" onclick="closeAuthAlert()">Got it</button>
+        </div>
+    </div>
+
     <div class="card">
         <h2>Create Account</h2>
         <p class="subtitle">Join Alawihao Health Center System</p>
@@ -168,6 +195,31 @@ if (isset($_POST['signup'])) {
         const togglePass = document.getElementById('togglePass');
         const toggleConfirm = document.getElementById('toggleConfirm');
 
+        function showAuthAlert(alert) {
+            const overlay = document.getElementById('authAlert');
+            overlay.classList.toggle('success', alert.type === 'success');
+            document.getElementById('authAlertIcon').textContent = alert.type === 'success' ? '✓' : '×';
+            document.getElementById('authAlertTitle').textContent = alert.title;
+            document.getElementById('authAlertMessage').textContent = alert.message;
+            overlay.hidden = false;
+            document.getElementById('authAlertButton').focus();
+        }
+
+        function closeAuthAlert() {
+            document.getElementById('authAlert').hidden = true;
+        }
+
+        document.getElementById('authAlert').addEventListener('click', function(event) {
+            if (event.target === this) closeAuthAlert();
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeAuthAlert();
+        });
+
+        <?php if ($signupAlert !== null): ?>
+        showAuthAlert(<?php echo json_encode($signupAlert, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>);
+        <?php endif; ?>
+
         togglePass.addEventListener('click', function () {
             const type = pass.getAttribute('type') === 'password' ? 'text' : 'password';
             pass.setAttribute('type', type);
@@ -216,7 +268,7 @@ if (isset($_POST['signup'])) {
         document.getElementById('regForm').onsubmit = function(e) {
             if (pass.value !== confirmPass.value) {
                 e.preventDefault();
-                alert("Passwords do not match!");
+                showAuthAlert({type: 'error', title: 'Passwords do not match', message: 'Please make sure both password fields are identical.'});
             }
         };
     </script>
