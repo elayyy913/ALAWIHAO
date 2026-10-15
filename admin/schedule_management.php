@@ -150,6 +150,8 @@ function notify_user_by_schedule($conn, $schedule_id, $patient_name, $title, $me
 // ─────────────────────────────────────────────────────────────────────────────
 
 $message = "";
+$patientLinkColumn = mysqli_query($conn, "SHOW COLUMNS FROM schedules LIKE 'patient_id'");
+$schedulePatientLinkReady = $patientLinkColumn && mysqli_num_rows($patientLinkColumn) > 0;
 
 // Handle Batch Add Schedule
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch'])) {
@@ -163,12 +165,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
 
     if (empty($schedule_date) || empty($schedule_time) || empty($service_type) || empty($patient_ids)) {
         $message = "Error: Please select a date, time, service type, and at least one patient!";
+    } elseif (!$schedulePatientLinkReady) {
+        $message = "Run database_maternal_schedule_links.sql in phpMyAdmin before creating schedules.";
     } else {
         $success_count = 0;
-        $sql = "INSERT INTO schedules (category, patient_name, schedule_date, schedule_time, service_type, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO schedules (category, patient_id, patient_name, schedule_date, schedule_time, service_type, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         
         if ($stmt = $conn->prepare($sql)) {
             foreach ($patient_ids as $pid) {
+                $patient_id = (int) $pid;
                 $patient_name = "";
                 if ($category === 'Child') {
                     $p_query = "SELECT child_name AS full_name FROM children WHERE id = ? LIMIT 1";
@@ -177,13 +182,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
                 }
 
                 if ($p_stmt = $conn->prepare($p_query)) {
-                    $p_stmt->bind_param("i", $pid);
+                    $p_stmt->bind_param("i", $patient_id);
                     $p_stmt->execute();
                     $p_res = $p_stmt->get_result();
                     if ($p_row = $p_res->fetch_assoc()) {
                         $patient_name = $p_row['full_name'];
                         
-                        $stmt->bind_param("sssssss", $category, $patient_name, $schedule_date, $schedule_time, $service_type, $notes, $status);
+                        $stmt->bind_param("sissssss", $category, $patient_id, $patient_name, $schedule_date, $schedule_time, $service_type, $notes, $status);
                         if ($stmt->execute()) {
                             $success_count++;
                             // ── Notify the patient's user ──
@@ -226,17 +231,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
     $notes = mysqli_real_escape_string($conn, $_POST['notes']);
     $status = mysqli_real_escape_string($conn, $_POST['status']);
 
+    $patient_id = null;
+    if ($category === 'Maternal') {
+        $patient_lookup = $conn->prepare("SELECT id FROM maternal_registration
+            WHERE status = 'Approved'
+              AND LOWER(TRIM(CONCAT_WS(' ', TRIM(client_fname), TRIM(client_lname)))) = LOWER(TRIM(?))
+            LIMIT 2");
+    } elseif ($category === 'Child') {
+        $patient_lookup = $conn->prepare("SELECT id FROM children
+            WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?))
+            LIMIT 2");
+    } else {
+        $patient_lookup = false;
+    }
+
+    if ($patient_lookup) {
+        $patient_lookup->bind_param("s", $patient_name);
+        $patient_lookup->execute();
+        $patient_matches = $patient_lookup->get_result();
+        if ($patient_matches->num_rows === 1) {
+            $patient_id = (int) $patient_matches->fetch_assoc()['id'];
+        }
+        $patient_lookup->close();
+    }
+
     // Fetch old values to detect changes
     $old_row = null;
-    $old_stmt = $conn->prepare("SELECT patient_name, service_type, schedule_date, schedule_time, status FROM schedules WHERE id = ?");
+    $old_stmt = $conn->prepare("SELECT patient_id, patient_name, category, service_type, schedule_date, schedule_time, status FROM schedules WHERE id = ?");
     $old_stmt->bind_param("i", $id);
     $old_stmt->execute();
     $old_row = $old_stmt->get_result()->fetch_assoc();
     $old_stmt->close();
 
-    $sql = "UPDATE schedules SET patient_name=?, category=?, schedule_date=?, schedule_time=?, service_type=?, notes=?, status=? WHERE id=?";
+    if ($patient_id === null && $old_row
+        && $old_row['category'] === $category
+        && strcasecmp(trim($old_row['patient_name']), trim($patient_name)) === 0
+        && !empty($old_row['patient_id'])) {
+        $patient_id = (int) $old_row['patient_id'];
+    }
+
+    $sql = "UPDATE schedules SET patient_id=?, patient_name=?, category=?, schedule_date=?, schedule_time=?, service_type=?, notes=?, status=? WHERE id=?";
     if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("sssssssi", $patient_name, $category, $schedule_date, $schedule_time, $service_type, $notes, $status, $id);
+        $stmt->bind_param("isssssssi", $patient_id, $patient_name, $category, $schedule_date, $schedule_time, $service_type, $notes, $status, $id);
         if ($stmt->execute()) {
             $message = "Schedule updated successfully!";
             logAdminAction(
@@ -675,6 +711,18 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         .badge-completed { background: #f0fdf4; color: #166534; }
         .badge-cancelled { background: #ffeeef; color: #991b1b; }
         .badge-resched { background: #fef3c7; color: #92400e; }
+        .btn-record-link {
+            display: inline-block;
+            padding: 7px 10px;
+            border-radius: 6px;
+            background: #718355;
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn-record-link:hover { background: #5e7044; }
 
         .modal {
             display: none; 
@@ -812,6 +860,11 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         </div>
 
         <?php if(!empty($message)) echo "<div class='success-msg'>$message</div>"; ?>
+        <?php if (!$schedulePatientLinkReady): ?>
+            <div class="success-msg" style="color:#92400e;background:#fffbeb;border-left-color:#f59e0b;">
+                Run <code>database_maternal_schedule_links.sql</code> in phpMyAdmin to enable reliable patient links for schedules.
+            </div>
+        <?php endif; ?>
 
     <div class="tabs">
         <button class="tab active" onclick="openTab(event, 'childTab')">Child Schedule</button>
@@ -916,6 +969,10 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                                 <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
                                 <td>
                                     <div style="display: flex; gap: 5px; align-items: center;">
+                                        <?php if (!empty($row['patient_id'])): ?>
+                                            <a class="btn-record-link" href="admin_maternal_hr.php?patient_id=<?= (int) $row['patient_id'] ?>&amp;schedule_id=<?= (int) $row['id'] ?>">Add Health Record</a>
+                                            <span>|</span>
+                                        <?php endif; ?>
                                         <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
                                            onclick="openEditModal(
                                                '<?= $row['id'] ?>', 
