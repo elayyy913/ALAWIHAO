@@ -28,15 +28,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $next_visit_date = mysqli_real_escape_string($conn, $_POST['next_visit_date']);
     $provider_name = mysqli_real_escape_string($conn, $_POST['provider_name']);
     $hospital_referral = mysqli_real_escape_string($conn, $_POST['hospital_referral']);
-    $vaccine_given = mysqli_real_escape_string($conn, trim($_POST['vaccine_given'] ?? ''));
+    $vaccine_id = (int) ($_POST['vaccine_id'] ?? 0);
+    $vaccine_quantity = (int) ($_POST['vaccine_quantity'] ?? 0);
+    $vaccine_given = '';
+    $tetanus_vaccine_selected = isset($_POST['tetanus_vaccine_done']);
 
     $schedule_column = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'schedule_id'");
     $has_schedule_column = $schedule_column && mysqli_num_rows($schedule_column) > 0;
     $vaccine_column = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'vaccine_given'");
     $has_vaccine_column = $vaccine_column && mysqli_num_rows($vaccine_column) > 0;
-    $schedule_transaction_started = false;
-
-    if ($vaccine_given !== '' && !$has_vaccine_column) {
+    if ($vaccine_id > 0 && !$has_vaccine_column) {
         $_SESSION['maternal_record_notice'] = [
             'type' => 'error',
             'message' => 'Run database_maternal_vaccine_field.sql in phpMyAdmin before saving the vaccine name.'
@@ -45,8 +46,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit();
     }
 
+    if (($vaccine_id > 0 && $vaccine_quantity < 1) || ($tetanus_vaccine_selected && $vaccine_id < 1)) {
+        $_SESSION['maternal_record_notice'] = [
+            'type' => 'error',
+            'message' => 'Pumili ng bakuna at maglagay ng quantity na hindi bababa sa 1. Kailangan ding pumili ng bakuna kapag minarkahang naibigay ang tetanus vaccine.'
+        ];
+        header("Location: admin_maternal_hr.php");
+        exit();
+    }
+
+    if (!$conn->begin_transaction()) {
+        $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'Could not start a safe health-record save: ' . $conn->error];
+        header("Location: admin_maternal_hr.php");
+        exit();
+    }
     if ($schedule_id > 0) {
         if (!$has_schedule_column) {
+            $conn->rollback();
             $_SESSION['maternal_record_notice'] = [
                 'type' => 'error',
                 'message' => 'Run database_maternal_schedule_links.sql in phpMyAdmin before saving an appointment-linked health record.'
@@ -55,8 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             exit();
         }
 
-        $conn->begin_transaction();
-        $schedule_transaction_started = true;
         $schedule_stmt = $conn->prepare("SELECT id FROM schedules
             WHERE id = ? AND patient_id = ? AND category = 'Maternal'
               AND status IN ('Pending', 'Approved', 'Rescheduled')
@@ -85,6 +99,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             header("Location: admin_maternal_hr.php");
             exit();
         }
+    }
+
+    if ($vaccine_id > 0) {
+        $inventory_stmt = $conn->prepare("SELECT vaccine_name, available_stock FROM vaccines
+            WHERE id = ? AND category = 'Maternal' FOR UPDATE");
+        if (!$inventory_stmt) {
+            $conn->rollback();
+            $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'Could not validate vaccine inventory: ' . $conn->error];
+            header("Location: admin_maternal_hr.php");
+            exit();
+        }
+        $inventory_stmt->bind_param("i", $vaccine_id);
+        if (!$inventory_stmt->execute()) {
+            $inventory_error = $inventory_stmt->error;
+            $inventory_stmt->close();
+            $conn->rollback();
+            $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'Could not validate vaccine inventory: ' . $inventory_error];
+            header("Location: admin_maternal_hr.php");
+            exit();
+        }
+        $inventory_vaccine = $inventory_stmt->get_result()->fetch_assoc();
+        $inventory_stmt->close();
+        if (!$inventory_vaccine) {
+            $conn->rollback();
+            $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'The selected vaccine is not in maternal inventory.'];
+            header("Location: admin_maternal_hr.php");
+            exit();
+        }
+        if ($tetanus_vaccine_selected && stripos($inventory_vaccine['vaccine_name'], 'tetanus') === false) {
+            $conn->rollback();
+            $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'Select a tetanus-containing vaccine when recording the tetanus vaccine date.'];
+            header("Location: admin_maternal_hr.php");
+            exit();
+        }
+        if ($vaccine_quantity > (int) $inventory_vaccine['available_stock']) {
+            $available_stock = (int) $inventory_vaccine['available_stock'];
+            $conn->rollback();
+            $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => "Kulang ang stock. Available lamang ang {$available_stock} unit(s)."];
+            header("Location: admin_maternal_hr.php");
+            exit();
+        }
+        $vaccine_given = mysqli_real_escape_string($conn, trim($inventory_vaccine['vaccine_name']));
     }
 
     // Initialize variables para sa mga trimesters
@@ -182,7 +238,52 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     )";
 
     if (mysqli_query($conn, $sql)) {
-        if ($schedule_transaction_started) {
+        if ($vaccine_id > 0) {
+            $stock_stmt = $conn->prepare("UPDATE vaccines SET available_stock = available_stock - ?
+                WHERE id = ? AND available_stock >= ?");
+            if (!$stock_stmt) {
+                $save_error = $conn->error;
+                $conn->rollback();
+                $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'The record was not saved because stock could not be updated: ' . $save_error];
+                header("Location: admin_maternal_hr.php");
+                exit();
+            }
+            $stock_stmt->bind_param("iii", $vaccine_quantity, $vaccine_id, $vaccine_quantity);
+            if (!$stock_stmt->execute() || $stock_stmt->affected_rows !== 1) {
+                $save_error = $stock_stmt->error ?: 'The available stock changed before it could be deducted.';
+                $stock_stmt->close();
+                $conn->rollback();
+                $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'The record was not saved because stock could not be updated: ' . $save_error];
+                header("Location: admin_maternal_hr.php");
+                exit();
+            }
+            $stock_stmt->close();
+
+            $recorded_by = trim($provider_name) !== '' ? trim($provider_name) : 'Health worker ID ' . (int) $_SESSION['user_id'];
+            $log_remarks = 'Administered to maternal patient ID ' . $mother_id;
+            $log_stmt = $conn->prepare("INSERT INTO vaccine_logs
+                (vaccine_id, action_type, quantity, remarks, transaction_date, recorded_by)
+                VALUES (?, 'OUT', ?, ?, ?, ?)");
+            if (!$log_stmt) {
+                $save_error = $conn->error;
+                $conn->rollback();
+                $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'The record was not saved because vaccine history could not be created: ' . $save_error];
+                header("Location: admin_maternal_hr.php");
+                exit();
+            }
+            $log_stmt->bind_param("iisss", $vaccine_id, $vaccine_quantity, $log_remarks, $checkup_date, $recorded_by);
+            if (!$log_stmt->execute()) {
+                $save_error = $log_stmt->error;
+                $log_stmt->close();
+                $conn->rollback();
+                $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'The record was not saved because vaccine history could not be created: ' . $save_error];
+                header("Location: admin_maternal_hr.php");
+                exit();
+            }
+            $log_stmt->close();
+        }
+
+        if ($schedule_id > 0) {
             $complete_stmt = $conn->prepare("UPDATE schedules SET status = 'Completed'
                 WHERE id = ? AND patient_id = ? AND category = 'Maternal'
                   AND status IN ('Pending', 'Approved', 'Rescheduled')");
@@ -203,16 +304,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 exit();
             }
             $complete_stmt->close();
-            $conn->commit();
+        }
+        if (!$conn->commit()) {
+            $save_error = $conn->error;
+            $conn->rollback();
+            $_SESSION['maternal_record_notice'] = ['type' => 'error', 'message' => 'The health record and stock update could not be committed: ' . $save_error];
+            header("Location: admin_maternal_hr.php");
+            exit();
+        }
+        if ($schedule_id > 0) {
             logAdminAction($conn, "Completed maternal schedule ID {$schedule_id} while saving a health record for patient ID {$mother_id}.");
         }
         header("Location: admin_maternal_hr.php?success=1");
         exit();
     } else {
         $save_error = mysqli_error($conn);
-        if ($schedule_transaction_started) {
-            $conn->rollback();
-        }
+        $conn->rollback();
         $_SESSION['maternal_record_notice'] = [
             'type' => 'error',
             'message' => 'Error sa pag-save ng record: ' . $save_error

@@ -30,6 +30,9 @@ $schedulePatientColumn = mysqli_query($conn, "SHOW COLUMNS FROM schedules LIKE '
 $recordScheduleColumn = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'schedule_id'");
 $recordVaccineColumn = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'vaccine_given'");
 $vaccineFieldReady = $recordVaccineColumn && mysqli_num_rows($recordVaccineColumn) > 0;
+$maternalVaccineResult = $conn->query("SELECT id, vaccine_name, available_stock FROM vaccines WHERE category = 'Maternal' ORDER BY vaccine_name ASC");
+$maternalVaccineLoadError = $maternalVaccineResult ? null : $conn->error;
+$maternalVaccineCount = $maternalVaccineResult ? $maternalVaccineResult->num_rows : 0;
 $scheduleLinkSchemaReady = $schedulePatientColumn && mysqli_num_rows($schedulePatientColumn) > 0
     && $recordScheduleColumn && mysqli_num_rows($recordScheduleColumn) > 0;
 $scheduledResult = false;
@@ -95,6 +98,9 @@ $recordNotice = $_SESSION['maternal_record_notice'] ?? null;
 unset($_SESSION['maternal_record_notice']);
 if (!$recordNotice && $openScheduleNotice !== null) {
     $recordNotice = ['type' => 'error', 'message' => $openScheduleNotice];
+}
+if (!$recordNotice && $maternalVaccineLoadError !== null) {
+    $recordNotice = ['type' => 'error', 'message' => 'Could not load maternal vaccine inventory: ' . $maternalVaccineLoadError];
 }
 if (!$recordNotice && isset($_GET['success'])) {
     $recordNotice = ['type' => 'success', 'message' => 'Maternal health record saved successfully.'];
@@ -470,7 +476,24 @@ if (!$recordNotice && isset($_GET['success'])) {
                 <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
 
                 <label>Bakunang ibinigay (kung mayroon):</label>
-                <input type="text" name="vaccine_given" maxlength="255" placeholder="Pangalan ng bakuna">
+                <select name="vaccine_id" id="maternalVaccineSelect" onchange="updateMaternalVaccineFields()">
+                    <option value="">-- Walang bakuna --</option>
+                    <?php if ($maternalVaccineResult): ?>
+                        <?php while ($vaccineOption = $maternalVaccineResult->fetch_assoc()): ?>
+                            <option value="<?php echo (int) $vaccineOption['id']; ?>" <?php echo (int) $vaccineOption['available_stock'] < 1 ? 'disabled' : ''; ?>>
+                                <?php echo htmlspecialchars($vaccineOption['vaccine_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                (Stock: <?php echo (int) $vaccineOption['available_stock']; ?>)
+                            </option>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
+                </select>
+                <?php if ($maternalVaccineResult && $maternalVaccineCount === 0): ?>
+                    <small style="display:block; margin-top:-8px; margin-bottom:12px; color:#991b1b;">
+                        Wala pang Maternal vaccine sa inventory. <a href="vaccine_inventory.php" target="_blank" rel="noopener">Magdagdag ng Maternal vaccine at stock</a> muna.
+                    </small>
+                <?php endif; ?>
+                <label for="maternalVaccineQuantity">Quantity Used (stock units):</label>
+                <input type="number" name="vaccine_quantity" id="maternalVaccineQuantity" min="1" value="1" disabled>
 
                 <!-- ================= 1ST TRIMESTER SPECIFIC FIELDS ================= -->
                 <div id="section_tri1" class="trimester-section active-section">
@@ -514,7 +537,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                         <label style="margin-bottom: 8px;">Tetanus-containing vaccine:</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label">
-                                <input type="checkbox" name="tetanus_vaccine_done" id="tetanusCheckbox" value="1" onchange="toggleTetanusDate()"> Tetanus-containing vaccine given
+                                <input type="checkbox" name="tetanus_vaccine_done" id="tetanusCheckbox" value="1" onchange="toggleTetanusDate(); updateMaternalVaccineFields()"> Tetanus-containing vaccine given
                             </label>
                         </div>
                         
@@ -713,6 +736,8 @@ if (!$recordNotice && isset($_GET['success'])) {
     function openUpdateModal(id, name, scheduleId = '', scheduleDate = '') {
         document.getElementById('maternalRecordForm').reset();
         setTrimester(1);
+        toggleTetanusDate();
+        updateMaternalVaccineFields();
         document.getElementById('updateModal').style.display = 'block';
         document.getElementById('modal_mother_id').value = id;
         document.getElementById('modal_schedule_id').value = scheduleId;
@@ -743,6 +768,17 @@ if (!$recordNotice && isset($_GET['success'])) {
         } else {
             dateContainer.style.display = 'none';
         }
+    }
+
+    function updateMaternalVaccineFields() {
+        let vaccineSelect = document.getElementById('maternalVaccineSelect');
+        let quantityInput = document.getElementById('maternalVaccineQuantity');
+        let tetanusCheckbox = document.getElementById('tetanusCheckbox');
+        let vaccineSelected = vaccineSelect.value !== '';
+
+        vaccineSelect.required = tetanusCheckbox.checked;
+        quantityInput.disabled = !vaccineSelected;
+        quantityInput.required = vaccineSelected;
     }
 
     <?php if ($openScheduledPatient): ?>

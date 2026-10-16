@@ -23,31 +23,111 @@ if ($user_role == 'Super Admin') {
 }
 
 $show_success_modal = false;
+$record_error = '';
 
 // Update Health Record (Isinasave na ngayon sa infant_records table)
 if (isset($_POST['update_health'])) {
-    $c_id = mysqli_real_escape_string($conn, $_POST['child_id']);
-    $w = mysqli_real_escape_string($conn, $_POST['weight']);
-    $h = mysqli_real_escape_string($conn, $_POST['height']);
-    $base_v = mysqli_real_escape_string($conn, $_POST['vaccine']);
-    $dose = mysqli_real_escape_string($conn, $_POST['dose']);
-    
-    // Pinagsama ang pangalan ng bakuna at ang dose para unique
-    $v = $base_v . ' - ' . $dose;
+    $c_id = (int) ($_POST['child_id'] ?? 0);
+    $vaccine_id = (int) ($_POST['vaccine'] ?? 0);
+    $quantity = (int) ($_POST['quantity'] ?? 0);
+    $dose = trim($_POST['dose'] ?? '');
+    $weight = (float) ($_POST['weight'] ?? 0);
+    $height = (float) ($_POST['height'] ?? 0);
+    $v_date = trim($_POST['vaccine_date'] ?? '');
+    $next_date = trim($_POST['next_checkup'] ?? '');
+    $remarks = trim($_POST['remarks'] ?? '');
+    $administered_by = trim($_POST['administered_by'] ?? '');
+    $hw_id = (int) $_SESSION['user_id'];
 
-    $v_date = mysqli_real_escape_string($conn, $_POST['vaccine_date']); 
-    $next_date = mysqli_real_escape_string($conn, $_POST['next_checkup']); 
-    $remarks = mysqli_real_escape_string($conn, $_POST['remarks']); 
-    $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']); 
-    $hw_id = $_SESSION['user_id']; 
+    if ($c_id < 1 || $vaccine_id < 1 || $quantity < 1 || $dose === '') {
+        $record_error = 'Pumili ng bakuna at dose, at maglagay ng quantity na hindi bababa sa 1.';
+    } elseif (!$conn->begin_transaction()) {
+        $record_error = 'Hindi masimulan ang ligtas na pag-save ng health record: ' . $conn->error;
+    } else {
+        $vaccine_stmt = $conn->prepare("SELECT vaccine_name, available_stock FROM vaccines WHERE id = ? AND category = 'Baby' FOR UPDATE");
+        if (!$vaccine_stmt) {
+            $record_error = 'Hindi ma-validate ang vaccine inventory: ' . $conn->error;
+        } else {
+            $vaccine_stmt->bind_param("i", $vaccine_id);
+            if (!$vaccine_stmt->execute()) {
+                $record_error = 'Hindi ma-validate ang vaccine inventory: ' . $vaccine_stmt->error;
+            } else {
+                $vaccine = $vaccine_stmt->get_result()->fetch_assoc();
+                if (!$vaccine) {
+                    $record_error = 'Hindi makita ang napiling baby vaccine sa inventory.';
+                } elseif ($quantity > (int) $vaccine['available_stock']) {
+                    $record_error = 'Kulang ang stock. Available lamang ang ' . (int) $vaccine['available_stock'] . ' unit(s).';
+                }
+            }
+            $vaccine_stmt->close();
+        }
 
-    // Itinatapon na ang bagong check-up data sa infant_records table gamit ang child_id
-    $sql = "INSERT INTO infant_records (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at) 
-            VALUES ('$c_id', '$w', '$h', '$v', '$v_date', '$next_date', '$remarks', '$administered_by', '$hw_id', NOW())";
-    
-    if (mysqli_query($conn, $sql)) {
-        // Sa halip na alert(), it-trigger natin ang flag para sa modal
-        $show_success_modal = true;
+        if ($record_error === '') {
+            $known_vaccine_names = [
+                'bcg' => 'BCG Vaccine',
+                'hepatitis b' => 'Hepatitis B Vaccine',
+                'pentavalent' => 'Pentavalent Vaccine (DPT-Hep B-HIB)',
+                'oral polio vaccine (opv)' => 'Oral Polio Vaccine (OPV)',
+                'inactivated polio vaccine (ipv)' => 'Inactivated Polio Vaccine (IPV)',
+                'pneumococcal conjugate vaccine (pcv)' => 'Pneumococcal Conjugate Vaccine (PCV)',
+                'measles, mumps, rubella (mmr)' => 'Measles, Mumps, Rubella Vaccine (MMR)'
+            ];
+            $inventory_name = trim($vaccine['vaccine_name']);
+            $record_vaccine_name = $known_vaccine_names[strtolower($inventory_name)] ?? $inventory_name;
+            $vaccine_taken = $record_vaccine_name . ' - ' . $dose;
+
+            $record_stmt = $conn->prepare("INSERT INTO infant_records
+                (child_id, weight_kg, height, vaccine_taken, vaccine_date, next_checkup, remarks, administered_by, health_worker_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+            if (!$record_stmt) {
+                $record_error = 'Hindi maihanda ang health record: ' . $conn->error;
+            } else {
+                $record_stmt->bind_param("iddsssssi", $c_id, $weight, $height, $vaccine_taken, $v_date, $next_date, $remarks, $administered_by, $hw_id);
+                if (!$record_stmt->execute()) {
+                    $record_error = 'Hindi na-save ang health record: ' . $record_stmt->error;
+                }
+                $record_stmt->close();
+            }
+        }
+
+        if ($record_error === '') {
+            $stock_stmt = $conn->prepare("UPDATE vaccines SET available_stock = available_stock - ? WHERE id = ? AND available_stock >= ?");
+            if (!$stock_stmt) {
+                $record_error = 'Hindi maihanda ang stock deduction: ' . $conn->error;
+            } else {
+                $stock_stmt->bind_param("iii", $quantity, $vaccine_id, $quantity);
+                if (!$stock_stmt->execute() || $stock_stmt->affected_rows !== 1) {
+                    $record_error = 'Hindi nabawasan ang stock. I-refresh ang inventory at subukan muli.';
+                }
+                $stock_stmt->close();
+            }
+        }
+
+        if ($record_error === '') {
+            $remarks_log = 'Administered to child ID ' . $c_id . ' (' . $vaccine_taken . ')';
+            $log_stmt = $conn->prepare("INSERT INTO vaccine_logs (vaccine_id, action_type, quantity, remarks, transaction_date, recorded_by)
+                VALUES (?, 'OUT', ?, ?, ?, ?)");
+            if (!$log_stmt) {
+                $record_error = 'Hindi maihanda ang vaccine history: ' . $conn->error;
+            } else {
+                $log_stmt->bind_param("iisss", $vaccine_id, $quantity, $remarks_log, $v_date, $administered_by);
+                if (!$log_stmt->execute()) {
+                    $record_error = 'Hindi naitala ang vaccine history: ' . $log_stmt->error;
+                }
+                $log_stmt->close();
+            }
+        }
+
+        if ($record_error === '') {
+            if ($conn->commit()) {
+                $show_success_modal = true;
+            } else {
+                $record_error = 'Hindi makumpirma ang health record at stock update: ' . $conn->error;
+                $conn->rollback();
+            }
+        } else {
+            $conn->rollback();
+        }
     }
 }
 
@@ -57,6 +137,9 @@ $result = mysqli_query($conn, $query);
 
 // KUNIN ANG LAHAT NG KASAYSAYAN NG VAKUNA AT CHECK-UP BAWAT BATA MULA SA infant_records
 $history_query = mysqli_query($conn, "SELECT * FROM infant_records ORDER BY vaccine_date DESC, created_at DESC");
+$baby_vaccine_query = $conn->query("SELECT id, vaccine_name, available_stock FROM vaccines WHERE category = 'Baby' ORDER BY vaccine_name ASC");
+$baby_vaccine_load_error = $baby_vaccine_query ? '' : $conn->error;
+$baby_vaccine_count = $baby_vaccine_query ? $baby_vaccine_query->num_rows : 0;
 $child_history_map = [];
 $child_vaccines_map = [];
 
@@ -210,6 +293,16 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
         <h1>Child & Infant Records</h1>
         <p style="color: #A0AEC0;">Alawihao Health Center Management System</p>
     </div>
+    <?php if ($record_error !== ''): ?>
+        <div style="margin-bottom:15px; padding:12px 16px; border:1px solid #fecaca; border-radius:8px; background:#fef2f2; color:#991b1b;">
+            <?= htmlspecialchars($record_error, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
+    <?php if ($baby_vaccine_load_error !== ''): ?>
+        <div style="margin-bottom:15px; padding:12px 16px; border:1px solid #fecaca; border-radius:8px; background:#fef2f2; color:#991b1b;">
+            Hindi ma-load ang baby vaccine inventory: <?= htmlspecialchars($baby_vaccine_load_error, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
 
     <div class="table-container">
         <table>
@@ -325,14 +418,32 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                     <label style="display:block; font-size:0.8rem; font-weight:600;">Vaccine Administered</label>
                     <select name="vaccine" id="vaccineSelect" onchange="updateDoseOptions()" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box; background: white;">
                         <option value="">-- Select Vaccine --</option>
-                        <option value="BCG Vaccine">BCG Vaccine</option>
-                        <option value="Hepatitis B Vaccine">Hepatitis B Vaccine</option>
-                        <option value="Pentavalent Vaccine (DPT-Hep B-HIB)">Pentavalent Vaccine (DPT-Hep B-HIB)</option>
-                        <option value="Oral Polio Vaccine (OPV)">Oral Polio Vaccine (OPV)</option>
-                        <option value="Inactivated Polio Vaccine (IPV)">Inactivated Polio Vaccine (IPV)</option>
-                        <option value="Pneumococcal Conjugate Vaccine (PCV)">Pneumococcal Conjugate Vaccine (PCV)</option>
-                        <option value="Measles, Mumps, Rubella Vaccine (MMR)">Measles, Mumps, Rubella Vaccine (MMR)</option>
+                        <?php if ($baby_vaccine_query): ?>
+                            <?php while ($vaccine_option = $baby_vaccine_query->fetch_assoc()): ?>
+                                <?php
+                                    $child_vaccine_aliases = [
+                                        'bcg' => 'BCG Vaccine',
+                                        'hepatitis b' => 'Hepatitis B Vaccine',
+                                        'pentavalent' => 'Pentavalent Vaccine (DPT-Hep B-HIB)',
+                                        'oral polio vaccine (opv)' => 'Oral Polio Vaccine (OPV)',
+                                        'inactivated polio vaccine (ipv)' => 'Inactivated Polio Vaccine (IPV)',
+                                        'pneumococcal conjugate vaccine (pcv)' => 'Pneumococcal Conjugate Vaccine (PCV)',
+                                        'measles, mumps, rubella (mmr)' => 'Measles, Mumps, Rubella Vaccine (MMR)'
+                                    ];
+                                    $inventory_vaccine_name = trim($vaccine_option['vaccine_name']);
+                                    $record_vaccine_name = $child_vaccine_aliases[strtolower($inventory_vaccine_name)] ?? $inventory_vaccine_name;
+                                ?>
+                                <option value="<?= (int) $vaccine_option['id'] ?>" data-record-name="<?= htmlspecialchars($record_vaccine_name, ENT_QUOTES, 'UTF-8') ?>" <?= (int) $vaccine_option['available_stock'] < 1 ? 'disabled' : '' ?>>
+                                    <?= htmlspecialchars($vaccine_option['vaccine_name'], ENT_QUOTES, 'UTF-8') ?> (Stock: <?= (int) $vaccine_option['available_stock'] ?>)
+                                </option>
+                            <?php endwhile; ?>
+                        <?php endif; ?>
                     </select>
+                    <?php if ($baby_vaccine_query && $baby_vaccine_count === 0): ?>
+                        <small style="display:block; margin-top:5px; color:#991b1b;">
+                            Wala pang Baby vaccine sa inventory. <a href="vaccine_inventory.php" target="_blank" rel="noopener">Magdagdag ng Baby vaccine at stock</a> muna.
+                        </small>
+                    <?php endif; ?>
                 </div>
                 <div style="flex: 1;">
                     <label style="display:block; font-size:0.8rem; font-weight:600;">Dose</label>
@@ -343,6 +454,11 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                         <option value="Dose 3">Dose 3</option>
                     </select>
                 </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:600;">Quantity Used (stock units)</label>
+                <input type="number" name="quantity" min="1" value="1" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
             </div>
 
             <div style="margin-bottom:12px;">
@@ -534,7 +650,9 @@ function openEditModal(id, name, takenVaccinesArray) {
 }
 
 function updateDoseOptions() {
-    let selectedVaccine = document.getElementById('vaccineSelect').value;
+    let vaccineSelect = document.getElementById('vaccineSelect');
+    let selectedOption = vaccineSelect.options[vaccineSelect.selectedIndex];
+    let selectedVaccine = selectedOption ? selectedOption.dataset.recordName || '' : '';
     let doseSelect = document.getElementById('doseSelect');
     
     doseSelect.value = "";

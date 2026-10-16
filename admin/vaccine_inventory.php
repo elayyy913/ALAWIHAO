@@ -143,9 +143,8 @@ $monthly_out_query = $conn->query("SELECT SUM(quantity) as total_out FROM vaccin
 $monthly_out_row = $monthly_out_query->fetch_assoc();
 $total_out_month = $monthly_out_row['total_out'] ?? 0;
 
-$low_stock_query = $conn->query("SELECT COUNT(*) as low_count FROM vaccines WHERE available_stock <= 10");
-$low_stock_row = $low_stock_query->fetch_assoc();
-$low_stock_count = $low_stock_row['low_count'] ?? 0;
+$low_stock_query = $conn->query("SELECT vaccine_name, available_stock FROM vaccines WHERE available_stock <= 10 ORDER BY available_stock ASC, vaccine_name ASC");
+$low_stock_count = $low_stock_query ? $low_stock_query->num_rows : 0;
 
 // Fetch Data for Chart.js (Monthly IN vs OUT for current year)
 $current_year = date('Y');
@@ -280,6 +279,30 @@ for ($i = 1; $i <= 12; $i++) {
         
         .card.alert-card .value {
             color: var(--danger-red);
+        }
+
+        .low-stock-list {
+            margin: 10px 0 0;
+            padding: 0;
+            list-style: none;
+            text-align: left;
+            font-size: 0.8rem;
+            max-height: 110px;
+            overflow-y: auto;
+        }
+
+        .low-stock-list li {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 5px 0;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .low-stock-quantity {
+            color: var(--danger-red);
+            font-weight: bold;
+            white-space: nowrap;
         }
 
         .chart-container {
@@ -430,6 +453,20 @@ for ($i = 1; $i <= 12; $i++) {
                 <div class="card alert-card">
                     <h3>Low Stock Alert</h3>
                     <p class="value"><?= $low_stock_count ?></p>
+                    <?php if ($low_stock_query && $low_stock_count > 0): ?>
+                        <ul class="low-stock-list">
+                            <?php while ($low_stock = $low_stock_query->fetch_assoc()): ?>
+                                <li>
+                                    <span><?= htmlspecialchars($low_stock['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></span>
+                                    <span class="low-stock-quantity"><?= (int) $low_stock['available_stock'] ?> left</span>
+                                </li>
+                            <?php endwhile; ?>
+                        </ul>
+                    <?php elseif ($low_stock_query): ?>
+                        <small>No vaccines are low on stock.</small>
+                    <?php else: ?>
+                        <small>Could not load low-stock vaccines: <?= htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8') ?></small>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -607,23 +644,23 @@ for ($i = 1; $i <= 12; $i++) {
         <form method="POST">
             <div class="form-group">
                 <label>Category</label>
-                <select name="category" required>
+                <select name="category" id="add_category" onchange="filterVaccineOptions('add_category', 'add_vaccine_name')" required>
                     <option value="Baby">Baby Vaccine</option>
                     <option value="Maternal">Maternal Vaccine (Pregnant)</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>Vaccine Name</label>
-                <select name="vaccine_name" required>
+                <select name="vaccine_name" id="add_vaccine_name" required>
                     <option value="">-- Select Vaccine Name --</option>
-                    <option value="BCG">BCG</option>
-                    <option value="Hepatitis B">Hepatitis B</option>
-                    <option value="Pentavalent">Pentavalent</option>
-                    <option value="Oral Polio Vaccine (OPV)">Oral Polio Vaccine (OPV)</option>
-                    <option value="Inactivated Polio Vaccine (IPV)">Inactivated Polio Vaccine (IPV)</option>
-                    <option value="Pneumococcal Conjugate Vaccine (PCV)">Pneumococcal Conjugate Vaccine (PCV)</option>
-                    <option value="Measles, Mumps, Rubella (MMR)">Measles, Mumps, Rubella (MMR)</option>
-                    <option value="Tetanus Toxoid">Tetanus Toxoid</option>
+                    <option value="BCG" data-category="Baby">BCG</option>
+                    <option value="Hepatitis B" data-category="Baby">Hepatitis B</option>
+                    <option value="Pentavalent" data-category="Baby">Pentavalent</option>
+                    <option value="Oral Polio Vaccine (OPV)" data-category="Baby">Oral Polio Vaccine (OPV)</option>
+                    <option value="Inactivated Polio Vaccine (IPV)" data-category="Baby">Inactivated Polio Vaccine (IPV)</option>
+                    <option value="Pneumococcal Conjugate Vaccine (PCV)" data-category="Baby">Pneumococcal Conjugate Vaccine (PCV)</option>
+                    <option value="Measles, Mumps, Rubella (MMR)" data-category="Baby">Measles, Mumps, Rubella (MMR)</option>
+                    <option value="Tetanus Toxoid" data-category="Maternal">Tetanus Toxoid</option>
                 </select>
             </div>
             <div class="form-group">
@@ -671,7 +708,7 @@ for ($i = 1; $i <= 12; $i++) {
             <input type="hidden" name="vaccine_id" id="edit_vaccine_id">
             <div class="form-group">
                 <label>Category</label>
-                <select name="category" id="edit_category" required>
+                <select name="category" id="edit_category" onchange="filterVaccineOptions('edit_category', 'edit_vaccine_name')" required>
                     <option value="Baby">Baby Vaccine</option>
                     <option value="Maternal">Maternal Vaccine (Pregnant)</option>
                 </select>
@@ -680,14 +717,14 @@ for ($i = 1; $i <= 12; $i++) {
                 <label>Vaccine Name</label>
                 <select name="vaccine_name" id="edit_vaccine_name" required>
                     <option value="">-- Select Vaccine Name --</option>
-                    <option value="BCG">BCG</option>
-                    <option value="Hepatitis B">Hepatitis B</option>
-                    <option value="Pentavalent">Pentavalent</option>
-                    <option value="Oral Polio Vaccine (OPV)">Oral Polio Vaccine (OPV)</option>
-                    <option value="Inactivated Polio Vaccine (IPV)">Inactivated Polio Vaccine (IPV)</option>
-                    <option value="Pneumococcal Conjugate Vaccine (PCV)">Pneumococcal Conjugate Vaccine (PCV)</option>
-                    <option value="Measles, Mumps, Rubella (MMR)">Measles, Mumps, Rubella (MMR)</option>
-                    <option value="Tetanus Toxoid">Tetanus Toxoid</option>
+                    <option value="BCG" data-category="Baby">BCG</option>
+                    <option value="Hepatitis B" data-category="Baby">Hepatitis B</option>
+                    <option value="Pentavalent" data-category="Baby">Pentavalent</option>
+                    <option value="Oral Polio Vaccine (OPV)" data-category="Baby">Oral Polio Vaccine (OPV)</option>
+                    <option value="Inactivated Polio Vaccine (IPV)" data-category="Baby">Inactivated Polio Vaccine (IPV)</option>
+                    <option value="Pneumococcal Conjugate Vaccine (PCV)" data-category="Baby">Pneumococcal Conjugate Vaccine (PCV)</option>
+                    <option value="Measles, Mumps, Rubella (MMR)" data-category="Baby">Measles, Mumps, Rubella (MMR)</option>
+                    <option value="Tetanus Toxoid" data-category="Maternal">Tetanus Toxoid</option>
                 </select>
             </div>
             <div class="form-group">
@@ -739,9 +776,10 @@ for ($i = 1; $i <= 12; $i++) {
     // Modal Edit Logic
     function openEditModal(id, name, description, category, totalReceived, availableStock, stockDate, stockTime, receivedBy, providedBy) {
         document.getElementById('edit_vaccine_id').value = id;
+        document.getElementById('edit_category').value = category;
+        filterVaccineOptions('edit_category', 'edit_vaccine_name');
         document.getElementById('edit_vaccine_name').value = name;
         document.getElementById('edit_description').value = description;
-        document.getElementById('edit_category').value = category;
         document.getElementById('edit_total_received').value = totalReceived;
         document.getElementById('edit_available_stock').value = availableStock;
         document.getElementById('edit_stock_date').value = stockDate;
@@ -751,6 +789,28 @@ for ($i = 1; $i <= 12; $i++) {
         
         document.getElementById('editModal').style.display = 'block';
     }
+
+    function filterVaccineOptions(categoryId, vaccineId) {
+        const category = document.getElementById(categoryId).value;
+        const vaccineSelect = document.getElementById(vaccineId);
+        const currentValue = vaccineSelect.value;
+
+        Array.from(vaccineSelect.options).forEach(option => {
+            if (option.dataset.category) {
+                option.hidden = option.dataset.category !== category;
+                option.disabled = option.dataset.category !== category;
+            }
+        });
+
+        if (currentValue && vaccineSelect.selectedOptions[0]?.disabled) {
+            vaccineSelect.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        filterVaccineOptions('add_category', 'add_vaccine_name');
+        filterVaccineOptions('edit_category', 'edit_vaccine_name');
+    });
 
     // Chart.js Setup
     document.addEventListener("DOMContentLoaded", function() {
