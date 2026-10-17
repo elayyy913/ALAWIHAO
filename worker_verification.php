@@ -50,7 +50,7 @@ $worker_redirect = basename($_SERVER['PHP_SELF']);
                     </tr>
                 <?php endwhile; ?>
             <?php else: ?>
-                <tr><td colspan="4" align="center">No pending worker accounts.</td></tr>
+                <tr><td colspan="4" class="table-empty-cell"><div class="dashboard-empty-state"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><span>No pending worker accounts. You're all caught up.</span></div></td></tr>
             <?php endif; ?>
         </tbody>
     </table>

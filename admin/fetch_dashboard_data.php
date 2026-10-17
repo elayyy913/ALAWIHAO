@@ -53,7 +53,7 @@ if (mysqli_num_rows($pw_query) > 0) {
         $pending_workers_html .= '</tr>';
     }
 } else {
-    $pending_workers_html = '<tr><td colspan="4" align="center">No pending worker accounts.</td></tr>';
+    $pending_workers_html = '<tr><td colspan="4" class="table-empty-cell"><div class="dashboard-empty-state"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><span>No pending worker accounts. You\'re all caught up.</span></div></td></tr>';
 }
 
 // 2. Pending Newborns
@@ -72,7 +72,7 @@ if (mysqli_num_rows($nb_query) > 0) {
         $pending_newborns_html .= '</tr>';
     }
 } else {
-    $pending_newborns_html = '<tr><td colspan="3" align="center">No pending newborn records.</td></tr>';
+    $pending_newborns_html = '<tr><td colspan="3" class="table-empty-cell"><div class="dashboard-empty-state"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><span>No pending child registrations. You\'re all caught up.</span></div></td></tr>';
 }
 
 // 3. Pending Maternal
@@ -94,7 +94,7 @@ if (mysqli_num_rows($pm_query) > 0) {
         $pending_maternal_html .= '</tr>';
     }
 } else {
-    $pending_maternal_html = '<tr><td colspan="2" align="center">No pending maternal registration.</td></tr>';
+    $pending_maternal_html = '<tr><td colspan="2" class="table-empty-cell"><div class="dashboard-empty-state"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><span>No pending maternal registrations. You\'re all caught up.</span></div></td></tr>';
 }
 
 // 4. Upcoming Schedules (Maternal & Infant)
@@ -145,7 +145,7 @@ if (check_table_exists($conn, 'schedules')) {
             </div>';
         }
     } else {
-        $upcoming_maternal_html = '<p style="text-align: center; color: #777; font-size: 0.85rem; margin: 10px 0;">No upcoming maternal check-ups.</p>';
+        $upcoming_maternal_html = '<div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming maternal appointments.</span></div>';
     }
 
     // Child Schedules HTML
@@ -182,7 +182,7 @@ if (check_table_exists($conn, 'schedules')) {
             </div>';
         }
     } else {
-        $upcoming_infant_html = '<p style="text-align: center; color: #777; font-size: 0.85rem; margin: 10px 0;">No upcoming infant schedules.</p>';
+        $upcoming_infant_html = '<div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming child immunizations.</span></div>';
     }
 }
 
