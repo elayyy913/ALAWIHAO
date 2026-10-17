@@ -24,6 +24,7 @@ if ($user_role == 'Super Admin') {
 
 $show_success_modal = false;
 $record_error = '';
+$success_message = 'Matagumpay na na-save ang health record.';
 
 // Update Health Record (Isinasave na ngayon sa infant_records table)
 if (isset($_POST['update_health'])) {
@@ -121,6 +122,9 @@ if (isset($_POST['update_health'])) {
         if ($record_error === '') {
             if ($conn->commit()) {
                 $show_success_modal = true;
+                $remaining_stock = (int) $vaccine['available_stock'] - $quantity;
+                $success_message = $quantity . ' dose ng ' . $inventory_name . ' ang naitala at nabawas sa stock. '
+                    . $remaining_stock . ' dose ang natitira.';
             } else {
                 $record_error = 'Hindi makumpirma ang health record at stock update: ' . $conn->error;
                 $conn->rollback();
@@ -341,7 +345,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
     <div class="success-modal-content">
         <div style="font-size: 50px; color: #48BB78; margin-bottom: 10px;">✔</div>
         <h3 style="color: var(--dark-sage); margin: 0 0 10px 0;">Success!</h3>
-        <p style="color: #4A5568; font-size: 0.95rem; margin-bottom: 20px;">Health Record Updated Successfully!</p>
+        <p style="color: #4A5568; font-size: 0.95rem; margin-bottom: 20px;"><?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?></p>
         <button onclick="closeSuccessModal()" class="btn btn-edit" style="width: 100%; padding: 10px;">OK</button>
     </div>
 </div>
@@ -459,6 +463,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
             <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.8rem; font-weight:600;">Quantity Used (stock units)</label>
                 <input type="number" name="quantity" min="1" value="1" required style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; box-sizing: border-box;">
+                <small>Kapag na-save ang record, awtomatikong ibabawas ito sa stock.</small>
             </div>
 
             <div style="margin-bottom:12px;">

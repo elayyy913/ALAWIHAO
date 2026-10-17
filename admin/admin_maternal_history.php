@@ -370,14 +370,13 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
         }
 
         .signatures-section {
-            margin-top: 50px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
+            margin-top: 34px;
+            display: flex;
+            justify-content: flex-end;
         }
 
-        .sig-box { text-align: center; }
-        .sig-line { border-bottom: 1px solid #000000; margin-bottom: 5px; height: 40px; }
+        .sig-box { width: 280px; text-align: center; }
+        .sig-line { border-bottom: 1px solid #000000; margin-bottom: 5px; height: 48px; }
         .sig-box p { font-size: 9pt; font-weight: bold; font-family: Arial, sans-serif; margin: 0; }
         .sig-box span { font-size: 8pt; font-family: Arial, sans-serif; }
 
@@ -606,13 +605,8 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
                     <div class="signatures-section">
                         <div class="sig-box">
                             <div class="sig-line"></div>
-                            <p>NAG-HANDLE NA MIDWIFE / NURSE</p>
-                            <span>Signature Over Printed Name & License No.</span>
-                        </div>
-                        <div class="sig-box">
-                            <div class="sig-line"></div>
-                            <p>MUNICIPAL HEALTH OFFICER / OIC</p>
-                            <span>Alawihao Health Center</span>
+                            <p>MIDWIFE</p>
+                            <span>Signature over Printed Name &amp; License No.</span>
                         </div>
                     </div>
                 </div>

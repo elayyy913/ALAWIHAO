@@ -50,3 +50,6 @@ USER
 
 1. fix the health article , ifull wide ang pad niy then yung color iayon sa ui color natin, make the fonts bigger be inspired sa DOH page 
 2. sidebars 
+ang gusto kong idea ng flow nito is kapag diba nag add ng vaccine tapos lalagay yung natanggap tapos yung current stock tapos i want automatic mag add up yun sa current record na bilang ng stock nung vaccine na yun tapos naman kapag may nagamit dun sa pg lgy ng new health reacord ng patient e mgbabawas automatic sa current record ng stock nung vaccine
+
+example: naglagay ako ng bcg then amount ng 20 ang received ko tapos since wala pang current rec 20 din lalagay ko sa available stock then kapag may natanggapp ulit ako is mag aadd up na lang yung ilalagay ko na natanggap ko tapos thru out the operation kapag sa pag ano ng health reacord ng patient nababawas automatic yung number ng vaccine gets mo ba?
