@@ -262,155 +262,79 @@ if (check_table_exists($conn, 'schedules')) {
         :root { --sage: #8DAE74; --dark-sage: #5A6B47; --beige: #F9F9F4; --white: #FFFFFF; --text: #2D2D2D; --border: #E1E1D7; }
         body { font-family: 'Inter', sans-serif; margin: 0; background-color: var(--beige); color: var(--text); display: flex; }
         
-        .main-content { flex-grow: 1; padding: 40px; padding-top: 70px; box-sizing: border-box; width: 100%; margin-left: 280px; transition: margin-left 0.3s ease-in-out; }
-        .page-header { border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 30px; }
-        .page-header h1 { color: var(--dark-sage); font-size: 1.8rem; margin: 0; }
+        .main-content { flex: 1 1 0; min-width: 0; padding: 38px clamp(20px, 3vw, 40px); box-sizing: border-box; width: auto; margin-left: 280px; transition: margin-left 0.3s ease-in-out; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; border-bottom: 2px solid var(--border); padding-bottom: 18px; margin: 0 0 24px; }
+        .page-heading-copy { min-width: 0; }
+        .page-header h1 { color: var(--dark-sage); font-size: clamp(1.55rem, 2.4vw, 2rem); margin: 0; }
+        .page-header p { margin: 7px 0 0; color: #687365; font-size: .92rem; }
+        .page-header-tools { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
+        .dashboard-date { color: #687365; font-size: .82rem; white-space: nowrap; }
+        .quick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 24px; }
+        .quick-actions-label { color: #687365; font-size: .8rem; font-weight: 700; margin-right: 2px; }
+        .quick-action { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px 13px; border: 1px solid #dce5d6; border-radius: 8px; background: #fff; color: #465736; font-size: .82rem; font-weight: 650; text-decoration: none; transition: background .2s ease, border-color .2s ease, transform .2s ease; }
+        .quick-action:hover { background: #f0f5ec; border-color: var(--sage); transform: translateY(-1px); }
+        .quick-action-primary { background: #5f7f49; border-color: #5f7f49; color: #fff; }
+        .quick-action-primary:hover { background: #4f6d3c; color: #fff; border-color: #4f6d3c; }
         
 .stats-grid { 
         display: grid; 
-        grid-template-columns: repeat(5, 1fr); 
-        gap: 20px; 
-        margin-bottom: 30px; 
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
         width: 100%;
         box-sizing: border-box;
     }
     
     .stat-card { 
         background: var(--white); 
-        padding: 22px; 
-        border-radius: 10px; 
+        padding: 19px;
+        border-radius: 12px;
         border: 1px solid var(--border);
         border-top: 4px solid var(--sage); 
-        box-shadow: var(--shadow-subtle); 
+        box-shadow: 0 3px 12px rgba(34, 48, 28, .045);
         transition: all 0.3s ease-in-out;
         position: relative;
         overflow: hidden;
     }
-    
-    .stat-card { 
-        background: var(--white); 
-        padding: 22px; 
-        border-radius: 10px; 
-        border: 1px solid var(--border);
-        border-top: 4px solid var(--sage); 
-        box-shadow: var(--shadow-subtle); 
-        transition: all 0.25s ease-in-out;
-        position: relative;
-        overflow: hidden;
-    }
-    
     .stat-card:hover {
-        transform: translateY(-4px); /* Mag-aabang o mag-aangat pataas nang konti (pop-up effect) */
-        background: linear-gradient(135deg, #FFFFFF 0%, #F0F5EC 100%);
-        border: 2px solid var(--dark-sage); /* Mas makapal (2px) at mas matingkad na kulay sa lahat ng gilid */
-        box-shadow: 0 10px 25px rgba(90, 107, 71, 0.15);
+        transform: translateY(-2px);
+        background: linear-gradient(135deg, #FFFFFF 0%, #F7FAF4 100%);
+        border-color: #d6e2ce;
+        border-top-color: var(--dark-sage);
+        box-shadow: 0 8px 20px rgba(90, 107, 71, 0.1);
     }
-    
+    .stat-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .stat-card h4 { margin: 0; font-size: .72rem; line-height: 1.35; letter-spacing: .045em; color: #687365; font-weight: 750; }
+    .stat-card-icon { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 9px; background: #f0f5ec; color: #5f7f49; font-size: .9rem; }
     .stat-card h2 { 
         margin: 0; 
-        font-size: 1.5rem; 
+        font-size: 1.8rem;
         font-weight: 700;
         color: var(--text);
     }
+    .stat-card-note { display: block; margin-top: 5px; color: #7a8475; font-size: .74rem; }
+    .stat-card.is-attention { border-top-color: #d99624; }
+    .stat-card.is-attention .stat-card-icon { background: #fff5df; color: #aa6c09; }
     .analytic-card { 
-        background: #FAFAF7; 
+        background: #FAFAF7;
         border: 1px solid #EBEBE3; 
-        border-radius: 8px; 
-        padding: 20px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px; 
-        position: relative;
-        overflow: hidden; /* Kailangan para hindi lumampas ang glow */
-        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease-in-out;
+        border-radius: 10px;
+        padding: 17px 18px;
+        transition: border-color .2s ease, box-shadow .2s ease;
     }
-    .analytic-card::before {
-        content: '';
-        position: absolute;
-        width: 180px;
-        height: 180px;
-        background: radial-gradient(circle, rgba(141, 174, 116, 0.25) 0%, rgba(141, 174, 116, 0) 70%);
-        border-radius: 50%;
-        pointer-events: none;
-        transform: translate(-50%, -50%);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        z-index: 1;
-    }
-    .analytic-card:hover {
-        transform: translateY(-3px);
-        border-color: var(--sage);
-        box-shadow: 0 8px 20px rgba(141, 174, 116, 0.12);
-    }
-    .analytic-card { 
-        background: #FAFAF7; 
-        border: 1px solid #EBEBE3; 
-        border-radius: 8px; 
-        padding: 20px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px; 
-        position: relative;
-        overflow: hidden; 
-        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease-in-out;
-    }
-
-    .analytic-card:hover {
-        transform: translateY(-3px);
-        border-color: var(--sage);
-        box-shadow: 0 8px 22px rgba(141, 174, 116, 0.2);
-    }
-
-    .analytic-card > * {
-        position: relative;
-        z-index: 2;
-    }
-
-    .analytic-card:hover::before {
-        opacity: 1;
-    }
-
-    .analytic-card > * {
-        position: relative;
-        z-index: 2;
-    }
-        
-        /* DONUT GRAPHIC VISUAL PERCENTAGE SECTION */
-        .analytics-section { background: var(--white); padding: 25px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .analytics-section h3 { font-size: 1.1rem; color: var(--dark-sage); border-left: 4px solid var(--sage); padding-left: 10px; margin-top: 0; margin-bottom: 20px; }
-        .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        
-        /* DONUT CHART STYLING */
-        .donut-chart {
-            width: 110px;
-            height: 110px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            flex-shrink: 0;
-        }
-        .donut-hole {
-            width: 75px;
-            height: 75px;
-            background: #FAFAF7;
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.9rem;
-            color: #2D2D2D;
-        }
-        .donut-hole span { font-size: 0.65rem; color: #666; font-weight: normal; }
-
-        .analytic-info { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; }
-        .analytic-info h5 { margin: 0; font-size: 0.9rem; color: var(--dark-sage); text-transform: uppercase; }
-        .analytic-legend { display: flex; flex-direction: column; font-size: 0.8rem; gap: 4px; color: #555; }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .analytic-card:hover { border-color: #cbd9c1; box-shadow: 0 5px 14px rgba(90, 107, 71, .08); }
+    .analytic-card h5 { margin: 0; font-size: .88rem; color: #465736; }
+    .metric-progress-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 11px; }
+    .metric-percent { color: #5f7f49; font-size: 1.05rem; font-weight: 750; white-space: nowrap; }
+    .metric-progress-track { width: 100%; height: 8px; overflow: hidden; border-radius: 99px; background: #e9ede5; }
+    .metric-progress-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8dae74, #5f7f49); transition: width .35s ease; }
+    .metric-counts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 11px; color: #66705f; font-size: .77rem; }
+    .metric-counts strong { color: #33402d; }
+    .metric-total { margin-top: 7px; color: #818a7d; font-size: .73rem; }
+    .metric-empty { color: #687365; font-size: .76rem; margin-top: 8px; }
+        .analytics-section { background: var(--white); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 3px 12px rgba(34,48,28,.04); }
+        .analytics-section h3 { font-size: 1rem; color: var(--dark-sage); border-left: 4px solid var(--sage); padding-left: 10px; margin-top: 0; margin-bottom: 15px; }
+        .analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 
         .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; align-items: start; }
         .left-column, .right-column { display: flex; flex-direction: column; gap: 25px; width: 100%; min-width: 0; }
@@ -474,12 +398,6 @@ if (check_table_exists($conn, 'schedules')) {
 
         .section-tag { background: #F4F4ED; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; color: var(--dark-sage); border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid var(--sage); }
 
-        .page-header {
-        margin-left: 50px; 
-        border-bottom: 2px solid var(--border);
-        padding-bottom: 15px;
-        margin-bottom: 30px;
-    }
         .dashboard-notice {
             position: fixed;
             top: 24px;
@@ -618,6 +536,75 @@ if (check_table_exists($conn, 'schedules')) {
             color: #fff;
         }
         .reject-confirm-submit:hover { background: #96392f; }
+        .dashboard-empty-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            min-height: 54px;
+            padding: 12px;
+            color: #74806d;
+            font-size: .82rem;
+            text-align: center;
+        }
+        .dashboard-empty-state i { color: #8dae74; font-size: 1rem; }
+        .table-empty-cell { padding: 8px !important; }
+        .section-link {
+            float: right;
+            color: #5f7f49;
+            font-size: .76rem;
+            font-weight: 650;
+            text-decoration: none;
+        }
+        .section-link:hover { text-decoration: underline; }
+        [data-theme="dark"] .quick-action {
+            background: var(--dm-surface) !important;
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text2) !important;
+        }
+        [data-theme="dark"] .quick-action-primary {
+            background: var(--dm-sage) !important;
+            border-color: var(--dm-sage) !important;
+            color: #1A1D1B !important;
+        }
+        @media (max-width: 1200px) {
+            .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 1100px) {
+            .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+            .left-column, .right-column { gap: 18px; }
+        }
+        @media (max-width: 760px) {
+            .main-content { padding: 28px 20px; padding-top: 78px; }
+            .page-header { align-items: flex-start; }
+            .page-header-tools { gap: 8px; }
+            .dashboard-date { display: none; }
+            .analytics-grid { grid-template-columns: minmax(0, 1fr); }
+            .dashboard-grid { gap: 18px; }
+            .table-container, .analytics-section { padding: 17px; }
+        }
+        @media (max-width: 520px) {
+            .main-content { padding: 78px 14px 24px; }
+            .page-header { margin-bottom: 18px; padding-bottom: 13px; }
+            .page-header h1 { font-size: 1.4rem; }
+            .page-header p { font-size: .82rem; }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+            .stat-card { padding: 14px; }
+            .stat-card h4 { font-size: .65rem; }
+            .stat-card h2 { font-size: 1.5rem; }
+            .stat-card-icon { width: 30px; height: 30px; flex-basis: 30px; font-size: .8rem; }
+            .stat-card-note { font-size: .68rem; }
+            .quick-actions { gap: 8px; margin-bottom: 18px; }
+            .quick-actions-label { flex-basis: 100%; }
+            .quick-action { flex: 1 1 auto; justify-content: center; padding: 8px 9px; font-size: .75rem; }
+            .analytic-card { padding: 14px; }
+            .metric-counts { gap: 6px 12px; }
+            .table-container { padding: 14px; overflow-x: auto; }
+            .table-container table { min-width: 480px; }
+        }
+        @media (max-width: 360px) {
+            .stats-grid { grid-template-columns: minmax(0, 1fr); }
+        }
         @media (prefers-reduced-motion: reduce) {
             .reject-confirm-dialog { animation-duration: .01ms; }
         }
@@ -629,9 +616,15 @@ if (check_table_exists($conn, 'schedules')) {
 <?php include 'super_admin_sidebar.php'; ?>
 
 <div class="main-content" id="mainDashboard">
-    <div class="page-header" style="display:flex; align-items:center; justify-content:space-between;">
-        <h1>Super Admin Dashboard</h1>
-        <?php include '../notif_bell.php'; ?>
+    <div class="page-header">
+        <div class="page-heading-copy">
+            <h1>Good day, Super Admin</h1>
+            <p>Your health center overview at a glance.</p>
+        </div>
+        <div class="page-header-tools">
+            <span class="dashboard-date"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <?php echo date('l, F j, Y'); ?></span>
+            <?php include '../notif_bell.php'; ?>
+        </div>
     </div>
 
     <?php if ($dashboardNotice !== null): ?>
@@ -660,101 +653,112 @@ if (check_table_exists($conn, 'schedules')) {
         </section>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card"><h4>TOTAL PATIENTS</h4><h2><?php echo $total_patients; ?></h2></div>
-        <div class="stat-card"><h4>APPROVED INFANTS</h4><h2><?php echo $total_newborns; ?></h2></div>
-        <div class="stat-card"><h4>APPROVED MATERNAL</h4><h2><?php echo $total_pregnant; ?></h2></div>
-        <div class="stat-card" style="border-top-color:#f39c12;"><h4>FOR APPROVAL</h4><h2 style="color:#f39c12;"><?php echo $total_pending; ?></h2></div>
-        <div class="stat-card"><h4>STAFF WORKERS</h4><h2><?php echo $total_workers; ?></h2></div>
+    <nav class="quick-actions" aria-label="Dashboard quick actions">
+        <span class="quick-actions-label">Quick actions</span>
+        <a class="quick-action quick-action-primary" href="#pendingApprovals"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Review approvals</a>
+        <a class="quick-action" href="vaccine_inventory.php"><i class="fa-solid fa-syringe" aria-hidden="true"></i> Vaccine inventory</a>
+        <a class="quick-action" href="schedule_management.php"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Manage schedules</a>
+    </nav>
+
+    <div class="stats-grid" aria-label="Health center summary">
+        <article class="stat-card">
+            <div class="stat-card-head"><h4>TOTAL PATIENTS</h4><span class="stat-card-icon"><i class="fa-solid fa-people-group" aria-hidden="true"></i></span></div>
+            <h2 id="statTotalPatients"><?php echo $total_patients; ?></h2>
+            <span class="stat-card-note">Approved patient records</span>
+        </article>
+        <article class="stat-card">
+            <div class="stat-card-head"><h4>APPROVED INFANTS</h4><span class="stat-card-icon"><i class="fa-solid fa-baby" aria-hidden="true"></i></span></div>
+            <h2 id="statInfants"><?php echo $total_newborns; ?></h2>
+            <span class="stat-card-note">Child health records</span>
+        </article>
+        <article class="stat-card">
+            <div class="stat-card-head"><h4>APPROVED MATERNAL</h4><span class="stat-card-icon"><i class="fa-solid fa-person-pregnant" aria-hidden="true"></i></span></div>
+            <h2 id="statMaternal"><?php echo $total_pregnant; ?></h2>
+            <span class="stat-card-note">Maternal health records</span>
+        </article>
+        <article class="stat-card is-attention">
+            <div class="stat-card-head"><h4>FOR APPROVAL</h4><span class="stat-card-icon"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span></div>
+            <h2 id="statPending"><?php echo $total_pending; ?></h2>
+            <span class="stat-card-note">Pending registrations and staff</span>
+        </article>
+        <article class="stat-card">
+            <div class="stat-card-head"><h4>HEALTH WORKERS</h4><span class="stat-card-icon"><i class="fa-solid fa-user-nurse" aria-hidden="true"></i></span></div>
+            <h2 id="statWorkers"><?php echo $total_workers; ?></h2>
+            <span class="stat-card-note">Approved staff accounts</span>
+        </article>
     </div>
 
-    <!-- DONUT GRAPHIC VISUAL PERCENTAGE RATE SECTION (REGISTRATION) -->
-    <div class="analytics-section">
-        <h3>Registration & Verification Performance Rate</h3>
+    <section class="analytics-section" aria-labelledby="registrationMetricsTitle">
+        <h3 id="registrationMetricsTitle">Registration &amp; Verification</h3>
         <div class="analytics-grid">
-            
-            <!-- Maternal Donut Card -->
-            <div class="analytic-card">
-                <div class="donut-chart" style="background: conic-gradient(#27ae60 0deg <?php echo $mat_success_deg; ?>deg, #e74c3c <?php echo $mat_success_deg; ?>deg 360deg);">
-                    <div class="donut-hole">
-                        <?php echo $mat_success_pct; ?>%
-                        <span>Verified</span>
-                    </div>
+            <div class="analytic-card" id="maternalRegistrationMetric">
+                <div class="metric-progress-heading">
+                    <h5>Maternal registration</h5>
+                    <span class="metric-percent" id="matRegistrationPercent"><?php echo $mat_success_pct; ?>%</span>
                 </div>
-                <div class="analytic-info">
-                    <h5>Maternal Registration</h5>
-                    <div class="analytic-legend">
-                        <span class="legend-item"><i class="color-dot" style="background:#27ae60;"></i> Verified: <strong><?php echo $mat_approved; ?></strong> (<?php echo $mat_success_pct; ?>%)</span>
-                        <span class="legend-item"><i class="color-dot" style="background:#e74c3c;"></i> Unsuccessful/Pending: <strong><?php echo $mat_not_success; ?></strong> (<?php echo $mat_unsuccess_pct; ?>%)</span>
-                        <span style="font-size: 0.75rem; color: #888; margin-top:2px;">Total Reg: <?php echo $mat_total_reg; ?></span>
-                    </div>
+                <div class="metric-progress-track" id="matRegistrationTrack" role="progressbar" aria-label="Maternal registration approved" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $mat_success_pct; ?>">
+                    <span class="metric-progress-fill" id="matRegistrationProgress" style="width: <?php echo $mat_success_pct; ?>%;"></span>
                 </div>
+                <div class="metric-counts">
+                    <span>Approved <strong id="matRegistrationApproved"><?php echo $mat_approved; ?></strong></span>
+                    <span>Not approved <strong id="matRegistrationNotApproved"><?php echo $mat_not_success; ?></strong></span>
+                </div>
+                <div class="metric-total" id="matRegistrationTotal"><?php echo $mat_total_reg; ?> total registrations</div>
+                <div class="metric-empty" id="matRegistrationEmpty" <?php echo (int) $mat_total_reg > 0 ? 'hidden' : ''; ?>>No maternal registrations yet.</div>
             </div>
-
-            <!-- Child Donut Card -->
-            <div class="analytic-card">
-                <div class="donut-chart" style="background: conic-gradient(#27ae60 0deg <?php echo $child_success_deg; ?>deg, #e74c3c <?php echo $child_success_deg; ?>deg 360deg);">
-                    <div class="donut-hole">
-                        <?php echo $child_success_pct; ?>%
-                        <span>Verified</span>
-                    </div>
+            <div class="analytic-card" id="childRegistrationMetric">
+                <div class="metric-progress-heading">
+                    <h5>Child / infant registration</h5>
+                    <span class="metric-percent" id="childRegistrationPercent"><?php echo $child_success_pct; ?>%</span>
                 </div>
-                <div class="analytic-info">
-                    <h5>Child / Infant Registration</h5>
-                    <div class="analytic-legend">
-                        <span class="legend-item"><i class="color-dot" style="background:#27ae60;"></i> Verified: <strong><?php echo $child_approved; ?></strong> (<?php echo $child_success_pct; ?>%)</span>
-                        <span class="legend-item"><i class="color-dot" style="background:#e74c3c;"></i> Unsuccessful/Pending: <strong><?php echo $child_not_success; ?></strong> (<?php echo $child_unsuccess_pct; ?>%)</span>
-                        <span style="font-size: 0.75rem; color: #888; margin-top:2px;">Total Reg: <?php echo $child_total_reg; ?></span>
-                    </div>
+                <div class="metric-progress-track" id="childRegistrationTrack" role="progressbar" aria-label="Child registration approved" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $child_success_pct; ?>">
+                    <span class="metric-progress-fill" id="childRegistrationProgress" style="width: <?php echo $child_success_pct; ?>%;"></span>
                 </div>
+                <div class="metric-counts">
+                    <span>Approved <strong id="childRegistrationApproved"><?php echo $child_approved; ?></strong></span>
+                    <span>Not approved <strong id="childRegistrationNotApproved"><?php echo $child_not_success; ?></strong></span>
+                </div>
+                <div class="metric-total" id="childRegistrationTotal"><?php echo $child_total_reg; ?> total registrations</div>
+                <div class="metric-empty" id="childRegistrationEmpty" <?php echo (int) $child_total_reg > 0 ? 'hidden' : ''; ?>>No child registrations yet.</div>
             </div>
-
         </div>
-    </div>
+    </section>
 
-    <!-- SCHEDULE & VACCINATION SUCCESS RATE DONUT SECTION (NEW ADDITION) -->
-    <div class="analytics-section">
-        <h3>Schedule & Vaccination Success Rate</h3>
+    <section class="analytics-section" aria-labelledby="scheduleMetricsTitle">
+        <h3 id="scheduleMetricsTitle">Schedule &amp; Vaccination Progress</h3>
         <div class="analytics-grid">
-            
-            <!-- Maternal Schedules Donut Card -->
             <div class="analytic-card">
-                <div class="donut-chart" style="background: conic-gradient(#27ae60 0deg <?php echo $sched_mat_success_deg; ?>deg, #e74c3c <?php echo $sched_mat_success_deg; ?>deg 360deg);">
-                    <div class="donut-hole">
-                        <?php echo $sched_mat_success_pct; ?>%
-                        <span>Success</span>
-                    </div>
+                <div class="metric-progress-heading">
+                    <h5>Maternal appointments completed</h5>
+                    <span class="metric-percent"><?php echo $sched_mat_success_pct; ?>%</span>
                 </div>
-                <div class="analytic-info">
-                    <h5>Maternal Check-up Schedules</h5>
-                    <div class="analytic-legend">
-                        <span class="legend-item"><i class="color-dot" style="background:#27ae60;"></i> Completed: <strong><?php echo $sched_mat_completed; ?></strong> (<?php echo $sched_mat_success_pct; ?>%)</span>
-                        <span class="legend-item"><i class="color-dot" style="background:#e74c3c;"></i> Pending/Unsuccessful: <strong><?php echo $sched_mat_not_success; ?></strong> (<?php echo $sched_mat_unsuccess_pct; ?>%)</span>
-                        <span style="font-size: 0.75rem; color: #888; margin-top:2px;">Total Sched: <?php echo $sched_mat_total; ?></span>
-                    </div>
+                <div class="metric-progress-track" role="progressbar" aria-label="Maternal appointments completed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $sched_mat_success_pct; ?>">
+                    <span class="metric-progress-fill" style="width: <?php echo $sched_mat_success_pct; ?>%;"></span>
                 </div>
+                <div class="metric-counts">
+                    <span>Completed <strong><?php echo $sched_mat_completed; ?></strong></span>
+                    <span>Not completed <strong><?php echo $sched_mat_not_success; ?></strong></span>
+                </div>
+                <div class="metric-total"><?php echo $sched_mat_total; ?> total appointments</div>
+                <?php if ((int) $sched_mat_total === 0): ?><div class="metric-empty">No maternal appointments to report yet.</div><?php endif; ?>
             </div>
-
-            <!-- Child Immunization Schedules Donut Card -->
             <div class="analytic-card">
-                <div class="donut-chart" style="background: conic-gradient(#27ae60 0deg <?php echo $sched_child_success_deg; ?>deg, #e74c3c <?php echo $sched_child_success_deg; ?>deg 360deg);">
-                    <div class="donut-hole">
-                        <?php echo $sched_child_success_pct; ?>%
-                        <span>Success</span>
-                    </div>
+                <div class="metric-progress-heading">
+                    <h5>Child immunizations completed</h5>
+                    <span class="metric-percent"><?php echo $sched_child_success_pct; ?>%</span>
                 </div>
-                <div class="analytic-info">
-                    <h5>Child Immunization Schedules</h5>
-                    <div class="analytic-legend">
-                        <span class="legend-item"><i class="color-dot" style="background:#27ae60;"></i> Vaccinated / Completed: <strong><?php echo $sched_child_completed; ?></strong> (<?php echo $sched_child_success_pct; ?>%)</span>
-                        <span class="legend-item"><i class="color-dot" style="background:#e74c3c;"></i> Pending/Unsuccessful: <strong><?php echo $sched_child_not_success; ?></strong> (<?php echo $sched_child_unsuccess_pct; ?>%)</span>
-                        <span style="font-size: 0.75rem; color: #888; margin-top:2px;">Total Sched: <?php echo $sched_child_total; ?></span>
-                    </div>
+                <div class="metric-progress-track" role="progressbar" aria-label="Child immunizations completed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $sched_child_success_pct; ?>">
+                    <span class="metric-progress-fill" style="width: <?php echo $sched_child_success_pct; ?>%;"></span>
                 </div>
+                <div class="metric-counts">
+                    <span>Completed <strong><?php echo $sched_child_completed; ?></strong></span>
+                    <span>Not completed <strong><?php echo $sched_child_not_success; ?></strong></span>
+                </div>
+                <div class="metric-total"><?php echo $sched_child_total; ?> total appointments</div>
+                <?php if ((int) $sched_child_total === 0): ?><div class="metric-empty">No child immunizations to report yet.</div><?php endif; ?>
             </div>
-
         </div>
-    </div>
+    </section>
 
     <div class="dashboard-grid">
         
@@ -803,7 +807,7 @@ if (check_table_exists($conn, 'schedules')) {
                         </form>
                     </div>
                     <?php endforeach; else: ?>
-                        <p style="text-align: center; color: #777; font-size: 0.85rem; margin: 10px 0;">No upcoming maternal check-ups.</p>
+                        <div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming maternal appointments.</span></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -836,7 +840,7 @@ if (check_table_exists($conn, 'schedules')) {
                         </form>
                     </div>
                     <?php endforeach; else: ?>
-                        <p style="text-align: center; color: #777; font-size: 0.85rem; margin: 10px 0;">No upcoming infant schedules.</p>
+                        <div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming child immunizations.</span></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -900,22 +904,6 @@ if (check_table_exists($conn, 'schedules')) {
             window.history.replaceState({}, document.title, currentUrl.pathname + currentUrl.search + currentUrl.hash);
         }
 
-        const cards = document.querySelectorAll(".analytic-card");
-
-        cards.forEach(card => {
-            card.addEventListener("mousemove", (e) => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-
-                // Mas matingkad na sage spotlight effect (pinalakas ang opacity at radius)
-               card.style.background = `radial-gradient(circle 170px at ${x}px ${y}px, rgba(141, 174, 116, 0.38), #FAFAF7 70%)`;
-            });
-
-            card.addEventListener("mouseleave", () => {
-                card.style.background = "#FAFAF7"; // Babalik sa normal kapag lumabas ang cursor
-            });
-        });
     });
 
     // LIVE STREAMING / POLLING INTERVAL (Bawat 4 segundo)
@@ -945,40 +933,25 @@ if (check_table_exists($conn, 'schedules')) {
                 if (data.error) return;
 
                 // 1. Update Stat Cards
-                document.querySelectorAll('.stat-card h2')[0].innerText = data.total_patients;
-                document.querySelectorAll('.stat-card h2')[1].innerText = data.total_newborns;
-                document.querySelectorAll('.stat-card h2')[2].innerText = data.total_pregnant;
-                document.querySelectorAll('.stat-card h2')[3].innerText = data.total_pending;
-                document.querySelectorAll('.stat-card h2')[4].innerText = data.total_workers;
+                document.getElementById('statTotalPatients').innerText = data.total_patients;
+                document.getElementById('statInfants').innerText = data.total_newborns;
+                document.getElementById('statMaternal').innerText = data.total_pregnant;
+                document.getElementById('statPending').innerText = data.total_pending;
+                document.getElementById('statWorkers').innerText = data.total_workers;
 
-                // 2. Update Registration Donut Graphics & Legends
-                const matDonut = document.querySelectorAll('.donut-chart')[0];
-                if(matDonut) {
-                    matDonut.style.background = `conic-gradient(#27ae60 0deg ${data.mat_success_deg}deg, #e74c3c ${data.mat_success_deg}deg 360deg)`;
-                    matDonut.querySelector('.donut-hole').innerHTML = `${data.mat_success_pct}%<span>Verified</span>`;
-                }
-                const matLegend = document.querySelectorAll('.analytic-info')[0];
-                if(matLegend) {
-                    matLegend.querySelector('.analytic-legend').innerHTML = `
-                        <span class="legend-item"><i class="color-dot" style="background:#27ae60;"></i> Verified: <strong>${data.mat_approved}</strong> (${data.mat_success_pct}%)</span>
-                        <span class="legend-item"><i class="color-dot" style="background:#e74c3c;"></i> Unsuccessful/Pending: <strong>${data.mat_not_success}</strong> (${data.mat_unsuccess_pct}%)</span>
-                        <span style="font-size: 0.75rem; color: #888; margin-top:2px;">Total Reg: ${data.mat_total_reg}</span>
-                    `;
-                }
-
-                const childDonut = document.querySelectorAll('.donut-chart')[1];
-                if(childDonut) {
-                    childDonut.style.background = `conic-gradient(#27ae60 0deg ${data.child_success_deg}deg, #e74c3c ${data.child_success_deg}deg 360deg)`;
-                    childDonut.querySelector('.donut-hole').innerHTML = `${data.child_success_pct}%<span>Verified</span>`;
-                }
-                const childLegend = document.querySelectorAll('.analytic-info')[1];
-                if(childLegend) {
-                    childLegend.querySelector('.analytic-legend').innerHTML = `
-                        <span class="legend-item"><i class="color-dot" style="background:#27ae60;"></i> Verified: <strong>${data.child_approved}</strong> (${data.child_success_pct}%)</span>
-                        <span class="legend-item"><i class="color-dot" style="background:#e74c3c;"></i> Unsuccessful/Pending: <strong>${data.child_not_success}</strong> (${data.child_unsuccess_pct}%)</span>
-                        <span style="font-size: 0.75rem; color: #888; margin-top:2px;">Total Reg: ${data.child_total_reg}</span>
-                    `;
-                }
+                // Keep registration progress and counts synchronized with the live summary.
+                const updateRegistrationMetric = (prefix, approved, notApproved, total, percentage) => {
+                    const percent = Math.max(0, Math.min(100, Number(percentage) || 0));
+                    document.getElementById(prefix + 'Percent').innerText = percent + '%';
+                    document.getElementById(prefix + 'Progress').style.width = percent + '%';
+                    document.getElementById(prefix + 'Track').setAttribute('aria-valuenow', percent);
+                    document.getElementById(prefix + 'Approved').innerText = approved;
+                    document.getElementById(prefix + 'NotApproved').innerText = notApproved;
+                    document.getElementById(prefix + 'Total').innerText = total + ' total registrations';
+                    document.getElementById(prefix + 'Empty').hidden = Number(total) > 0;
+                };
+                updateRegistrationMetric('matRegistration', data.mat_approved, data.mat_not_success, data.mat_total_reg, data.mat_success_pct);
+                updateRegistrationMetric('childRegistration', data.child_approved, data.child_not_success, data.child_total_reg, data.child_success_pct);
 
                 // 3. Update Tables and Schedule Lists ONLY if no date inputs are active
                 const tables = document.querySelectorAll('.table-container table tbody');

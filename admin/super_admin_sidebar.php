@@ -45,6 +45,7 @@ $base_url = "/FINAL_CAPSTONE/admin/";
     .sidebar {
         width: var(--sidebar-width);
         height: 100vh;
+        overflow-x: hidden;
         background-color: var(--pure-white);
         color: var(--text-main);
         position: fixed;
@@ -119,8 +120,11 @@ $base_url = "/FINAL_CAPSTONE/admin/";
     /* Menu styling[cite: 1] */
     .nav-menu {
         flex-grow: 1;
+        min-width: 0;
         padding: 30px 15px;
         overflow-y: auto;
+        overflow-x: hidden;
+        box-sizing: border-box;
     }
     .nav-label {
         font-size: 0.65rem;

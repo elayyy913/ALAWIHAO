@@ -28,7 +28,7 @@
  * ---------------------------------------------------------------------
  */
 ?>
-        <div class="left-column">
+        <div class="left-column" id="pendingApprovals">
             <?php include '../worker_verification.php'; ?>
 
             <!-- NEWBORN REGISTRATION TABLE -->
@@ -46,7 +46,7 @@
                                 <a href="process_verification.php?remove_id=<?php echo $row['id']; ?>&redirect=super_admin_dashboard.php" class="btn-reject">REJECT</a>
                             </td>
                         </tr>
-                        <?php endwhile; else: echo "<tr><td colspan='3' align='center'>No pending newborn records.</td></tr>"; endif; ?>
+                        <?php endwhile; else: echo "<tr><td colspan='3' class='table-empty-cell'><div class='dashboard-empty-state'><i class='fa-regular fa-circle-check' aria-hidden='true'></i><span>No pending child registrations. You're all caught up.</span></div></td></tr>"; endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -67,7 +67,7 @@
                                 <a href="process_verification.php?remove_preg_id=<?php echo $row['id']; ?>&redirect=super_admin_dashboard.php" class="btn-reject">REJECT</a>
                             </td>
                         </tr>
-                        <?php endwhile; else: echo "<tr><td colspan='2' align='center'>No pending maternal registration.</td></tr>"; endif; ?>
+                        <?php endwhile; else: echo "<tr><td colspan='2' class='table-empty-cell'><div class='dashboard-empty-state'><i class='fa-regular fa-circle-check' aria-hidden='true'></i><span>No pending maternal registrations. You're all caught up.</span></div></td></tr>"; endif; ?>
                     </tbody>
                 </table>
             </div>
