@@ -17,21 +17,28 @@ $total_pending = (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t F
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Pending'"))['t'] ?? 0) +
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0);
 
-// --- MATERNAL METRICS ---
-$mat_total_reg = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration"))['t'] ?? 0;
-$mat_approved = $total_pregnant;
-$mat_not_success = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status != 'Approved'"))['t'] ?? 0;
-$mat_success_deg = ($mat_total_reg > 0) ? (($mat_approved / $mat_total_reg) * 360) : 0;
-$mat_success_pct = ($mat_total_reg > 0) ? round(($mat_approved / $mat_total_reg) * 100) : 0;
-$mat_unsuccess_pct = ($mat_total_reg > 0) ? round(($mat_not_success / $mat_total_reg) * 100) : 0;
+// --- REGISTRATION STATUS DISTRIBUTION ---
+$mat_status = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
+    COUNT(*) AS total,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'approved' THEN 1 ELSE 0 END) AS approved,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) NOT IN ('approved', 'rejected') THEN 1 ELSE 0 END) AS pending
+    FROM maternal_registration")) ?: ['total' => 0, 'approved' => 0, 'rejected' => 0, 'pending' => 0];
+$mat_total_reg = (int) $mat_status['total'];
+$mat_approved = (int) $mat_status['approved'];
+$mat_pending = (int) $mat_status['pending'];
+$mat_rejected = (int) $mat_status['rejected'];
 
-// --- CHILD METRICS ---
-$child_total_reg = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM children"))['t'] ?? 0;
-$child_approved = $total_newborns;
-$child_not_success = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM children WHERE status != 'Approved'"))['t'] ?? 0;
-$child_success_deg = ($child_total_reg > 0) ? (($child_approved / $child_total_reg) * 360) : 0;
-$child_success_pct = ($child_total_reg > 0) ? round(($child_approved / $child_total_reg) * 100) : 0;
-$child_unsuccess_pct = ($child_total_reg > 0) ? round(($child_not_success / $child_total_reg) * 100) : 0;
+$child_status = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
+    COUNT(*) AS total,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'approved' THEN 1 ELSE 0 END) AS approved,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) NOT IN ('approved', 'rejected') THEN 1 ELSE 0 END) AS pending
+    FROM children")) ?: ['total' => 0, 'approved' => 0, 'rejected' => 0, 'pending' => 0];
+$child_total_reg = (int) $child_status['total'];
+$child_approved = (int) $child_status['approved'];
+$child_pending = (int) $child_status['pending'];
+$child_rejected = (int) $child_status['rejected'];
 
 // --- FETCH LISTS HTML BLOCKS (Para maiwasan masira ang tables at schedule items) ---
 // 1. Pending Workers
@@ -194,20 +201,14 @@ echo json_encode([
     'total_pending' => $total_pending,
     'total_workers' => $total_workers,
     
-    // Maternal Donut Info
-    'mat_success_deg' => $mat_success_deg,
-    'mat_success_pct' => $mat_success_pct,
+    // Registration status breakdowns
     'mat_approved' => $mat_approved,
-    'mat_not_success' => $mat_not_success,
-    'mat_unsuccess_pct' => $mat_unsuccess_pct,
+    'mat_pending' => $mat_pending,
+    'mat_rejected' => $mat_rejected,
     'mat_total_reg' => $mat_total_reg,
-
-    // Child Donut Info
-    'child_success_deg' => $child_success_deg,
-    'child_success_pct' => $child_success_pct,
     'child_approved' => $child_approved,
-    'child_not_success' => $child_not_success,
-    'child_unsuccess_pct' => $child_unsuccess_pct,
+    'child_pending' => $child_pending,
+    'child_rejected' => $child_rejected,
     'child_total_reg' => $child_total_reg,
 
     // Tables / Lists HTML

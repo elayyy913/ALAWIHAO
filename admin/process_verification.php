@@ -256,13 +256,13 @@ if (isset($_GET['remove_id'])) {
     $id = (int) $_GET['remove_id'];
     $child_result = mysqli_query($conn, "SELECT child_name FROM children WHERE id = $id LIMIT 1");
     $child = $child_result ? mysqli_fetch_assoc($child_result) : null;
-    $deleted = mysqli_query($conn, "DELETE FROM children WHERE id = $id");
-    if ($deleted && mysqli_affected_rows($conn) > 0) {
+    $rejected = mysqli_query($conn, "UPDATE children SET status = 'Rejected' WHERE id = $id AND status = 'Pending'");
+    if ($rejected && mysqli_affected_rows($conn) > 0) {
         $childName = $child['child_name'] ?? '';
         $subject = $childName !== '' ? " ({$childName})" : '';
         logAdminAction($conn, "Rejected child patient registration ID: {$id}{$subject}.");
     }
-    header("Location: $redirect_page?msg=Removed"); 
+    header("Location: $redirect_page?msg=Rejected");
     exit();
 }
 
@@ -270,13 +270,13 @@ if (isset($_GET['remove_preg_id'])) {
     $id = (int) $_GET['remove_preg_id'];
     $patient_result = mysqli_query($conn, "SELECT client_fname, client_lname FROM maternal_registration WHERE id = $id LIMIT 1");
     $patient = $patient_result ? mysqli_fetch_assoc($patient_result) : null;
-    $deleted = mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = $id");
-    if ($deleted && mysqli_affected_rows($conn) > 0) {
+    $rejected = mysqli_query($conn, "UPDATE maternal_registration SET status = 'Rejected' WHERE id = $id AND status = 'Pending'");
+    if ($rejected && mysqli_affected_rows($conn) > 0) {
         $patientName = trim(($patient['client_fname'] ?? '') . ' ' . ($patient['client_lname'] ?? ''));
         $subject = $patientName !== '' ? " ({$patientName})" : '';
         logAdminAction($conn, "Rejected maternal patient registration ID: {$id}{$subject}.");
     }
-    header("Location: $redirect_page?msg=Removed"); 
+    header("Location: $redirect_page?msg=Rejected");
     exit();
 }
 

@@ -15,7 +15,8 @@ $dashboardMessages = [
     'ApprovedAndRecorded' => 'Child registration approved successfully.',
     'MaternalApproved' => 'Maternal registration approved successfully.',
     'ChildApprovalError' => 'The child measurements could not be saved. Check the values and try again.',
-    'Removed' => 'The selected registration or worker account was rejected and removed.'
+    'Rejected' => 'The registration was rejected and kept for reporting.',
+    'Removed' => 'The worker account was rejected and removed.'
 ];
 $dashboardNotice = $dashboardMessages[$_GET['msg'] ?? ''] ?? null;
 $dashboardNoticeIsError = ($_GET['msg'] ?? '') === 'ChildApprovalError';
@@ -153,22 +154,34 @@ $total_pending = (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t F
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Pending'"))['t'] ?? 0) +
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0);
 
-// --- COMPUTATION PARA SA VISUAL PERCENTAGE RATES (MATERNAL & CHILD REGISTRATION) ---
-// Maternal Metrics
-$mat_total_reg = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration"))['t'] ?? 0;
-$mat_approved = $total_pregnant;
-$mat_not_success = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status != 'Approved'"))['t'] ?? 0;
-$mat_success_deg = ($mat_total_reg > 0) ? (($mat_approved / $mat_total_reg) * 360) : 0;
-$mat_success_pct = ($mat_total_reg > 0) ? round(($mat_approved / $mat_total_reg) * 100) : 0;
-$mat_unsuccess_pct = ($mat_total_reg > 0) ? round(($mat_not_success / $mat_total_reg) * 100) : 0;
+// --- REGISTRATION STATUS DISTRIBUTION ---
+$mat_status = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
+    COUNT(*) AS total,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'approved' THEN 1 ELSE 0 END) AS approved,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) NOT IN ('approved', 'rejected') THEN 1 ELSE 0 END) AS pending
+    FROM maternal_registration")) ?: ['total' => 0, 'approved' => 0, 'rejected' => 0, 'pending' => 0];
+$mat_total_reg = (int) $mat_status['total'];
+$mat_approved = (int) $mat_status['approved'];
+$mat_pending = (int) $mat_status['pending'];
+$mat_rejected = (int) $mat_status['rejected'];
+$mat_success_pct = $mat_total_reg > 0 ? round(($mat_approved / $mat_total_reg) * 100) : 0;
+$mat_pending_pct = $mat_total_reg > 0 ? round(($mat_pending / $mat_total_reg) * 100) : 0;
+$mat_rejected_pct = $mat_total_reg > 0 ? round(($mat_rejected / $mat_total_reg) * 100) : 0;
 
-// Child/Infant Metrics
-$child_total_reg = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM children"))['t'] ?? 0;
-$child_approved = $total_newborns;
-$child_not_success = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM children WHERE status != 'Approved'"))['t'] ?? 0;
-$child_success_deg = ($child_total_reg > 0) ? (($child_approved / $child_total_reg) * 360) : 0;
-$child_success_pct = ($child_total_reg > 0) ? round(($child_approved / $child_total_reg) * 100) : 0;
-$child_unsuccess_pct = ($child_total_reg > 0) ? round(($child_not_success / $child_total_reg) * 100) : 0;
+$child_status = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
+    COUNT(*) AS total,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'approved' THEN 1 ELSE 0 END) AS approved,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+    SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) NOT IN ('approved', 'rejected') THEN 1 ELSE 0 END) AS pending
+    FROM children")) ?: ['total' => 0, 'approved' => 0, 'rejected' => 0, 'pending' => 0];
+$child_total_reg = (int) $child_status['total'];
+$child_approved = (int) $child_status['approved'];
+$child_pending = (int) $child_status['pending'];
+$child_rejected = (int) $child_status['rejected'];
+$child_success_pct = $child_total_reg > 0 ? round(($child_approved / $child_total_reg) * 100) : 0;
+$child_pending_pct = $child_total_reg > 0 ? round(($child_pending / $child_total_reg) * 100) : 0;
+$child_rejected_pct = $child_total_reg > 0 ? round(($child_rejected / $child_total_reg) * 100) : 0;
 // ---------------------------------------------------------------------
 
 // --- COMPUTATION PARA SA SCHEDULE SUCCESS RATES (NEW ADDITION) ---
@@ -275,6 +288,16 @@ if (check_table_exists($conn, 'schedules')) {
         .quick-action:hover { background: #f0f5ec; border-color: var(--sage); transform: translateY(-1px); }
         .quick-action-primary { background: #5f7f49; border-color: #5f7f49; color: #fff; }
         .quick-action-primary:hover { background: #4f6d3c; color: #fff; border-color: #4f6d3c; }
+        .quick-action-dropdown { position: relative; }
+        .quick-action-dropdown > summary { list-style: none; cursor: pointer; }
+        .quick-action-dropdown > summary::-webkit-details-marker { display: none; }
+        .quick-action-dropdown > summary::marker { content: ""; }
+        .quick-action-chevron { margin-left: 2px; font-size: .68rem; transition: transform .2s ease; }
+        .quick-action-dropdown[open] .quick-action-chevron { transform: rotate(180deg); }
+        .quick-action-menu { position: absolute; top: calc(100% + 7px); left: 0; z-index: 20; display: grid; min-width: 190px; padding: 6px; border: 1px solid #dce5d6; border-radius: 9px; background: #fff; box-shadow: 0 8px 20px rgba(34, 48, 28, .14); }
+        .quick-action-menu a { display: flex; align-items: center; gap: 9px; padding: 10px; border-radius: 6px; color: #465736; font-size: .8rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+        .quick-action-menu a:hover, .quick-action-menu a:focus-visible { background: #f0f5ec; outline: none; }
+        .quick-action-menu a i { width: 16px; color: #5f7f49; text-align: center; }
         
 .stats-grid { 
         display: grid; 
@@ -326,10 +349,22 @@ if (check_table_exists($conn, 'schedules')) {
     .analytic-card h5 { margin: 0; font-size: .88rem; color: #465736; }
     .metric-progress-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 11px; }
     .metric-percent { color: #5f7f49; font-size: 1.05rem; font-weight: 750; white-space: nowrap; }
-    .metric-progress-track { width: 100%; height: 8px; overflow: hidden; border-radius: 99px; background: #e9ede5; }
-    .metric-progress-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8dae74, #5f7f49); transition: width .35s ease; }
-    .metric-counts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 11px; color: #66705f; font-size: .77rem; }
-    .metric-counts strong { color: #33402d; }
+    .metric-percent-label { display: block; color: #74806d; font-size: .68rem; font-weight: 600; text-align: right; }
+    .metric-progress-track { display: flex; width: 100%; height: 10px; overflow: hidden; border-radius: 99px; background: #e9ede5; }
+    .metric-segment { display: block; height: 100%; min-width: 0; transition: width .35s ease; }
+    .metric-segment-approved { background: #5f9b63; }
+    .metric-segment-pending { background: #e2a12d; }
+    .metric-segment-rejected { background: #d65a52; }
+    .metric-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 13px; color: #66705f; font-size: .73rem; }
+    .metric-count-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 6px; row-gap: 3px; min-width: 0; }
+    .metric-count-item strong { grid-column: 1; color: #33402d; font-size: .85rem; }
+    .metric-status-label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .metric-count-item .metric-status-label { grid-column: 1 / -1; }
+    .metric-status-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
+    .metric-status-dot-approved { background: #5f9b63; }
+    .metric-status-dot-pending { background: #e2a12d; }
+    .metric-status-dot-rejected { background: #d65a52; }
+    .metric-status-percent { grid-column: 2; color: #818a7d; font-size: .69rem; text-align: right; }
     .metric-total { margin-top: 7px; color: #818a7d; font-size: .73rem; }
     .metric-empty { color: #687365; font-size: .76rem; margin-top: 8px; }
         .analytics-section { background: var(--white); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 3px 12px rgba(34,48,28,.04); }
@@ -567,6 +602,22 @@ if (check_table_exists($conn, 'schedules')) {
             border-color: var(--dm-sage) !important;
             color: #1A1D1B !important;
         }
+        [data-theme="dark"] .quick-action-menu {
+            background: var(--dm-surface) !important;
+            border-color: var(--dm-border) !important;
+        }
+        [data-theme="dark"] .quick-action-menu a { color: var(--dm-text) !important; }
+        [data-theme="dark"] .quick-action-menu a:hover,
+        [data-theme="dark"] .quick-action-menu a:focus-visible { background: var(--dm-surface2) !important; }
+        [data-theme="dark"] .quick-action-menu a i { color: var(--dm-sage) !important; }
+        [data-theme="dark"] .metric-progress-heading h5,
+        [data-theme="dark"] .metric-counts,
+        [data-theme="dark"] .metric-count-item strong,
+        [data-theme="dark"] .metric-status-percent,
+        [data-theme="dark"] .metric-total,
+        [data-theme="dark"] .metric-empty,
+        [data-theme="dark"] .metric-percent-label { color: var(--dm-text2) !important; }
+        [data-theme="dark"] .metric-progress-track { background: #3A403A; }
         @media (max-width: 1200px) {
             .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
@@ -601,6 +652,13 @@ if (check_table_exists($conn, 'schedules')) {
             .metric-counts { gap: 6px 12px; }
             .table-container { padding: 14px; overflow-x: auto; }
             .table-container table { min-width: 480px; }
+        }
+        @media (max-width: 380px) {
+            .metric-counts { grid-template-columns: minmax(0, 1fr); }
+            .metric-count-item { grid-template-columns: minmax(0, 1fr) auto auto; }
+            .metric-count-item .metric-status-label { grid-column: 1; }
+            .metric-count-item strong { grid-column: 2; }
+            .metric-status-percent { grid-column: 3; }
         }
         @media (max-width: 360px) {
             .stats-grid { grid-template-columns: minmax(0, 1fr); }
@@ -645,7 +703,7 @@ if (check_table_exists($conn, 'schedules')) {
     <div class="reject-confirm-backdrop" id="rejectConfirm" aria-hidden="true">
         <section class="reject-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rejectConfirmTitle" aria-describedby="rejectConfirmDescription">
             <h2 id="rejectConfirmTitle">Confirm rejection</h2>
-            <p id="rejectConfirmDescription">This will reject and remove the selected pending record. This action cannot be undone.</p>
+                <p id="rejectConfirmDescription">This will reject the selected pending item. Maternal and child registrations are kept for reporting; worker accounts are removed.</p>
             <div class="reject-confirm-actions">
                 <button type="button" class="reject-confirm-cancel" id="cancelReject">Cancel</button>
                 <button type="button" class="reject-confirm-submit" id="confirmReject">Reject record</button>
@@ -656,6 +714,14 @@ if (check_table_exists($conn, 'schedules')) {
     <nav class="quick-actions" aria-label="Dashboard quick actions">
         <span class="quick-actions-label">Quick actions</span>
         <a class="quick-action quick-action-primary" href="#pendingApprovals"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Review approvals</a>
+        <details class="quick-action-dropdown">
+            <summary class="quick-action quick-action-primary"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Register <i class="fa-solid fa-chevron-down quick-action-chevron" aria-hidden="true"></i></summary>
+            <div class="quick-action-menu">
+                <a href="admin_maternal_reg.php"><i class="fa-solid fa-person-pregnant" aria-hidden="true"></i> Maternal patient</a>
+                <a href="admin_child_reg.php"><i class="fa-solid fa-baby" aria-hidden="true"></i> Child patient</a>
+                <a href="../register_worker.php?redirect=admin/super_admin_dashboard.php%23pendingWorkersPad"><i class="fa-solid fa-user-nurse" aria-hidden="true"></i> Health worker</a>
+            </div>
+        </details>
         <a class="quick-action" href="vaccine_inventory.php"><i class="fa-solid fa-syringe" aria-hidden="true"></i> Vaccine inventory</a>
         <a class="quick-action" href="schedule_management.php"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Manage schedules</a>
     </nav>
@@ -694,14 +760,17 @@ if (check_table_exists($conn, 'schedules')) {
             <div class="analytic-card" id="maternalRegistrationMetric">
                 <div class="metric-progress-heading">
                     <h5>Maternal registration</h5>
-                    <span class="metric-percent" id="matRegistrationPercent"><?php echo $mat_success_pct; ?>%</span>
+                    <div><span class="metric-percent" id="matRegistrationPercent"><?php echo $mat_success_pct; ?>%</span><span class="metric-percent-label">approved rate</span></div>
                 </div>
-                <div class="metric-progress-track" id="matRegistrationTrack" role="progressbar" aria-label="Maternal registration approved" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $mat_success_pct; ?>">
-                    <span class="metric-progress-fill" id="matRegistrationProgress" style="width: <?php echo $mat_success_pct; ?>%;"></span>
+                <div class="metric-progress-track" id="matRegistrationTrack" role="img" aria-label="Maternal registrations: <?php echo $mat_success_pct; ?>% approved, <?php echo $mat_pending_pct; ?>% pending, <?php echo $mat_rejected_pct; ?>% rejected.">
+                    <span class="metric-segment metric-segment-approved" id="matRegistrationApprovedBar" style="width: <?php echo $mat_total_reg > 0 ? ($mat_approved / $mat_total_reg * 100) : 0; ?>%;"></span>
+                    <span class="metric-segment metric-segment-pending" id="matRegistrationPendingBar" style="width: <?php echo $mat_total_reg > 0 ? ($mat_pending / $mat_total_reg * 100) : 0; ?>%;"></span>
+                    <span class="metric-segment metric-segment-rejected" id="matRegistrationRejectedBar" style="width: <?php echo $mat_total_reg > 0 ? ($mat_rejected / $mat_total_reg * 100) : 0; ?>%;"></span>
                 </div>
                 <div class="metric-counts">
-                    <span>Approved <strong id="matRegistrationApproved"><?php echo $mat_approved; ?></strong></span>
-                    <span>Not approved <strong id="matRegistrationNotApproved"><?php echo $mat_not_success; ?></strong></span>
+                    <div class="metric-count-item"><span class="metric-status-label"><i class="metric-status-dot metric-status-dot-approved"></i>Approved</span><strong id="matRegistrationApproved"><?php echo $mat_approved; ?></strong><span class="metric-status-percent" id="matRegistrationApprovedPct"><?php echo $mat_success_pct; ?>%</span></div>
+                    <div class="metric-count-item"><span class="metric-status-label"><i class="metric-status-dot metric-status-dot-pending"></i>Pending</span><strong id="matRegistrationPending"><?php echo $mat_pending; ?></strong><span class="metric-status-percent" id="matRegistrationPendingPct"><?php echo $mat_pending_pct; ?>%</span></div>
+                    <div class="metric-count-item"><span class="metric-status-label"><i class="metric-status-dot metric-status-dot-rejected"></i>Rejected</span><strong id="matRegistrationRejected"><?php echo $mat_rejected; ?></strong><span class="metric-status-percent" id="matRegistrationRejectedPct"><?php echo $mat_rejected_pct; ?>%</span></div>
                 </div>
                 <div class="metric-total" id="matRegistrationTotal"><?php echo $mat_total_reg; ?> total registrations</div>
                 <div class="metric-empty" id="matRegistrationEmpty" <?php echo (int) $mat_total_reg > 0 ? 'hidden' : ''; ?>>No maternal registrations yet.</div>
@@ -709,14 +778,17 @@ if (check_table_exists($conn, 'schedules')) {
             <div class="analytic-card" id="childRegistrationMetric">
                 <div class="metric-progress-heading">
                     <h5>Child / infant registration</h5>
-                    <span class="metric-percent" id="childRegistrationPercent"><?php echo $child_success_pct; ?>%</span>
+                    <div><span class="metric-percent" id="childRegistrationPercent"><?php echo $child_success_pct; ?>%</span><span class="metric-percent-label">approved rate</span></div>
                 </div>
-                <div class="metric-progress-track" id="childRegistrationTrack" role="progressbar" aria-label="Child registration approved" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $child_success_pct; ?>">
-                    <span class="metric-progress-fill" id="childRegistrationProgress" style="width: <?php echo $child_success_pct; ?>%;"></span>
+                <div class="metric-progress-track" id="childRegistrationTrack" role="img" aria-label="Child registrations: <?php echo $child_success_pct; ?>% approved, <?php echo $child_pending_pct; ?>% pending, <?php echo $child_rejected_pct; ?>% rejected.">
+                    <span class="metric-segment metric-segment-approved" id="childRegistrationApprovedBar" style="width: <?php echo $child_total_reg > 0 ? ($child_approved / $child_total_reg * 100) : 0; ?>%;"></span>
+                    <span class="metric-segment metric-segment-pending" id="childRegistrationPendingBar" style="width: <?php echo $child_total_reg > 0 ? ($child_pending / $child_total_reg * 100) : 0; ?>%;"></span>
+                    <span class="metric-segment metric-segment-rejected" id="childRegistrationRejectedBar" style="width: <?php echo $child_total_reg > 0 ? ($child_rejected / $child_total_reg * 100) : 0; ?>%;"></span>
                 </div>
                 <div class="metric-counts">
-                    <span>Approved <strong id="childRegistrationApproved"><?php echo $child_approved; ?></strong></span>
-                    <span>Not approved <strong id="childRegistrationNotApproved"><?php echo $child_not_success; ?></strong></span>
+                    <div class="metric-count-item"><span class="metric-status-label"><i class="metric-status-dot metric-status-dot-approved"></i>Approved</span><strong id="childRegistrationApproved"><?php echo $child_approved; ?></strong><span class="metric-status-percent" id="childRegistrationApprovedPct"><?php echo $child_success_pct; ?>%</span></div>
+                    <div class="metric-count-item"><span class="metric-status-label"><i class="metric-status-dot metric-status-dot-pending"></i>Pending</span><strong id="childRegistrationPending"><?php echo $child_pending; ?></strong><span class="metric-status-percent" id="childRegistrationPendingPct"><?php echo $child_pending_pct; ?>%</span></div>
+                    <div class="metric-count-item"><span class="metric-status-label"><i class="metric-status-dot metric-status-dot-rejected"></i>Rejected</span><strong id="childRegistrationRejected"><?php echo $child_rejected; ?></strong><span class="metric-status-percent" id="childRegistrationRejectedPct"><?php echo $child_rejected_pct; ?>%</span></div>
                 </div>
                 <div class="metric-total" id="childRegistrationTotal"><?php echo $child_total_reg; ?> total registrations</div>
                 <div class="metric-empty" id="childRegistrationEmpty" <?php echo (int) $child_total_reg > 0 ? 'hidden' : ''; ?>>No child registrations yet.</div>
@@ -940,18 +1012,32 @@ if (check_table_exists($conn, 'schedules')) {
                 document.getElementById('statWorkers').innerText = data.total_workers;
 
                 // Keep registration progress and counts synchronized with the live summary.
-                const updateRegistrationMetric = (prefix, approved, notApproved, total, percentage) => {
-                    const percent = Math.max(0, Math.min(100, Number(percentage) || 0));
-                    document.getElementById(prefix + 'Percent').innerText = percent + '%';
-                    document.getElementById(prefix + 'Progress').style.width = percent + '%';
-                    document.getElementById(prefix + 'Track').setAttribute('aria-valuenow', percent);
-                    document.getElementById(prefix + 'Approved').innerText = approved;
-                    document.getElementById(prefix + 'NotApproved').innerText = notApproved;
-                    document.getElementById(prefix + 'Total').innerText = total + ' total registrations';
-                    document.getElementById(prefix + 'Empty').hidden = Number(total) > 0;
-                };
-                updateRegistrationMetric('matRegistration', data.mat_approved, data.mat_not_success, data.mat_total_reg, data.mat_success_pct);
-                updateRegistrationMetric('childRegistration', data.child_approved, data.child_not_success, data.child_total_reg, data.child_success_pct);
+                        const updateRegistrationMetric = (prefix, approved, pending, rejected, total, label) => {
+                            const counts = [approved, pending, rejected].map(value => Math.max(0, Number(value) || 0));
+                            const registrationTotal = Math.max(0, Number(total) || 0);
+                            const percentages = counts.map(count => registrationTotal > 0 ? Math.round((count / registrationTotal) * 100) : 0);
+                            const barIds = ['ApprovedBar', 'PendingBar', 'RejectedBar'];
+                            const statusIds = ['Approved', 'Pending', 'Rejected'];
+                            const statusNames = ['approved', 'pending', 'rejected'];
+
+                            document.getElementById(prefix + 'Percent').innerText = percentages[0] + '%';
+                            document.getElementById(prefix + 'Total').innerText = registrationTotal + ' total registrations';
+                            document.getElementById(prefix + 'Empty').hidden = registrationTotal > 0;
+                            document.getElementById(prefix + 'Track').setAttribute(
+                                'aria-label',
+                                label + ' registrations: ' + percentages[0] + '% approved, ' +
+                                    percentages[1] + '% pending, ' + percentages[2] + '% rejected.'
+                            );
+
+                            counts.forEach((count, index) => {
+                                const share = registrationTotal > 0 ? (count / registrationTotal) * 100 : 0;
+                                document.getElementById(prefix + barIds[index]).style.width = share + '%';
+                                document.getElementById(prefix + statusIds[index]).innerText = count;
+                                document.getElementById(prefix + statusIds[index] + 'Pct').innerText = percentages[index] + '%';
+                            });
+                        };
+                        updateRegistrationMetric('matRegistration', data.mat_approved, data.mat_pending, data.mat_rejected, data.mat_total_reg, 'Maternal');
+                        updateRegistrationMetric('childRegistration', data.child_approved, data.child_pending, data.child_rejected, data.child_total_reg, 'Child');
 
                 // 3. Update Tables and Schedule Lists ONLY if no date inputs are active
                 const tables = document.querySelectorAll('.table-container table tbody');
