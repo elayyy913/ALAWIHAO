@@ -103,7 +103,7 @@ if (!$recordNotice && $maternalVaccineLoadError !== null) {
     $recordNotice = ['type' => 'error', 'message' => 'Could not load maternal vaccine inventory: ' . $maternalVaccineLoadError];
 }
 if (!$recordNotice && isset($_GET['success'])) {
-    $recordNotice = ['type' => 'success', 'message' => 'Maternal health record saved successfully.'];
+    $recordNotice = ['type' => 'success', 'message' => 'Matagumpay na na-save ang maternal health record.'];
 }
 ?>
 
@@ -494,6 +494,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                 <?php endif; ?>
                 <label for="maternalVaccineQuantity">Quantity Used (stock units):</label>
                 <input type="number" name="vaccine_quantity" id="maternalVaccineQuantity" min="1" value="1" disabled>
+                <small style="display:block; margin-top:-8px; margin-bottom:12px;">Awtomatikong mababawas ang quantity kapag na-save ang record.</small>
 
                 <!-- ================= 1ST TRIMESTER SPECIFIC FIELDS ================= -->
                 <div id="section_tri1" class="trimester-section active-section">

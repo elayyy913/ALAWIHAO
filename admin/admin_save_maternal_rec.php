@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $vaccine_id = (int) ($_POST['vaccine_id'] ?? 0);
     $vaccine_quantity = (int) ($_POST['vaccine_quantity'] ?? 0);
     $vaccine_given = '';
+    $vaccine_stock_remaining = null;
     $tetanus_vaccine_selected = isset($_POST['tetanus_vaccine_done']);
 
     $schedule_column = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'schedule_id'");
@@ -257,6 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 header("Location: admin_maternal_hr.php");
                 exit();
             }
+            $vaccine_stock_remaining = (int) $inventory_vaccine['available_stock'] - $vaccine_quantity;
             $stock_stmt->close();
 
             $recorded_by = trim($provider_name) !== '' ? trim($provider_name) : 'Health worker ID ' . (int) $_SESSION['user_id'];
@@ -312,6 +314,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             header("Location: admin_maternal_hr.php");
             exit();
         }
+        $_SESSION['maternal_record_notice'] = [
+            'type' => 'success',
+            'message' => $vaccine_id > 0
+                ? $vaccine_quantity . ' dose ng ' . $vaccine_given . ' ang naitala at nabawas sa stock. ' . $vaccine_stock_remaining . ' dose ang natitira.'
+                : 'Matagumpay na na-save ang health record. Walang napiling vaccine kaya walang stock na nabawas.'
+        ];
         if ($schedule_id > 0) {
             logAdminAction($conn, "Completed maternal schedule ID {$schedule_id} while saving a health record for patient ID {$mother_id}.");
         }
