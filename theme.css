@@ -239,13 +239,94 @@
 [data-theme="dark"] .notif-item.unread { background-color: var(--dm-badge-bg) !important; }
 
 /* ── Buttons ──────────────────────────────────────────────────── */
+[data-theme="dark"] button,
+[data-theme="dark"] input[type="button"],
+[data-theme="dark"] input[type="submit"],
+[data-theme="dark"] input[type="reset"] {
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] a[class*="btn"],
+[data-theme="dark"] a[class*="button"] {
+    color: var(--dm-text) !important;
+}
+[data-theme="dark"] .btn-add,
 [data-theme="dark"] .btn-approve,
 [data-theme="dark"] .btn-update,
-[data-theme="dark"] .btn-add { background-color: var(--dm-sage) !important; }
+[data-theme="dark"] .btn-edit,
+[data-theme="dark"] .enroll-btn,
+[data-theme="dark"] .btn-done,
+[data-theme="dark"] .btn-resched,
+[data-theme="dark"] .btn-cancel,
+[data-theme="dark"] .btn-confirm-no,
+[data-theme="dark"] .btn-view {
+    color: #1A1D1B !important;
+}
+[data-theme="dark"] a.btn-add,
+[data-theme="dark"] a.btn-approve,
+[data-theme="dark"] a.btn-update,
+[data-theme="dark"] a.btn-edit,
+[data-theme="dark"] a.enroll-btn,
+[data-theme="dark"] a.btn-done,
+[data-theme="dark"] a.btn-resched,
+[data-theme="dark"] a.btn-cancel,
+[data-theme="dark"] a.btn-confirm-no,
+[data-theme="dark"] a.btn-view {
+    color: #1A1D1B !important;
+}
+[data-theme="dark"] .btn-add,
+[data-theme="dark"] .btn-approve,
+[data-theme="dark"] .btn-update { background-color: var(--dm-sage) !important; }
 [data-theme="dark"] .btn-back {
     background: var(--dm-surface) !important;
     color: var(--dm-sage) !important;
     border-color: var(--dm-sage) !important;
+}
+[data-theme="dark"] .btn-action-main,
+[data-theme="dark"] .btn-action-danger,
+[data-theme="dark"] .btn-health-record,
+[data-theme="dark"] .btn-tool,
+[data-theme="dark"] .btn-reject,
+[data-theme="dark"] .btn-danger,
+[data-theme="dark"] .btn-close-modal,
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .btn-primary-action,
+[data-theme="dark"] .btn-login,
+[data-theme="dark"] .auth-alert-button,
+[data-theme="dark"] .btn-confirm-yes,
+[data-theme="dark"] .btn-save,
+[data-theme="dark"] .btn-submit,
+[data-theme="dark"] .btn-register,
+[data-theme="dark"] .reg-btn,
+[data-theme="dark"] .save-btn,
+[data-theme="dark"] .verify-btn,
+[data-theme="dark"] .btn-backup,
+[data-theme="dark"] .btn-send {
+    color: #fff !important;
+}
+[data-theme="dark"] a.btn-action-main,
+[data-theme="dark"] a.btn-action-danger,
+[data-theme="dark"] a.btn-health-record,
+[data-theme="dark"] a.btn-tool,
+[data-theme="dark"] a.btn-reject,
+[data-theme="dark"] a.btn-danger,
+[data-theme="dark"] a.btn-close-modal,
+[data-theme="dark"] a.btn-primary,
+[data-theme="dark"] a.btn-primary-action,
+[data-theme="dark"] a.btn-login,
+[data-theme="dark"] a.auth-alert-button,
+[data-theme="dark"] a.btn-confirm-yes,
+[data-theme="dark"] a.btn-save,
+[data-theme="dark"] a.btn-submit,
+[data-theme="dark"] a.btn-register,
+[data-theme="dark"] a.reg-btn,
+[data-theme="dark"] a.save-btn,
+[data-theme="dark"] a.verify-btn,
+[data-theme="dark"] a.btn-backup,
+[data-theme="dark"] a.btn-send {
+    color: #fff !important;
+}
+[data-theme="dark"] a.btn-back {
+    color: var(--dm-sage) !important;
 }
 
 /* ── Footer ───────────────────────────────────────────────────── */

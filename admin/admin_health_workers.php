@@ -102,6 +102,35 @@ if (!$result) {
         .btn-action-secondary { background: white; color: var(--text-muted); border: 1px solid #E2E8F0; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
         
         .close-x { position: absolute; top: 25px; right: 25px; cursor: pointer; color: #CBD5E0; font-size: 1.2rem; }
+
+        [data-theme="dark"] .btn-add,
+        [data-theme="dark"] .btn-action-main,
+        [data-theme="dark"] .btn-action-danger {
+            color: #fff !important;
+        }
+        [data-theme="dark"] .btn-view {
+            color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] .btn-delete {
+            color: #ff8585 !important;
+        }
+        [data-theme="dark"] .btn-action-secondary {
+            background: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .modal-pad {
+            background: var(--dm-surface) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .modal-pad h3,
+        [data-theme="dark"] .modal-pad p {
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .modal-footer {
+            background: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+        }
     </style>
 </head>
 <body>

@@ -167,6 +167,80 @@ while($row = mysqli_fetch_assoc($result)) {
             from { transform: scale(0.8); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
+
+        [data-theme="dark"] .records-card {
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .records-card .btn-add {
+            color: #1A1D1B !important;
+        }
+        [data-theme="dark"] .records-card .view-btn {
+            color: var(--dm-sage) !important;
+            border-color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] .records-card .view-btn:hover {
+            background: var(--dm-hover) !important;
+        }
+        [data-theme="dark"] .records-card .vax-badge {
+            background: var(--dm-badge-bg) !important;
+            color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] .records-card .vax-badge[style] {
+            background: var(--dm-surface2) !important;
+            color: var(--dm-text2) !important;
+        }
+        [data-theme="dark"] .latest-record-box,
+        [data-theme="dark"] .stat-box {
+            background: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .info-item label,
+        [data-theme="dark"] .stat-box small {
+            color: var(--dm-muted) !important;
+        }
+        [data-theme="dark"] .info-item span,
+        [data-theme="dark"] .stat-box b {
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .immunization-table td {
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .immunization-table td span[style*="background"] {
+            background: var(--dm-surface2) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .sub-modal-content,
+        [data-theme="dark"] .custom-alert-box {
+            background: var(--dm-surface) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] #sub_remarks {
+            background: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .modal-content button[style],
+        [data-theme="dark"] .sub-modal-content button[style],
+        [data-theme="dark"] .custom-alert-box button[style] {
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .custom-alert-box button[onclick="executeDelete()"] {
+            color: #fff !important;
+        }
+        [data-theme="dark"] .custom-alert-box button[onclick="closeCustomAlert()"] {
+            color: #1A1D1B !important;
+        }
+        [data-theme="dark"] .modal-content button[onclick="closeModal()"],
+        [data-theme="dark"] .sub-modal-content button[onclick="closeHealthRecordModal()"],
+        [data-theme="dark"] .custom-alert-box button[onclick="closeConfirmModal()"] {
+            background: var(--dm-surface2) !important;
+            border: 1px solid var(--dm-border) !important;
+        }
+        [data-theme="dark"] .btn-health-record {
+            color: #fff !important;
+        }
     </style>
 </head>
 <body>
