@@ -272,7 +272,7 @@ if (check_table_exists($conn, 'schedules')) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <?php $notif_path='../'; include '../notif_assets.php'; ?>
     <style>
-        :root { --sage: #8DAE74; --dark-sage: #5A6B47; --beige: #F9F9F4; --white: #FFFFFF; --text: #2D2D2D; --border: #E1E1D7; }
+        :root { --sage: #8DAE74; --dark-sage: #5A6B47; --beige: #F9F9F4; --white: #FFFFFF; --text: #2D2D2D; --border: #E1E1D7; --status-approved: #5f9b63; --status-approved-text: #27633a; --status-approved-soft: #dcfce7; --status-pending: #e2a12d; --status-pending-text: #92400e; --status-pending-soft: #fef3c7; --status-rejected: #d65a52; --status-rejected-text: #a52a26; --status-rejected-soft: #fee2e2; }
         body { font-family: 'Inter', sans-serif; margin: 0; background-color: var(--beige); color: var(--text); display: flex; }
         
         .main-content { flex: 1 1 0; min-width: 0; padding: 38px clamp(20px, 3vw, 40px); box-sizing: border-box; width: auto; margin-left: 280px; transition: margin-left 0.3s ease-in-out; }
@@ -282,6 +282,8 @@ if (check_table_exists($conn, 'schedules')) {
         .page-header p { margin: 7px 0 0; color: #687365; font-size: .92rem; }
         .page-header-tools { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
         .dashboard-date { color: #687365; font-size: .82rem; white-space: nowrap; }
+        .dashboard-sync { display: inline-flex; align-items: center; gap: 6px; color: #687365; font-size: .72rem; white-space: nowrap; }
+        .dashboard-sync i { color: var(--dark-sage); }
         .quick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 24px; }
         .quick-actions-label { color: #687365; font-size: .8rem; font-weight: 700; margin-right: 2px; }
         .quick-action { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px 13px; border: 1px solid #dce5d6; border-radius: 8px; background: #fff; color: #465736; font-size: .82rem; font-weight: 650; text-decoration: none; transition: background .2s ease, border-color .2s ease, transform .2s ease; }
@@ -336,8 +338,14 @@ if (check_table_exists($conn, 'schedules')) {
         color: var(--text);
     }
     .stat-card-note { display: block; margin-top: 5px; color: #7a8475; font-size: .74rem; }
-    .stat-card.is-attention { border-top-color: #d99624; }
-    .stat-card.is-attention .stat-card-icon { background: #fff5df; color: #aa6c09; }
+    .stat-card.is-attention { border: 1px solid #edcf8c; border-top: 4px solid var(--status-pending); background: linear-gradient(145deg, #fffdf7, #fff8e8); box-shadow: 0 5px 16px rgba(170, 108, 9, .10); }
+    .stat-card.is-attention .stat-card-icon { background: var(--status-pending-soft); color: var(--status-pending-text); }
+    .stat-card.is-attention h2 { color: var(--status-pending-text); font-size: 2rem; }
+    .stat-card.is-attention:hover { border-color: #e4c578; border-top-color: var(--status-pending); background: linear-gradient(145deg, #fffdf7, #fff5dc); }
+    .stat-card.is-clear { border-color: #cfe3d0; border-top-color: var(--status-approved); background: linear-gradient(145deg, #fbfefb, #f1f8f1); box-shadow: 0 4px 14px rgba(62, 122, 75, .08); }
+    .stat-card.is-clear .stat-card-icon { background: var(--status-approved-soft); color: var(--status-approved-text); }
+    .stat-card.is-clear h2 { color: var(--status-approved-text); }
+    .stat-card.is-clear .stat-card-note { color: var(--status-approved-text); font-weight: 650; }
     .analytic-card { 
         background: #FAFAF7;
         border: 1px solid #EBEBE3; 
@@ -352,18 +360,18 @@ if (check_table_exists($conn, 'schedules')) {
     .metric-percent-label { display: block; color: #74806d; font-size: .68rem; font-weight: 600; text-align: right; }
     .metric-progress-track { display: flex; width: 100%; height: 10px; overflow: hidden; border-radius: 99px; background: #e9ede5; }
     .metric-segment { display: block; height: 100%; min-width: 0; transition: width .35s ease; }
-    .metric-segment-approved { background: #5f9b63; }
-    .metric-segment-pending { background: #e2a12d; }
-    .metric-segment-rejected { background: #d65a52; }
+    .metric-segment-approved { background: var(--status-approved); }
+    .metric-segment-pending { background: var(--status-pending); }
+    .metric-segment-rejected { background: var(--status-rejected); }
     .metric-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 13px; color: #66705f; font-size: .73rem; }
     .metric-count-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 6px; row-gap: 3px; min-width: 0; }
     .metric-count-item strong { grid-column: 1; color: #33402d; font-size: .85rem; }
     .metric-status-label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
     .metric-count-item .metric-status-label { grid-column: 1 / -1; }
     .metric-status-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
-    .metric-status-dot-approved { background: #5f9b63; }
-    .metric-status-dot-pending { background: #e2a12d; }
-    .metric-status-dot-rejected { background: #d65a52; }
+    .metric-status-dot-approved { background: var(--status-approved); }
+    .metric-status-dot-pending { background: var(--status-pending); }
+    .metric-status-dot-rejected { background: var(--status-rejected); }
     .metric-status-percent { grid-column: 2; color: #818a7d; font-size: .69rem; text-align: right; }
     .metric-total { margin-top: 7px; color: #818a7d; font-size: .73rem; }
     .metric-empty { color: #687365; font-size: .76rem; margin-top: 8px; }
@@ -381,8 +389,8 @@ if (check_table_exists($conn, 'schedules')) {
         th { text-align: left; background: #F4F4ED; padding: 12px; font-size: 0.75rem; text-transform: uppercase; color: #666; }
         td { padding: 12px; border-bottom: 1px solid #F0F0F0; font-size: 0.85rem; }
         
-        .btn-approve { background: var(--sage); color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.7rem; display: inline-block; border: none; cursor: pointer; }
-        .btn-reject { background: #e74c3c; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.7rem; margin-left: 5px; display: inline-block; border: none; cursor: pointer; }
+        .btn-approve { background: var(--status-approved); color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.7rem; display: inline-block; border: none; cursor: pointer; }
+        .btn-reject { background: var(--status-rejected); color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.7rem; margin-left: 5px; display: inline-block; border: none; cursor: pointer; }
 
         .schedule-card-list { display: flex; flex-direction: column; gap: 15px; }
         .schedule-item { background: #FAFAF7; border: 1px solid #EBEBE3; border-radius: 6px; padding: 15px; position: relative; }
@@ -392,8 +400,9 @@ if (check_table_exists($conn, 'schedules')) {
         .sched-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .sched-date { font-weight: bold; font-size: 0.95rem; color: #2C3E50; }
         .status-badge { background: #E2E8F0; color: #4A5568; font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
-        .pending { background: #fef3c7; color: #92400e; }
-        .approved { background: #dcfce7; color: #166534; }
+        .pending { background: var(--status-pending-soft); color: var(--status-pending-text); }
+        .approved { background: var(--status-approved-soft); color: var(--status-approved-text); }
+        .rejected, .declined { background: var(--status-rejected-soft); color: var(--status-rejected-text); }
         .completed { background: #f0f4f8; color: #2563eb; }
         .reschedule-requested { background: #fef2f2; color: #dc2626; }
         .cancelled { background: #f3f4f6; color: #6b7280; }
@@ -602,14 +611,25 @@ if (check_table_exists($conn, 'schedules')) {
             border-color: var(--dm-sage) !important;
             color: #1A1D1B !important;
         }
-        [data-theme="dark"] .quick-action-menu {
-            background: var(--dm-surface) !important;
-            border-color: var(--dm-border) !important;
-        }
+        [data-theme="dark"] .quick-action-menu { background: var(--dm-surface) !important; border-color: var(--dm-border) !important; }
         [data-theme="dark"] .quick-action-menu a { color: var(--dm-text) !important; }
         [data-theme="dark"] .quick-action-menu a:hover,
         [data-theme="dark"] .quick-action-menu a:focus-visible { background: var(--dm-surface2) !important; }
         [data-theme="dark"] .quick-action-menu a i { color: var(--dm-sage) !important; }
+        [data-theme="dark"] .dashboard-sync { color: var(--dm-text2); }
+        [data-theme="dark"] .dashboard-sync i { color: var(--dm-sage); }
+        [data-theme="dark"] .stat-card.is-attention { background: linear-gradient(145deg, #302d22, #332d1d) !important; border-color: #66532b !important; border-top-color: #e2a12d !important; }
+        [data-theme="dark"] .stat-card.is-attention h2,
+        [data-theme="dark"] .stat-card.is-attention .stat-card-note { color: #f4d58c; }
+        [data-theme="dark"] .stat-card.is-clear { background: linear-gradient(145deg, #242d26, #253329) !important; border-color: #38563e !important; border-top-color: #70b27a !important; }
+        [data-theme="dark"] .stat-card.is-clear h2,
+        [data-theme="dark"] .stat-card.is-clear .stat-card-note { color: #a7d8ae; }
+        [data-theme="dark"] .pending { background: #51411f; color: #f4d58c; }
+        [data-theme="dark"] .approved { background: #24412d; color: #a7d8ae; }
+        [data-theme="dark"] .rejected,
+        [data-theme="dark"] .declined { background: #512b2a; color: #f3aaaa; }
+        [data-theme="dark"] .btn-approve { background: #5f9b63; color: #fff !important; }
+        [data-theme="dark"] .btn-reject { background: #bf514c; color: #fff !important; }
         [data-theme="dark"] .metric-progress-heading h5,
         [data-theme="dark"] .metric-counts,
         [data-theme="dark"] .metric-count-item strong,
@@ -630,6 +650,7 @@ if (check_table_exists($conn, 'schedules')) {
             .page-header { align-items: flex-start; }
             .page-header-tools { gap: 8px; }
             .dashboard-date { display: none; }
+            .dashboard-sync { font-size: .66rem; }
             .analytics-grid { grid-template-columns: minmax(0, 1fr); }
             .dashboard-grid { gap: 18px; }
             .table-container, .analytics-section { padding: 17px; }
@@ -724,6 +745,7 @@ if (check_table_exists($conn, 'schedules')) {
         </details>
         <a class="quick-action" href="vaccine_inventory.php"><i class="fa-solid fa-syringe" aria-hidden="true"></i> Vaccine inventory</a>
         <a class="quick-action" href="schedule_management.php"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Manage schedules</a>
+        <span class="dashboard-sync" role="status" aria-live="polite"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Updated <time id="dashboardLastUpdated" datetime="<?php echo date(DATE_ATOM); ?>"><?php echo date('g:i:s A'); ?></time></span>
     </nav>
 
     <div class="stats-grid" aria-label="Health center summary">
@@ -742,10 +764,10 @@ if (check_table_exists($conn, 'schedules')) {
             <h2 id="statMaternal"><?php echo $total_pregnant; ?></h2>
             <span class="stat-card-note">Maternal health records</span>
         </article>
-        <article class="stat-card is-attention">
+        <article class="stat-card <?php echo (int) $total_pending > 0 ? 'is-attention' : 'is-clear'; ?>" id="pendingApprovalCard">
             <div class="stat-card-head"><h4>FOR APPROVAL</h4><span class="stat-card-icon"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span></div>
             <h2 id="statPending"><?php echo $total_pending; ?></h2>
-            <span class="stat-card-note">Pending registrations and staff</span>
+            <span class="stat-card-note" id="pendingApprovalNote"><?php echo (int) $total_pending > 0 ? htmlspecialchars($total_pending . ' ' . ((int) $total_pending === 1 ? 'item needs' : 'items need') . ' review', ENT_QUOTES, 'UTF-8') : 'All caught up — no pending approvals'; ?></span>
         </article>
         <article class="stat-card">
             <div class="stat-card-head"><h4>HEALTH WORKERS</h4><span class="stat-card-icon"><i class="fa-solid fa-user-nurse" aria-hidden="true"></i></span></div>
@@ -1010,6 +1032,18 @@ if (check_table_exists($conn, 'schedules')) {
                 document.getElementById('statMaternal').innerText = data.total_pregnant;
                 document.getElementById('statPending').innerText = data.total_pending;
                 document.getElementById('statWorkers').innerText = data.total_workers;
+                const pendingCount = Math.max(0, Number(data.total_pending) || 0);
+                const pendingCard = document.getElementById('pendingApprovalCard');
+                pendingCard.classList.toggle('is-attention', pendingCount > 0);
+                pendingCard.classList.toggle('is-clear', pendingCount === 0);
+                document.getElementById('pendingApprovalNote').innerText = pendingCount > 0
+                    ? pendingCount + (pendingCount === 1 ? ' item needs review' : ' items need review')
+                    : 'All caught up — no pending approvals';
+
+                const updatedAt = new Date();
+                const lastUpdated = document.getElementById('dashboardLastUpdated');
+                lastUpdated.dateTime = updatedAt.toISOString();
+                lastUpdated.innerText = updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
                 // Keep registration progress and counts synchronized with the live summary.
                         const updateRegistrationMetric = (prefix, approved, pending, rejected, total, label) => {
@@ -1018,8 +1052,6 @@ if (check_table_exists($conn, 'schedules')) {
                             const percentages = counts.map(count => registrationTotal > 0 ? Math.round((count / registrationTotal) * 100) : 0);
                             const barIds = ['ApprovedBar', 'PendingBar', 'RejectedBar'];
                             const statusIds = ['Approved', 'Pending', 'Rejected'];
-                            const statusNames = ['approved', 'pending', 'rejected'];
-
                             document.getElementById(prefix + 'Percent').innerText = percentages[0] + '%';
                             document.getElementById(prefix + 'Total').innerText = registrationTotal + ' total registrations';
                             document.getElementById(prefix + 'Empty').hidden = registrationTotal > 0;

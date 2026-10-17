@@ -32,6 +32,16 @@ $result = mysqli_query($conn, $query);
 if (!$result) {
     die("SQL Error: " . mysqli_error($conn));
 }
+
+$personnel = [];
+$onlineStaffCount = 0;
+while ($row = mysqli_fetch_assoc($result)) {
+    $personnel[] = $row;
+    if ($row['current_status'] === 'Online') {
+        $onlineStaffCount++;
+    }
+}
+$totalStaffCount = count($personnel);
 ?>
 
 <!DOCTYPE html>
@@ -40,6 +50,7 @@ if (!$result) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personnel Directory | Alawihao Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
             --sage: #8DAE74; 
@@ -51,28 +62,59 @@ if (!$result) {
             --bg-light: #F9F9F4;
             --white: #FFFFFF;
             --error: #E53E3E;
+            --border: #E4EADF;
+            --green-soft: #EAF5EC;
+            --green-text: #287044;
+            --amber-soft: #FFF5DE;
+            --amber-text: #94620D;
         }
 
         body { font-family: 'Inter', sans-serif; background: var(--bg-light); display: flex; margin:0; color: var(--text-main); }
         
-        .main-content { flex-grow: 1; padding: 40px; width: 100%; box-sizing: border-box; }
+        .main-content { flex-grow: 1; min-width: 0; padding: 40px; width: 100%; box-sizing: border-box; }
         
         /* Table Card Styling */
-        .table-card { background: var(--white); padding: 30px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .btn-add { background: var(--sage); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 600; transition: 0.2s; }
+        .table-card { background: var(--white); padding: 30px; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; }
+        .card-header h2 { font-size: 1.2rem; }
+        .btn-add { display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: var(--sage); color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 600; transition: 0.2s; white-space: nowrap; }
         .btn-add:hover { background: var(--dark-sage); }
+        .directory-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 190px)); gap: 12px; margin-bottom: 20px; }
+        .summary-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: #fbfcf9; }
+        .summary-icon { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 10px; background: #edf3e8; color: var(--dark-sage); }
+        .summary-card.is-online .summary-icon { background: var(--green-soft); color: var(--green-text); }
+        .summary-label { display: block; color: var(--text-muted); font-size: .7rem; font-weight: 650; }
+        .summary-value { display: block; margin-top: 2px; color: var(--text-main); font-size: 1.25rem; line-height: 1.1; font-weight: 750; }
+
+        .directory-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 190px) minmax(150px, 190px); gap: 12px; margin-bottom: 16px; }
+        .directory-search { position: relative; }
+        .directory-search i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: .85rem; pointer-events: none; }
+        .directory-search input, .directory-toolbar select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #DCE4D8; border-radius: 8px; background: #fff; color: var(--text-main); font: inherit; font-size: .82rem; box-sizing: border-box; }
+        .directory-search input { padding-left: 36px; }
+        .directory-search input:focus, .directory-toolbar select:focus { outline: 3px solid rgba(141, 174, 116, .2); border-color: var(--sage); }
+        .directory-result-count { margin: 0 0 10px; color: var(--text-muted); font-size: .75rem; }
+        .directory-table-wrap { width: 100%; overflow-x: auto; border: 1px solid #E8EDE5; border-radius: 10px; }
 
         /* Table Aesthetics */
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; background: var(--dark-sage); color: white; padding: 15px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        td { padding: 15px; border-bottom: 1px solid #F1F5ED; font-size: 0.85rem; vertical-align: middle; }
-        .id-badge { background: #F1F5ED; color: var(--dark-sage); padding: 4px 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; border: 1px solid #DCE6D5; }
+        table { width: 100%; min-width: 700px; border-collapse: collapse; }
+        th { text-align: left; background: var(--dark-sage); color: white; padding: 13px 15px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 16px 15px; border-bottom: 1px solid #F1F5ED; font-size: 0.84rem; vertical-align: middle; }
+        tbody tr:last-child td { border-bottom: 0; }
+        tbody tr { transition: background .15s ease; }
+        tbody tr:hover { background: #f8faf6; }
+        .worker-name { color: var(--text-main); font-weight: 700; }
+        .worker-email { display: inline-block; margin-top: 4px; color: var(--text-muted); font-size: .76rem; }
+        .id-badge { display: inline-block; background: #F1F5ED; color: var(--dark-sage); padding: 5px 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: .76rem; font-weight: bold; border: 1px solid #DCE6D5; white-space: nowrap; }
+        .role-badge { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 6px; background: #EDF2F7; color: #4A5568; font-size: .68rem; font-weight: 750; letter-spacing: .02em; }
         
         /* Status Indicators */
-        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .online-dot { background-color: #48BB78; }
+        .worker-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 99px; font-size: .73rem; font-weight: 700; }
+        .worker-status.online { background: var(--green-soft); color: var(--green-text); }
+        .worker-status.offline { background: #F1F3F5; color: #687384; }
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; }
+        .online-dot { background-color: #36A269; box-shadow: 0 0 0 3px rgba(54, 162, 105, .13); }
         .offline-dot { background-color: var(--offline); }
+        .empty-row { padding: 28px; color: var(--text-muted); text-align: center; }
 
         /* Action Buttons */
         .btn-view { color: var(--dark-sage); font-weight: 600; cursor: pointer; background: none; border: none; font-size: 0.8rem; margin-right: 15px; padding: 0; }
@@ -131,6 +173,38 @@ if (!$result) {
             background: var(--dm-surface2) !important;
             border-color: var(--dm-border) !important;
         }
+        [data-theme="dark"] .summary-card { background: var(--dm-surface2) !important; border-color: var(--dm-border) !important; }
+        [data-theme="dark"] .summary-label,
+        [data-theme="dark"] .worker-email,
+        [data-theme="dark"] .directory-result-count { color: var(--dm-text2) !important; }
+        [data-theme="dark"] .summary-value,
+        [data-theme="dark"] .worker-name { color: var(--dm-text) !important; }
+        [data-theme="dark"] .directory-search input,
+        [data-theme="dark"] .directory-toolbar select { background: var(--dm-surface2) !important; border-color: var(--dm-border) !important; color: var(--dm-text) !important; }
+        [data-theme="dark"] .directory-search i { color: var(--dm-text2); }
+        [data-theme="dark"] .directory-table-wrap { border-color: var(--dm-border); }
+        [data-theme="dark"] tbody tr:hover { background: var(--dm-surface2); }
+        [data-theme="dark"] td { border-color: var(--dm-border); }
+        [data-theme="dark"] .role-badge { background: #343b35 !important; color: var(--dm-text) !important; }
+        [data-theme="dark"] .worker-status.online { background: #24412d !important; color: #a7d8ae !important; }
+        [data-theme="dark"] .worker-status.offline { background: #343b35 !important; color: var(--dm-text2) !important; }
+        [data-theme="dark"] .empty-row { color: var(--dm-text2); }
+
+        @media (max-width: 760px) {
+            .main-content { padding: 78px 20px 24px; }
+            .table-card { padding: 22px; }
+        }
+        @media (max-width: 560px) {
+            .main-content { padding: 78px 14px 20px; }
+            .table-card { padding: 17px; border-radius: 14px; }
+            .card-header { align-items: flex-start; flex-direction: column; }
+            .btn-add { width: 100%; box-sizing: border-box; }
+            .directory-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .summary-card { gap: 8px; padding: 11px; }
+            .summary-icon { flex-basis: 32px; width: 32px; height: 32px; }
+            .summary-label { font-size: .65rem; }
+            .directory-toolbar { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+        }
     </style>
 </head>
 <body>
@@ -147,11 +221,41 @@ if (!$result) {
                      dahil doon ie-evaluate ni register_worker.php ang value na ito.
                      Destination: admin/super_admin_dashboard.php diretso sa "Pending Staff
                      Worker Accounts" pad (id="pendingWorkersPad") para doon i-verify/approve. -->
-                <a href="../register_worker.php?redirect=admin/super_admin_dashboard.php%23pendingWorkersPad" class="btn-add">+ Register Worker</a>
+                <a href="../register_worker.php?redirect=admin/super_admin_dashboard.php%23pendingWorkersPad" class="btn-add"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Register Worker</a>
             <?php endif; ?>
         </div>
 
-        <table>
+        <section class="directory-summary" aria-label="Personnel summary">
+            <article class="summary-card">
+                <span class="summary-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+                <span><span class="summary-label">Total staff</span><strong class="summary-value"><?php echo $totalStaffCount; ?></strong></span>
+            </article>
+            <article class="summary-card is-online">
+                <span class="summary-icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
+                <span><span class="summary-label">Online now</span><strong class="summary-value"><?php echo $onlineStaffCount; ?></strong></span>
+            </article>
+        </section>
+
+        <div class="directory-toolbar" role="search">
+            <label class="directory-search">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" id="personnelSearch" placeholder="Search name, email, or system ID" aria-label="Search personnel">
+            </label>
+            <select id="personnelRoleFilter" aria-label="Filter by role">
+                <option value="">All roles</option>
+                <option value="admin">Admin</option>
+                <option value="super admin">Super Admin</option>
+            </select>
+            <select id="personnelStatusFilter" aria-label="Filter by live status">
+                <option value="">All statuses</option>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+            </select>
+        </div>
+        <p class="directory-result-count" id="directoryResultCount" aria-live="polite"><?php echo $totalStaffCount; ?> personnel</p>
+
+        <div class="directory-table-wrap">
+        <table id="personnelTable">
             <thead>
                 <tr>
                     <th>System ID</th>
@@ -162,21 +266,32 @@ if (!$result) {
                 </tr>
             </thead>
             <tbody>
-                <?php while($row = mysqli_fetch_assoc($result)): ?>
-                <tr>
+                <?php foreach ($personnel as $row):
+                    $searchText = strtolower(implode(' ', [
+                        $row['generated_id'] ?? '',
+                        $row['first_name'] ?? '',
+                        $row['last_name'] ?? '',
+                        $row['email'] ?? '',
+                        $row['role_type'] ?? ''
+                    ]));
+                    $roleFilter = strtolower(trim($row['role_type'] ?? ''));
+                    $statusFilter = strtolower($row['current_status'] ?? '');
+                ?>
+                <tr data-search="<?php echo htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-role="<?php echo htmlspecialchars($roleFilter, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-status="<?php echo htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8'); ?>">
                     <td><span class="id-badge"><?php echo htmlspecialchars($row['generated_id'] ?? 'N/A'); ?></span></td>
                     <td>
-                        <strong><?php echo htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></strong><br>
-                        <small style="color: var(--text-muted);"><?php echo htmlspecialchars($row['email']); ?></small>
+                        <span class="worker-name"><?php echo htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></span><br>
+                        <small class="worker-email"><?php echo htmlspecialchars($row['email']); ?></small>
                     </td>
                     <td>
-                        <span style="background:#EDF2F7; padding:4px 8px; border-radius:5px; font-size:0.7rem; font-weight:600;">
-                        <?php echo strtoupper($row['role_type']); ?></span>
+                        <span class="role-badge"><?php echo htmlspecialchars(strtoupper($row['role_type'])); ?></span>
                     </td>
                     <td>
-                        <span class="status-dot <?php echo ($row['current_status'] === 'Online') ? 'online-dot' : 'offline-dot'; ?>"></span>
-                        <span style="font-weight:bold; font-size:0.75rem; color:<?php echo ($row['current_status'] === 'Online') ? '#2F855A' : '#718096'; ?>;">
-                            <?php echo $row['current_status']; ?>
+                        <span class="worker-status <?php echo ($row['current_status'] === 'Online') ? 'online' : 'offline'; ?>">
+                            <span class="status-dot <?php echo ($row['current_status'] === 'Online') ? 'online-dot' : 'offline-dot'; ?>"></span>
+                            <?php echo htmlspecialchars($row['current_status']); ?>
                         </span>
                     </td>
                     <td style="text-align:center;">
@@ -194,9 +309,11 @@ if (!$result) {
                         <button class="btn-delete" onclick="confirmDelete('<?php echo $row['uid']; ?>', '<?php echo $row['role_type']; ?>', '<?php echo addslashes($row['first_name']); ?>')">Delete</button>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
+                <tr id="directoryEmptyRow" hidden><td colspan="5" class="empty-row">No personnel match these filters.</td></tr>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 
@@ -338,6 +455,41 @@ if (!$result) {
             event.target.style.display = 'none';
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('personnelSearch');
+        const roleFilter = document.getElementById('personnelRoleFilter');
+        const statusFilter = document.getElementById('personnelStatusFilter');
+        const resultCount = document.getElementById('directoryResultCount');
+        const emptyRow = document.getElementById('directoryEmptyRow');
+        const rows = Array.from(document.querySelectorAll('#personnelTable tbody tr[data-search]'));
+
+        function filterPersonnel() {
+            const searchTerm = searchInput.value.trim().toLowerCase();
+            const selectedRole = roleFilter.value;
+            const selectedStatus = statusFilter.value;
+            let visibleCount = 0;
+
+            rows.forEach(function(row) {
+                const matches = row.dataset.search.includes(searchTerm)
+                    && (!selectedRole || row.dataset.role === selectedRole)
+                    && (!selectedStatus || row.dataset.status === selectedStatus);
+                row.hidden = !matches;
+                if (matches) visibleCount++;
+            });
+
+            emptyRow.hidden = visibleCount > 0;
+            emptyRow.querySelector('td').textContent = rows.length === 0
+                ? 'No staff accounts found.'
+                : 'No personnel match these filters.';
+            resultCount.textContent = 'Showing ' + visibleCount + ' of ' + rows.length + ' personnel';
+        }
+
+        searchInput.addEventListener('input', filterPersonnel);
+        roleFilter.addEventListener('change', filterPersonnel);
+        statusFilter.addEventListener('change', filterPersonnel);
+        filterPersonnel();
+    });
 </script>
 
 </body>

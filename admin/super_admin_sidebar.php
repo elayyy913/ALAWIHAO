@@ -243,7 +243,6 @@ $base_url = "/FINAL_CAPSTONE/admin/";
             Maternal Management <span class="chevron">▼</span>
         </button>
         <div class="dropdown-container" id="maternalDrop">
-            <a href="<?php echo $base_url; ?>admin_maternal_reg.php" id="link-maternal-reg">Registration Form</a>
             <a href="<?php echo $base_url; ?>admin_maternal_hr.php" id="id-maternal-health">Maternal Health Record</a>
         </div>
 
@@ -251,7 +250,6 @@ $base_url = "/FINAL_CAPSTONE/admin/";
             Child Management <span class="chevron">▼</span>
         </button>
         <div class="dropdown-container" id="childDrop">
-            <a href="<?php echo $base_url; ?>admin_child_reg.php" id="link-child-reg">Registration Form</a>
             <a href="<?php echo $base_url; ?>admin_child_hr.php" id="id-child-health">Child Health Record</a>
         </div>
 
@@ -335,9 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'vaccine_inventory.php': 'link-vaccines',
         'admin_maternal_rec.php': 'link-maternal-rec',
         'admin_child_rec.php': 'link-child-rec',
-        'admin_maternal_reg.php': 'link-maternal-reg',
         'admin_maternal_hr.php': 'id-maternal-health',
-        'admin_child_reg.php': 'link-child-reg',
         'admin_child_hr.php': 'id-child-health',
         'admin_sched_maternal.php': 'link-sched-maternal',
         'admin_sched_child.php': 'link-sched-child',
