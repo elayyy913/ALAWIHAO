@@ -204,6 +204,19 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
 </style>
 
 <script>
+    function syncSidebarToggleSpacing() {
+        var ham = document.getElementById("hamBtn");
+        var mainEl = document.getElementById("main") || document.getElementById("main-wrapper") || document.querySelector(".main-content");
+        if (!ham || !mainEl) return;
+
+        var toggleIsVisible = window.getComputedStyle(ham).visibility !== "hidden" && window.getComputedStyle(ham).display !== "none";
+        if (toggleIsVisible) {
+            mainEl.style.setProperty("padding-top", "78px", "important");
+        } else {
+            mainEl.style.removeProperty("padding-top");
+        }
+    }
+
     function openNav() {
         document.getElementById("mySidenav").style.setProperty("width", "280px", "important");
         var mainEl = document.getElementById("main") || document.getElementById("main-wrapper") || document.querySelector(".main-content");
@@ -215,6 +228,7 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         }
         var ham = document.getElementById("hamBtn");
         if(ham) ham.style.visibility = "hidden";
+        syncSidebarToggleSpacing();
     }
 
     function closeNav() {
@@ -228,6 +242,7 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
         }
         var ham = document.getElementById("hamBtn");
         if(ham) ham.style.visibility = "visible";
+        syncSidebarToggleSpacing();
     }
 
     function toggleDrop(id) {
@@ -240,4 +255,7 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
             caret.classList.toggle('rotate');
         }
     }
+
+    document.addEventListener("DOMContentLoaded", syncSidebarToggleSpacing);
+    window.addEventListener("resize", syncSidebarToggleSpacing);
 </script>

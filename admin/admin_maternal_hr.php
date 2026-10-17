@@ -142,7 +142,7 @@ if (!$recordNotice && isset($_GET['success'])) {
 
         .page-header {
             display: flex; 
-            justify-content: space-between; 
+            justify-content: space-between;
             align-items: center; 
             min-width: 0;
             margin-bottom: 30px;
@@ -261,7 +261,7 @@ if (!$recordNotice && isset($_GET['success'])) {
         .trimester-section.active-section { display: block; }
 
         @media (max-width: 520px) {
-            .page-header { margin: 52px 0 16px; }
+            .page-header { margin: 0 0 16px; }
             .page-header h2 { font-size: 1.05rem; line-height: 1.4; }
             .trimester-tabs { gap: 6px; }
             .tri-btn { padding: 9px 5px; font-size: 0.72rem; }
@@ -278,7 +278,7 @@ if (!$recordNotice && isset($_GET['success'])) {
         @media (max-width: 900px) {
             #main-wrapper {
                 width: 100% !important;
-                margin-left: 0;
+                margin-left: 0 !important;
             }
             .sidebar {
                 transform: translateX(-100%);

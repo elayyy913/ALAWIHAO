@@ -274,6 +274,7 @@ function hideSidebar() {
     if(sidebar) sidebar.classList.add('is-hidden');
     if(hamBtn) hamBtn.style.display = 'block';
     if(main) main.style.marginLeft = "0";
+    syncSidebarToggleSpacing();
     if(footer) {
         footer.style.marginLeft = "0";
         footer.style.width = "100%";
@@ -289,9 +290,24 @@ function showSidebar() {
     if(sidebar) sidebar.classList.remove('is-hidden');
     if(hamBtn) hamBtn.style.display = 'none';
     if(main) main.style.marginLeft = "280px";
+    syncSidebarToggleSpacing();
     if(footer) {
         footer.style.marginLeft = "280px";
         footer.style.width = "calc(100% - 280px)";
+    }
+}
+
+function syncSidebarToggleSpacing() {
+    const hamBtn = document.getElementById('hamBtn');
+    const main = document.getElementById('main') || document.querySelector('.main-content');
+    if (!hamBtn || !main) return;
+
+    const toggleIsVisible = window.getComputedStyle(hamBtn).display !== 'none'
+        && window.getComputedStyle(hamBtn).visibility !== 'hidden';
+    if (toggleIsVisible) {
+        main.style.setProperty('padding-top', '78px', 'important');
+    } else {
+        main.style.removeProperty('padding-top');
     }
 }
 
@@ -307,6 +323,7 @@ function toggleDropdown(id, btn) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    syncSidebarToggleSpacing();
     const currentPath = window.location.pathname.split("/").pop();
     const links = {
         'super_admin_dashboard.php': 'link-overview',
@@ -341,6 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+window.addEventListener('resize', syncSidebarToggleSpacing);
 </script>
 </body>
 </html>
