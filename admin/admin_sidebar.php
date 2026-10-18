@@ -8,6 +8,13 @@ $is_rec_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_chil
 
 <script src="../theme.js"></script>
 <link rel="stylesheet" href="../theme.css">
+<script>
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+</script>
 
 <div id="mySidenav" class="side-nav-new">
     <span class="closebtn-new" onclick="closeNav()">&times;</span>
