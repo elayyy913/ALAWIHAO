@@ -52,10 +52,10 @@ if (isset($_POST['action_type']) && isset($_POST['sched_id'])) {
 }
 
 // 4. METRICS / COUNTS
-$total_maternal_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $mat_reg_table");
+$total_maternal_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $mat_reg_table WHERE status='Approved'");
 $total_maternal = $total_maternal_q ? mysqli_fetch_assoc($total_maternal_q)['count'] : 0;
 
-$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $inf_reg_table");
+$total_infant_q = mysqli_query($conn, "SELECT COUNT(*) as count FROM $inf_reg_table WHERE status='Approved'");
 $total_infant = $total_infant_q ? mysqli_fetch_assoc($total_infant_q)['count'] : 0;
 
 $total_patients = $total_maternal + $total_infant;
@@ -121,6 +121,35 @@ if (check_table_exists($conn, 'schedules')) {
         }
     }
 }
+
+$upcoming_schedule = [];
+foreach ($upcoming_maternal as $schedule) {
+    $upcoming_schedule[] = [
+        'id' => $schedule['id'],
+        'schedule_date' => $schedule['schedule_date'],
+        'schedule_time' => $schedule['schedule_time'],
+        'patient_name' => $schedule['full_name'],
+        'service' => $schedule['appointment_type'],
+        'status' => $schedule['status'],
+        'category' => 'Maternal',
+    ];
+}
+foreach ($upcoming_infant as $schedule) {
+    $upcoming_schedule[] = [
+        'id' => $schedule['id'],
+        'schedule_date' => $schedule['schedule_date'],
+        'schedule_time' => $schedule['schedule_time'],
+        'patient_name' => $schedule['child_name'],
+        'service' => $schedule['vaccine_type'],
+        'status' => $schedule['status'],
+        'category' => 'Child',
+    ];
+}
+usort($upcoming_schedule, function ($first, $second) {
+    $first_datetime = strtotime($first['schedule_date'] . ' ' . $first['schedule_time']);
+    $second_datetime = strtotime($second['schedule_date'] . ' ' . $second['schedule_time']);
+    return $first_datetime <=> $second_datetime;
+});
 ?>
 
 <!DOCTYPE html>
@@ -159,10 +188,128 @@ if (check_table_exists($conn, 'schedules')) {
         }
 
         .welcome-title {
-            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 26px;
+            padding: 22px 26px;
+            border: 1px solid #e3eadb;
+            border-radius: 14px;
+            background: linear-gradient(120deg, #ffffff 0%, #f2f7ed 100%);
+            box-shadow: 0 4px 16px rgba(54, 78, 45, 0.06);
+        }
+
+        .welcome-heading {
+            color: #344b2c;
+            font-size: 1.55rem;
+            font-weight: 750;
+            line-height: 1.3;
+        }
+
+        .welcome-subtitle {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 400;
+            margin-top: 5px;
+        }
+
+        .welcome-date {
+            color: var(--dark-sage);
+            font-size: 0.88rem;
             font-weight: 700;
-            color: #475569;
-            margin-bottom: 24px;
+            white-space: nowrap;
+        }
+
+        .quick-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: -8px 0 24px;
+        }
+
+        .quick-actions-label {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            margin-right: 2px;
+            text-transform: uppercase;
+        }
+
+        .quick-action,
+        .register-action summary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 15px;
+            border: 1px solid var(--dark-sage);
+            border-radius: 9px;
+            background: var(--dark-sage);
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.2s ease;
+            list-style: none;
+        }
+
+        .quick-action:hover,
+        .register-action summary:hover {
+            background: #587548;
+            transform: translateY(-1px);
+        }
+
+        .quick-action:focus-visible,
+        .register-action summary:focus-visible,
+        .register-menu a:focus-visible {
+            outline: 3px solid rgba(107, 142, 85, 0.35);
+            outline-offset: 3px;
+        }
+
+        .register-action { position: relative; }
+        .register-action summary::-webkit-details-marker { display: none; }
+        .register-action summary::after {
+            content: "\f078";
+            font-family: "Font Awesome 6 Free";
+            font-size: 0.68rem;
+            font-weight: 900;
+            margin-left: 3px;
+        }
+
+        .register-menu {
+            position: absolute;
+            top: calc(100% + 7px);
+            left: 0;
+            z-index: 1200;
+            min-width: 205px;
+            padding: 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--card-bg);
+            box-shadow: 0 10px 24px rgba(30, 41, 59, 0.14);
+        }
+
+        .register-menu a {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 10px 11px;
+            border-radius: 7px;
+            color: var(--text-main);
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .register-menu a:hover {
+            background: #f2f7ed;
+            color: var(--dark-sage);
         }
 
         .metrics-grid {
@@ -184,6 +331,16 @@ if (check_table_exists($conn, 'schedules')) {
             flex-direction: column;
             justify-content: center;
             transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        a.metric-card {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        a.metric-card:focus-visible {
+            outline: 3px solid rgba(107, 142, 85, 0.4);
+            outline-offset: 3px;
         }
 
         @media (hover: hover) {
@@ -242,6 +399,16 @@ if (check_table_exists($conn, 'schedules')) {
             margin-right: 10px;
             border-radius: 2px;
         }
+
+        .card-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card-header-row .card-header-title { margin-bottom: 0; }
 
         table { 
             width: 100%; 
@@ -315,6 +482,50 @@ if (check_table_exists($conn, 'schedules')) {
         .sched-item.child-sched {
             border-left-color: #EF4444;
         }
+
+        .schedule-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .schedule-heading .card-header-title { margin: 0; }
+
+        .schedule-count {
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: #eef4ea;
+            color: var(--dark-sage);
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .schedule-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .schedule-category {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: #edf4e8;
+            color: #557643;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .schedule-category.child { background: #fff0ed; color: #b64e40; }
+        .schedule-date { color: var(--dark-sage); font-size: 0.8rem; font-weight: 750; }
+        .schedule-service { display: block; margin-top: 3px; }
 
         .sched-actions {
             margin-top: 8px;
@@ -440,6 +651,24 @@ if (check_table_exists($conn, 'schedules')) {
         .notif-item .notif-time { font-size: 0.72rem; color: #aaa; margin-top: 4px; }
         .notif-empty { text-align: center; padding: 30px 16px; color: #aaa; font-size: 0.85rem; }
         .notif-empty i { font-size: 1.8rem; margin-bottom: 8px; display: block; }
+
+        @media (max-width: 1050px) {
+            #main { padding: 24px; }
+            .grid-container { grid-template-columns: 1fr; gap: 0; }
+        }
+
+        @media (max-width: 640px) {
+            #main { padding: 16px; }
+            .welcome-title { align-items: flex-start; padding: 18px; }
+            .welcome-heading { font-size: 1.25rem; }
+            .welcome-date { display: none; }
+            .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .metric-card { min-height: 96px; padding: 15px; }
+            .metric-value { font-size: 1.45rem; }
+            .card { padding: 16px; overflow-x: auto; }
+            .schedule-meta { align-items: flex-start; flex-direction: column; }
+            .sched-actions { flex-wrap: wrap; }
+        }
     </style>
     <script src="../theme.js"></script>
     <link rel="stylesheet" href="../theme.css">
@@ -481,6 +710,21 @@ if (check_table_exists($conn, 'schedules')) {
         [data-theme="dark"] #main .notif-time,
         [data-theme="dark"] #main .notif-empty,
         [data-theme="dark"] #main .notif-mark-all { color: var(--dm-text2) !important; }
+
+        [data-theme="dark"] #main .welcome-title {
+            background: linear-gradient(120deg, var(--dm-surface) 0%, var(--dm-surface2) 100%);
+            border-color: var(--dm-border);
+        }
+        [data-theme="dark"] #main .welcome-heading { color: var(--dm-text); }
+        [data-theme="dark"] #main .welcome-date { color: var(--dm-sage); }
+        [data-theme="dark"] #main .schedule-count {
+            background: var(--dm-surface2);
+            color: var(--dm-sage);
+        }
+        [data-theme="dark"] #main .register-menu a:hover {
+            background: var(--dm-surface2);
+            color: var(--dm-sage);
+        }
     </style>
 </head>
 <body>
@@ -488,10 +732,42 @@ if (check_table_exists($conn, 'schedules')) {
     <?php include('admin_sidebar.php'); ?>
 
     <div id="main">
-        <div class="welcome-title" style="display:flex; align-items:center; justify-content:space-between;">
-            Welcome, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?>
+        <div class="welcome-title">
+            <div>
+                <div class="welcome-heading">Welcome, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?></div>
+                <div class="welcome-subtitle">Here is your health center overview for today.</div>
+            </div>
+            <div class="welcome-date"><?php echo date('l, F j, Y'); ?></div>
             <?php include '../notif_bell.php'; ?>
         </div>
+
+        <nav class="quick-actions" aria-label="Quick actions">
+            <span class="quick-actions-label">Quick actions</span>
+            <a class="quick-action" href="#pending-approvals">
+                <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
+                Review approvals
+            </a>
+            <details class="register-action">
+                <summary>
+                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+                    Register
+                </summary>
+                <div class="register-menu">
+                    <a href="admin_maternal_reg.php">
+                        <i class="fa-solid fa-person-pregnant" aria-hidden="true"></i>
+                        Maternal registration
+                    </a>
+                    <a href="admin_child_reg.php">
+                        <i class="fa-solid fa-baby" aria-hidden="true"></i>
+                        Child registration
+                    </a>
+                </div>
+            </details>
+            <a class="quick-action" href="schedule_management.php">
+                <i class="fa-regular fa-calendar-check" aria-hidden="true"></i>
+                Manage schedules
+            </a>
+        </nav>
         
         <?php if (!empty($message)): ?>
             <div class="success-alert"><?php echo $message; ?></div>
@@ -504,35 +780,37 @@ if (check_table_exists($conn, 'schedules')) {
                 <div class="metric-value"><?php echo $total_patients; ?></div>
             </div>
             
-            <div class="metric-card">
+            <a class="metric-card" href="admin_maternal_hr.php">
                 <div class="metric-title">APPROVED MATERNAL</div>
                 <div class="metric-value"><?php echo $total_maternal; ?></div>
-            </div>
+            </a>
             
-            <div class="metric-card">
+            <a class="metric-card" href="admin_child_hr.php">
                 <div class="metric-title">APPROVED INFANTS</div>
                 <div class="metric-value"><?php echo $total_infant; ?></div>
-            </div>
+            </a>
             
-            <div class="metric-card" style="border-top-color: #D97706;">
+            <a class="metric-card" href="#pending-approvals" style="border-top-color: #D97706;">
                 <div class="metric-title">PENDING APPROVALS</div>
                 <div class="metric-value" style="color: #D97706;"><?php echo $pending_total; ?></div>
-            </div>
+            </a>
             
-            <!-- MERGED TODAY'S SCHEDULE CARD -->
-            <div class="metric-card" style="border-top-color: #3B82F6;">
+            <a class="metric-card" href="#today-appointments" style="border-top-color: #3B82F6;">
                 <div class="metric-title">TODAY'S SCHEDULES</div>
                 <div class="metric-value" style="color: #3B82F6;"><?php echo $today_maternal_count + $today_infant_count; ?></div>
-            </div>
+            </a>
         </div>
 
         <!-- MAIN CONTENT GRID -->
         <div class="grid-container">
             
-            <div class="left-column">
+            <div class="left-column" id="pending-approvals">
                 <!-- NEWBORN REGISTRATION TABLE -->
                 <div class="card">
-                    <div class="card-header-title">Pending Newborn Enrollments</div>
+                    <div class="card-header-row">
+                        <div class="card-header-title">Pending Newborn Enrollments</div>
+                        <span class="schedule-count"><?php echo $pending_infant_count; ?> pending</span>
+                    </div>
                     <table>
                         <tr><th>Baby Name</th><th>Mother</th><th>Action</th></tr>
                         <?php if($infant_pending && mysqli_num_rows($infant_pending) > 0): ?>
@@ -554,7 +832,10 @@ if (check_table_exists($conn, 'schedules')) {
 
                 <!-- MATERNAL REGISTRATION TABLE -->
                 <div class="card">
-                    <div class="card-header-title">Pending Maternal Enrollments</div>
+                    <div class="card-header-row">
+                        <div class="card-header-title">Pending Maternal Enrollments</div>
+                        <span class="schedule-count"><?php echo $pending_maternal_count; ?> pending</span>
+                    </div>
                     <table>
                         <tr><th>Patient Name</th><th>Action</th></tr>
                         <?php if($maternal_pending && mysqli_num_rows($maternal_pending) > 0): ?>
@@ -577,78 +858,58 @@ if (check_table_exists($conn, 'schedules')) {
             </div>
 
             <div class="right-column">
-                
-                <!-- UPCOMING MATERNAL CHECK-UPS -->
-                <div class="card">
-                    <div class="card-header-title">Upcoming Maternal Check-ups</div>
-                    <?php if(!empty($upcoming_maternal)): ?>
-                        <?php foreach($upcoming_maternal as $s): ?>
-                        <div class="sched-item">
-                            <strong style="color: #2563EB; font-size: 0.85rem;">
-                                <?php echo htmlspecialchars($s['schedule_date'] )?> 
-                                <?php if(!empty($s['appointment_time'])) echo ' (' . htmlspecialchars($s['appointment_time']) . ')'; ?>
+                <div class="card" id="today-appointments">
+                    <div class="schedule-heading">
+                        <div class="card-header-title">Upcoming Appointments</div>
+                        <span class="schedule-count"><?php echo count($upcoming_schedule); ?> scheduled</span>
+                    </div>
+                    <?php if (!empty($upcoming_schedule)): ?>
+                        <?php foreach ($upcoming_schedule as $s): ?>
+                        <?php $is_child_schedule = $s['category'] === 'Child'; ?>
+                        <div class="sched-item <?php echo $is_child_schedule ? 'child-sched' : ''; ?>">
+                            <div class="schedule-meta">
+                                <strong class="schedule-date">
+                                    <?php echo htmlspecialchars(date('M j, Y', strtotime($s['schedule_date']))); ?>
+                                    <?php if (!empty($s['schedule_time'])): ?>
+                                        · <?php echo htmlspecialchars(date('g:i A', strtotime($s['schedule_time']))); ?>
+                                    <?php endif; ?>
+                                </strong>
+                                <span class="schedule-category <?php echo $is_child_schedule ? 'child' : ''; ?>">
+                                    <?php echo $is_child_schedule ? 'Child' : 'Maternal'; ?>
+                                </span>
+                            </div>
+                            <span class="status-badge"><?php echo htmlspecialchars($s['status']); ?></span>
+                            <strong class="schedule-service" style="font-size:0.86rem; color:var(--text-main);">
+                                <?php echo htmlspecialchars($s['patient_name'] ?: ($is_child_schedule ? 'Child' : 'Patient')); ?>
                             </strong>
-                            <span class="status-badge"><?php echo htmlspecialchars($s['status']); ?></span><br>
-                            
-                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
-                                <?php echo htmlspecialchars($s['full_name']); ?>
-                            </span><br>
-                            
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">
-                                Type: <?php echo htmlspecialchars($s['appointment_type']); ?>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">
+                                <?php echo $is_child_schedule ? 'Vaccine' : 'Service'; ?>:
+                                <?php echo htmlspecialchars($s['service'] ?: ($is_child_schedule ? 'General Vaccine' : 'Check-up')); ?>
                             </span>
-                            
+
                             <form method="POST" action="../process_verification.php" class="sched-actions">
-                                <input type="hidden" name="schedule_id" value="<?php echo $s['id']; ?>">
+                                <input type="hidden" name="schedule_id" value="<?php echo (int) $s['id']; ?>">
                                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
-                                <button type="submit" name="mark_done_maternal" class="btn-done">Mark Done</button>
-                                <div class="resched-container" style="margin-top:0;">
-                                    <input type="date" name="new_date" class="resched-input" required>
-                                    <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
-                                </div>
+                                <?php if ($is_child_schedule): ?>
+                                    <button type="submit" name="mark_done_infant" class="btn-done">Mark Done</button>
+                                    <div class="resched-container" style="margin-top:0;">
+                                        <input type="date" name="new_date" class="resched-input" required>
+                                        <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
+                                    </div>
+                                <?php else: ?>
+                                    <button type="submit" name="mark_done_maternal" class="btn-done">Mark Done</button>
+                                    <div class="resched-container" style="margin-top:0;">
+                                        <input type="date" name="new_date" class="resched-input" required>
+                                        <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
+                                    </div>
+                                <?php endif; ?>
                             </form>
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <p class="no-data" style="margin: 0;">No upcoming maternal check-ups.</p>
+                        <p class="no-data" style="margin:0;">No upcoming appointments. New scheduled visits will appear here.</p>
                     <?php endif; ?>
                 </div>
-
-                <!-- UPCOMING CHILD VACCINATIONS -->
-                <div class="card">
-                    <div class="card-header-title" style="color: #DC2626;">Upcoming Child Vaccinations</div>
-                    <?php if(!empty($upcoming_infant)): ?>
-                        <?php foreach($upcoming_infant as $s): ?>
-                        <div class="sched-item child-sched">
-                            <strong style="color: #DC2626; font-size: 0.85rem;">
-                                <?php echo htmlspecialchars($s['schedule_date']); ?>
-                                <?php if(!empty($s['schedule_time'])) echo ' (' . htmlspecialchars($s['schedule_time']) . ')'; ?>
-                            </strong><br>
-
-                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
-                                <?php echo htmlspecialchars($s['child_name'] ?? 'Child'); ?>
-                            </span><br>
-
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">
-                                Vaccine: <?php echo htmlspecialchars($s['vaccine_type'] ?? 'General Vaccine'); ?>
-                            </span>
-                            
-                            <form method="POST" action="../process_verification.php" class="sched-actions">
-                                <input type="hidden" name="schedule_id" value="<?php echo $s['id']; ?>">
-                                <input type="hidden" name="redirect_to" value="admin_dashboard.php">
-                                <button type="submit" name="mark_done_infant" class="btn-done">Mark Done</button>
-                                <div class="resched-container" style="margin-top:0;">
-                                    <input type="date" name="new_date" class="resched-input" required>
-                                    <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
-                                </div>
-                            </form>
-                        </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="no-data" style="margin: 0;">No upcoming child vaccinations.</p>
-                    <?php endif; ?>
-                </div>
-
             </div>
         </div>
     </div>
