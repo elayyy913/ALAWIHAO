@@ -2,56 +2,135 @@
 session_start();
 include '../db_connect.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || !in_array($_SESSION['role'], ['Admin', 'Super Admin'], true)) {
     header("Location: login.php");
     exit();
 }
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // 1. DELETE LOGIC
-if (isset($_GET['delete_id'])) {
-    $id_to_delete = (int) $_GET['delete_id'];
-    $patient_result = mysqli_query($conn, "SELECT client_fname, client_lname FROM maternal_registration WHERE id = $id_to_delete LIMIT 1");
-    $patient = $patient_result ? mysqli_fetch_assoc($patient_result) : null;
-    mysqli_query($conn, "DELETE FROM maternal_records WHERE mother_id = '$id_to_delete'");
-    mysqli_query($conn, "DELETE FROM pregnancy_history WHERE patient_id = '$id_to_delete'");
-    if (mysqli_query($conn, "DELETE FROM maternal_registration WHERE id = $id_to_delete") && mysqli_affected_rows($conn) > 0) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+        http_response_code(403);
+        echo 'Invalid request.';
+        exit();
+    }
+
+    $id_to_delete = filter_input(INPUT_POST, 'delete_id', FILTER_VALIDATE_INT);
+    if ($id_to_delete === false || $id_to_delete <= 0) {
+        header("Location: admin_maternal_rec.php?msg=invalid");
+        exit();
+    }
+
+    $patient_stmt = mysqli_prepare($conn, "SELECT client_fname, client_lname FROM maternal_registration WHERE id = ? LIMIT 1");
+    if ($patient_stmt) {
+        mysqli_stmt_bind_param($patient_stmt, 'i', $id_to_delete);
+        mysqli_stmt_execute($patient_stmt);
+        $patient_result = mysqli_stmt_get_result($patient_stmt);
+        $patient = $patient_result ? mysqli_fetch_assoc($patient_result) : null;
+        mysqli_stmt_close($patient_stmt);
+    } else {
+        $patient = null;
+    }
+
+    mysqli_begin_transaction($conn);
+
+    try {
+        $delete_records_stmt = mysqli_prepare($conn, "DELETE FROM maternal_records WHERE mother_id = ?");
+        if ($delete_records_stmt) {
+            mysqli_stmt_bind_param($delete_records_stmt, 'i', $id_to_delete);
+            mysqli_stmt_execute($delete_records_stmt);
+            mysqli_stmt_close($delete_records_stmt);
+        }
+
+        $delete_history_stmt = mysqli_prepare($conn, "DELETE FROM pregnancy_history WHERE patient_id = ?");
+        if ($delete_history_stmt) {
+            mysqli_stmt_bind_param($delete_history_stmt, 'i', $id_to_delete);
+            mysqli_stmt_execute($delete_history_stmt);
+            mysqli_stmt_close($delete_history_stmt);
+        }
+
+        $delete_registration_stmt = mysqli_prepare($conn, "DELETE FROM maternal_registration WHERE id = ?");
+        if ($delete_registration_stmt) {
+            mysqli_stmt_bind_param($delete_registration_stmt, 'i', $id_to_delete);
+            mysqli_stmt_execute($delete_registration_stmt);
+            if (mysqli_affected_rows($conn) === 0) {
+                throw new Exception('No patient record deleted.');
+            }
+            mysqli_stmt_close($delete_registration_stmt);
+        }
+
+        mysqli_commit($conn);
+
         $patientName = trim(($patient['client_fname'] ?? '') . ' ' . ($patient['client_lname'] ?? ''));
         $subject = $patientName !== '' ? " ({$patientName})" : '';
         logAdminAction($conn, "Deleted maternal patient record ID: {$id_to_delete}{$subject}.");
         header("Location: admin_maternal_rec.php?msg=deleted");
         exit();
+    } catch (Throwable $e) {
+        mysqli_rollback($conn);
+        header("Location: admin_maternal_rec.php?msg=delete_failed");
+        exit();
     }
 }
 
 // 2. AJAX ENDPOINT FOR PATIENT FULL RECORD HISTORY & REGISTRATION INFO
-if (isset($_GET['fetch_patient_details'])) {
+if (isset($_POST['fetch_patient_details']) || isset($_GET['fetch_patient_details'])) {
     header('Content-Type: application/json');
 
-    $mother_id = mysqli_real_escape_string($conn, $_GET['fetch_patient_details']);
+    $mother_id_raw = $_POST['fetch_patient_details'] ?? $_GET['fetch_patient_details'] ?? null;
+    $mother_id = filter_var($mother_id_raw, FILTER_VALIDATE_INT);
 
-    $reg_q = mysqli_query($conn, "SELECT *, CONCAT(COALESCE(street,''), ', ', COALESCE(barangay,''), ', ', COALESCE(municipality,'')) AS full_address FROM maternal_registration WHERE id = '$mother_id' LIMIT 1");
-    $reg_data = mysqli_fetch_assoc($reg_q) ?: [];
-
-    $history_q = mysqli_query($conn, "SELECT * FROM pregnancy_history WHERE patient_id = '$mother_id' ORDER BY id DESC LIMIT 1");
-    $history_data = mysqli_fetch_assoc($history_q) ?: [];
-
-    $visits_q = mysqli_query($conn, "SELECT * FROM maternal_records WHERE mother_id = '$mother_id' ORDER BY checkup_date DESC");
-    $visits_data = [];
-    while ($v = mysqli_fetch_assoc($visits_q)) {
-        $ga = intval($v['gestational_age_weeks'] ?? 0);
-        if ($ga > 0) {
-            $v['current_aog'] = $ga . ' weeks';
-            $v['remaining_weeks'] = max(0, 40 - $ga);
-        } else {
-            $v['current_aog'] = 'N/A';
-            $v['remaining_weeks'] = 'N/A';
-        }
-        $visits_data[] = $v;
+    if ($mother_id === false || $mother_id <= 0) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid patient ID']);
+        exit();
     }
 
-    // Kunin ang pinakabagong check-up mula sa maternal_records para magsilbing backup o pangunahing paghugutan kung sakaling wala sa history table
-    $latest_visit_q = mysqli_query($conn, "SELECT * FROM maternal_records WHERE mother_id = '$mother_id' ORDER BY checkup_date DESC, id DESC LIMIT 1");
-    $latest_visit_data = mysqli_fetch_assoc($latest_visit_q) ?: [];
+    $reg_stmt = mysqli_prepare($conn, "SELECT *, CONCAT(COALESCE(street,''), ', ', COALESCE(barangay,''), ', ', COALESCE(municipality,'')) AS full_address FROM maternal_registration WHERE id = ? LIMIT 1");
+    mysqli_stmt_bind_param($reg_stmt, 'i', $mother_id);
+    mysqli_stmt_execute($reg_stmt);
+    $reg_result = mysqli_stmt_get_result($reg_stmt);
+    $reg_data = $reg_result ? mysqli_fetch_assoc($reg_result) : [];
+    mysqli_stmt_close($reg_stmt);
+
+    $history_stmt = mysqli_prepare($conn, "SELECT * FROM pregnancy_history WHERE patient_id = ? ORDER BY id DESC LIMIT 1");
+    mysqli_stmt_bind_param($history_stmt, 'i', $mother_id);
+    mysqli_stmt_execute($history_stmt);
+    $history_result = mysqli_stmt_get_result($history_stmt);
+    $history_data = $history_result ? mysqli_fetch_assoc($history_result) : [];
+    mysqli_stmt_close($history_stmt);
+
+    $visits_stmt = mysqli_prepare($conn, "SELECT * FROM maternal_records WHERE mother_id = ? ORDER BY checkup_date DESC");
+    mysqli_stmt_bind_param($visits_stmt, 'i', $mother_id);
+    mysqli_stmt_execute($visits_stmt);
+    $visits_result = mysqli_stmt_get_result($visits_stmt);
+
+    $visits_data = [];
+    if ($visits_result) {
+        while ($v = mysqli_fetch_assoc($visits_result)) {
+            $ga = intval($v['gestational_age_weeks'] ?? 0);
+            if ($ga > 0) {
+                $v['current_aog'] = $ga . ' weeks';
+                $v['remaining_weeks'] = max(0, 40 - $ga);
+            } else {
+                $v['current_aog'] = 'N/A';
+                $v['remaining_weeks'] = 'N/A';
+            }
+            $visits_data[] = $v;
+        }
+    }
+    mysqli_stmt_close($visits_stmt);
+
+    $latest_visit_stmt = mysqli_prepare($conn, "SELECT * FROM maternal_records WHERE mother_id = ? ORDER BY checkup_date DESC, id DESC LIMIT 1");
+    mysqli_stmt_bind_param($latest_visit_stmt, 'i', $mother_id);
+    mysqli_stmt_execute($latest_visit_stmt);
+    $latest_visit_result = mysqli_stmt_get_result($latest_visit_stmt);
+    $latest_visit_data = $latest_visit_result ? mysqli_fetch_assoc($latest_visit_result) : [];
+    mysqli_stmt_close($latest_visit_stmt);
 
     echo json_encode([
         'registration_info' => $reg_data,
@@ -63,8 +142,12 @@ if (isset($_GET['fetch_patient_details'])) {
 }
 
 // 3. FETCH PATIENTS MASTERLIST WITH SEARCH & TRIMESTER FILTER
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
-$trimester_filter = isset($_GET['trimester_filter']) ? mysqli_real_escape_string($conn, $_GET['trimester_filter']) : '';
+$search = isset($_GET['search']) ? trim((string) $_GET['search']) : '';
+$trimester_filter = isset($_GET['trimester_filter']) ? trim((string) $_GET['trimester_filter']) : '';
+if (!in_array($trimester_filter, ['1', '2', '3'], true)) {
+    $trimester_filter = '';
+}
+$search_pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
 
 $query = "SELECT u.*, 
          CONCAT(u.client_fname, ' ', COALESCE(u.client_mi,''), ' ', u.client_lname) AS full_name,
@@ -76,34 +159,60 @@ $query = "SELECT u.*,
              WHERE id IN (SELECT MAX(id) FROM maternal_records GROUP BY mother_id)
          ) r ON u.id = r.mother_id
          WHERE u.status = 'Approved' 
-         AND (u.client_fname LIKE '%$search%' OR u.client_lname LIKE '%$search%')";
+         AND (u.client_fname LIKE ? OR u.client_lname LIKE ?)";
 
-$query .= " ORDER BY u.created_at DESC";
+if ($trimester_filter === '1') {
+    $query .= " AND r.gestational_age_weeks BETWEEN 1 AND 13";
+} elseif ($trimester_filter === '2') {
+    $query .= " AND r.gestational_age_weeks BETWEEN 14 AND 27";
+} elseif ($trimester_filter === '3') {
+    $query .= " AND r.gestational_age_weeks >= 28";
+}
 
-$result = mysqli_query($conn, $query);
+$stmt = mysqli_prepare($conn, $query . " ORDER BY u.created_at DESC");
+if ($stmt) {
+    mysqli_stmt_bind_param($stmt, 'ss', $search_pattern, $search_pattern);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+} else {
+    $result = false;
+}
 
 $patients = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $ga = intval($row['gestational_age_weeks'] ?? 0);
-    
-    // Compute current AOG and Remaining to full-term
-    $row['current_aog'] = ($ga > 0) ? $ga . ' weeks' : 'N/A';
-    $remaining = ($ga > 0) ? max(0, 40 - $ga) : -1;
-    $row['computed_remaining'] = ($remaining >= 0) ? $remaining . ' weeks left' : 'N/A';
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ga = intval($row['gestational_age_weeks'] ?? 0);
 
-    // Trimester Filter Logic
-    if ($trimester_filter !== '') {
-        if ($ga > 0) {
-            if ($trimester_filter === '1' && $ga >= 1 && $ga <= 13) {
-                $patients[] = $row;
-            } elseif ($trimester_filter === '2' && $ga >= 14 && $ga <= 27) {
-                $patients[] = $row;
-            } elseif ($trimester_filter === '3' && $ga >= 28) {
-                $patients[] = $row;
-            }
+        $row['current_aog'] = ($ga > 0) ? $ga . ' weeks' : 'N/A';
+        $remaining = ($ga > 0) ? max(0, 40 - $ga) : -1;
+        $row['computed_remaining'] = ($remaining >= 0) ? $remaining . ' weeks left' : 'N/A';
+        $row['trimester_label'] = 'No data';
+        if ($ga >= 1 && $ga <= 13) {
+            $row['trimester_label'] = '1st Trimester';
+        } elseif ($ga >= 14 && $ga <= 27) {
+            $row['trimester_label'] = '2nd Trimester';
+        } elseif ($ga >= 28) {
+            $row['trimester_label'] = '3rd Trimester';
         }
-    } else {
+
         $patients[] = $row;
+    }
+}
+
+$summary = [
+    'total' => count($patients),
+    'first' => 0,
+    'second' => 0,
+    'third' => 0,
+];
+foreach ($patients as $patient) {
+    $ga = intval($patient['gestational_age_weeks'] ?? 0);
+    if ($ga >= 1 && $ga <= 13) {
+        $summary['first']++;
+    } elseif ($ga >= 14 && $ga <= 27) {
+        $summary['second']++;
+    } elseif ($ga >= 28) {
+        $summary['third']++;
     }
 }
 ?>
@@ -116,61 +225,131 @@ while ($row = mysqli_fetch_assoc($result)) {
     <style>
         :root { 
             --sage-green: #6B8E55;
+            --sage-green-dark: #4d6a3c;
+            --sage-soft: #eef4ea;
             --bg-beige: #fcfdfa; 
-            --danger-red: #d9534f; 
+            --panel-white: #ffffff;
+            --panel-border: #e7ecd7;
+            --danger-red: #d9534f;
+            --danger-soft: #fdeaea;
+            --text-dark: #233123;
+            --text-muted: #6b726b;
+            --shadow-soft: 0 10px 24px rgba(50, 74, 45, 0.08);
         }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-beige); margin: 0; display: flex; }
-        #main { width: 100%; padding: 40px; box-sizing: border-box; min-height: 100vh; margin-left: 280px; }
-        .records-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
-        h2 { color: var(--sage-green); font-size: 1.8rem; margin: 0; }
-        
-        .filter-form { display: flex; gap: 10px; align-items: center; }
-        .search-box, .filter-select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; outline: none; }
-        .search-box { width: 200px; }
-        .filter-select { background: white; cursor: pointer; }
-        
-        .btn-add { background-color: var(--sage-green); color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem; }
-        .btn-add:hover { background-color: #5a7b45; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        thead { background-color: var(--sage-green); }
-        th { color: white; padding: 12px 15px; text-align: left; font-size: 0.8rem; text-transform: uppercase; }
-        td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
-        
-        .view-btn { background: transparent; color: var(--sage-green); border: 1.5px solid var(--sage-green); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-beige); margin: 0; display: flex; color: var(--text-dark); }
+        #main { width: 100%; padding: 32px 28px 40px; box-sizing: border-box; min-height: 100vh; margin-left: 280px; }
+        .records-card { background: white; padding: 28px; border-radius: 18px; box-shadow: var(--shadow-soft); border: 1px solid var(--panel-border); }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 16px; }
+        h2 { color: var(--sage-green-dark); font-size: 1.9rem; margin: 0; }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(150px, 1fr));
+            gap: 14px;
+            margin: 0 0 20px;
+        }
+        .summary-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f5faf2 100%);
+            border: 1px solid var(--panel-border);
+            border-left: 5px solid var(--sage-green);
+            border-radius: 14px;
+            padding: 18px 16px;
+            box-shadow: 0 8px 20px rgba(107, 142, 85, 0.06);
+        }
+        .summary-card .label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px; }
+        .summary-card strong { font-size: 1.9rem; color: var(--sage-green-dark); display: block; }
+
+        .filter-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .search-box, .filter-select { padding: 10px 12px; border: 1px solid #dfe5d9; border-radius: 10px; font-size: 0.9rem; outline: none; background: #fff; color: var(--text-dark); }
+        .search-box { width: 220px; }
+        .filter-select { min-width: 180px; }
+        .search-box:focus, .filter-select:focus { border-color: var(--sage-green); box-shadow: 0 0 0 3px rgba(107, 142, 85, 0.12); }
+
+        .btn-add, .btn-search, .btn-clear { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 0.88rem; transition: 0.2s ease; }
+        .btn-add, .btn-search { background-color: var(--sage-green); color: white; border: none; padding: 10px 16px; cursor: pointer; }
+        .btn-add:hover, .btn-search:hover { background-color: var(--sage-green-dark); }
+        .btn-clear { background: #f3f6ef; color: var(--sage-green-dark); border: 1px solid #dfead2; padding: 10px 14px; }
+        .btn-clear:hover { background: #edf5e6; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 720px; }
+        thead { background: linear-gradient(135deg, var(--sage-green) 0%, #7a9a64 100%); }
+        th { color: white; padding: 14px 16px; text-align: left; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        td { padding: 14px 16px; border-bottom: 1px solid #edf1e7; font-size: 0.92rem; }
+        tbody tr { transition: background 0.2s ease; }
+        tbody tr:hover { background: #fafcf8; }
+
+        .patient-name-wrap { display: flex; align-items: center; gap: 10px; }
+        .patient-name { font-weight: 700; color: var(--text-dark); }
+        .trimester-badge {
+            display: inline-flex;
+            padding: 5px 8px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .trimester-1 { background: #eaf8ed; color: #2d7a46; }
+        .trimester-2 { background: #fff7e8; color: #9a6c14; }
+        .trimester-3 { background: #fef1f1; color: #b84d4d; }
+        .trimester-none { background: #f1f3f4; color: #6d757a; }
+
+        .view-btn { background: transparent; color: var(--sage-green-dark); border: 1.5px solid var(--sage-green); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; }
         .view-btn:hover { background: var(--sage-green); color: white; }
 
-        /* MODAL STYLES */
-        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 3% auto; padding: 35px; border-radius: 20px; width: 850px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.15); }
-        
-        /* CONFIRMATION MODAL CARD STYLES */
-        .confirm-modal-content { background: white; margin: 15% auto; padding: 30px; border-radius: 16px; width: 400px; text-align: center; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
-        .confirm-modal-content h3 { color: #333; margin-top: 0; margin-bottom: 10px; font-size: 1.3rem; }
-        .confirm-modal-content p { color: #666; font-size: 0.9rem; margin-bottom: 25px; line-height: 1.4; }
-        .confirm-actions { display: flex; justify-content: center; gap: 12px; }
-        .btn-confirm-yes { background-color: var(--danger-red); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-        .btn-confirm-yes:hover { opacity: 0.9; }
-        .btn-confirm-no { background-color: #eee; color: #333; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-        .btn-confirm-no:hover { background-color: #ddd; }
+        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); }
+        .modal-content { background: white; margin: 3% auto; padding: 28px; border-radius: 20px; width: 900px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 15px 35px rgba(0,0,0,0.18); }
 
-        /* TABS */
-        .tab-menu { display: flex; border-bottom: 2px solid #eee; margin-top: 20px; margin-bottom: 20px; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; background: none; border: none; font-weight: 600; color: #888; font-size: 0.95rem; border-bottom: 3px solid transparent; }
-        .tab-btn.active { color: var(--sage-green); border-bottom-color: var(--sage-green); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 10px; }
+        .modal-header h1 { color: var(--sage-green); margin: 0; font-size: 1.9rem; }
+        .patient-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: var(--sage-soft);
+            color: var(--sage-green-dark);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .confirm-modal-content { background: white; margin: 15% auto; padding: 30px; border-radius: 18px; width: 420px; text-align: center; position: relative; box-shadow: 0 15px 35px rgba(0,0,0,0.18); }
+        .confirm-modal-content h3 { color: var(--text-dark); margin-top: 0; margin-bottom: 10px; font-size: 1.4rem; }
+        .confirm-modal-content p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 22px; line-height: 1.5; }
+        .confirm-actions { display: flex; justify-content: center; gap: 12px; }
+        .btn-confirm-yes { background-color: var(--danger-red); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+        .btn-confirm-yes:hover { opacity: 0.9; }
+        .btn-confirm-no { background-color: #eef1ee; color: var(--text-dark); border: none; padding: 10px 20px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+        .btn-confirm-no:hover { background-color: #e2e7e2; }
+
+        .tab-menu { display: flex; border-bottom: 2px solid #edf1e7; margin: 16px 0 18px; flex-wrap: wrap; gap: 8px; }
+        .tab-btn { padding: 10px 16px; cursor: pointer; background: none; border: none; font-weight: 700; color: var(--text-muted); font-size: 0.9rem; border-bottom: 3px solid transparent; }
+        .tab-btn.active { color: var(--sage-green-dark); border-bottom-color: var(--sage-green); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        .info-card { background: #fdfdfd; border: 1px dashed var(--sage-green); padding: 15px; border-radius: 12px; margin-bottom: 15px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .info-item label { display: block; font-size: 0.68rem; color: #888; text-transform: uppercase; font-weight: bold; }
-        .info-item span { font-weight: 600; color: #333; font-size: 0.9rem; }
-        
-        .section-title { font-size: 0.95rem; color: var(--sage-green); font-weight: bold; margin-top: 15px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; line-height: 1.5; }
+        .info-card { background: linear-gradient(135deg, #fbfdf9 0%, #f4f8f0 100%); border: 1px dashed var(--sage-green); padding: 15px; border-radius: 14px; margin-bottom: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .info-item label { display: block; font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+        .info-item span { font-weight: 700; color: var(--text-dark); font-size: 0.9rem; }
 
-        .btn-delete { background: none; border: none; color: var(--danger-red); text-decoration: underline; cursor: pointer; font-weight: 600; }
-        .alert { background: #dff0d8; color: #3c763d; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .section-title { font-size: 0.94rem; color: var(--sage-green-dark); font-weight: 800; margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf1e7; padding-bottom: 6px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; font-size: 0.86rem; line-height: 1.6; }
+        .history-panel { background: #fafcf9; border: 1px solid #edf1e7; padding: 18px 20px; border-radius: 14px; font-size: 0.85rem; line-height: 1.7; }
+
+        .btn-delete { background: none; border: none; color: var(--danger-red); text-decoration: underline; cursor: pointer; font-weight: 700; }
+        .alert { background: #dff2df; color: #235a29; padding: 14px 16px; border-radius: 10px; margin-bottom: 18px; text-align: center; border: 1px solid #c6e7c9; }
+
+        @media (max-width: 768px) {
+            #main { margin-left: 0; padding: 20px 16px; }
+            .summary-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+            .info-card { grid-template-columns: 1fr 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .modal-content { width: 92%; padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -191,65 +370,112 @@ while ($row = mysqli_fetch_assoc($result)) {
         <div class="records-card">
             <div class="header-section">
                 <h2>Maternal Health Records</h2>
-                <div style="display:flex; gap:10px; align-items: center;">
+                <div style="display:flex; gap:10px; align-items: center; flex-wrap: wrap;">
                     <form method="GET" class="filter-form">
-                        <select name="trimester_filter" class="filter-select" onchange="this.form.submit()">
+                        <select name="trimester_filter" class="filter-select" aria-label="Filter by trimester" onchange="this.form.submit()">
                             <option value="">-- Filter by Trimester --</option>
                             <option value="1" <?= ($trimester_filter == '1') ? 'selected' : '' ?>>1st Trimester (1 - 13 wks)</option>
                             <option value="2" <?= ($trimester_filter == '2') ? 'selected' : '' ?>>2nd Trimester (14 - 27 wks)</option>
                             <option value="3" <?= ($trimester_filter == '3') ? 'selected' : '' ?>>3rd Trimester (28+ wks)</option>
                         </select>
-                        <input type="text" name="search" class="search-box" placeholder="Search name..." value="<?= htmlspecialchars($search) ?>">
+                        <input type="text" name="search" class="search-box" placeholder="Search patient name..." value="<?= htmlspecialchars($search) ?>" aria-label="Search patient name">
+                        <button type="submit" class="btn-search">Search</button>
+                        <?php if ($search !== '' || $trimester_filter !== ''): ?>
+                            <a href="admin_maternal_rec.php" class="btn-clear">Clear</a>
+                        <?php endif; ?>
                     </form>
                     <a href="admin_maternal_reg.php" class="btn-add">+ Register Patient</a>
                 </div>
             </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Patient Name</th>
-                        <th>Last Visit</th>
-                        <th>Current AOG</th>
-                        <th>Remaining to Full-Term</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if(count($patients) > 0): ?>
-                        <?php foreach($patients as $row): ?>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <span class="label">Total</span>
+                    <strong><?= $summary['total'] ?></strong>
+                </div>
+                <div class="summary-card">
+                    <span class="label">1st Trimester</span>
+                    <strong><?= $summary['first'] ?></strong>
+                </div>
+                <div class="summary-card">
+                    <span class="label">2nd Trimester</span>
+                    <strong><?= $summary['second'] ?></strong>
+                </div>
+                <div class="summary-card">
+                    <span class="label">3rd Trimester</span>
+                    <strong><?= $summary['third'] ?></strong>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
                         <tr>
-                            <td style="font-weight:600;"><?= htmlspecialchars($row['full_name']) ?></td>
-                            <td><?= $row['checkup_date'] ? date('M d, Y', strtotime($row['checkup_date'])) : 'No records' ?></td>
-                            <td>
-                                <span style="color: #555; font-weight: 600;"><?= htmlspecialchars($row['current_aog']) ?></span>
-                            </td>
-                            <td>
-                                <?php if($row['computed_remaining'] !== 'N/A'): ?>
-                                    <span style="background: #eef4ec; color: var(--sage-green); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-                                        <?= htmlspecialchars($row['computed_remaining']) ?>
-                                    </span>
-                                <?php else: ?>
-                                    <span style="color: #999; font-style: italic;">N/A</span>
-                                <?php endif; ?>
-                            </td>
-                            <td><button class="view-btn" onclick='openModal(<?= json_encode($row) ?>)'>View Details</button></td>
+                            <th>Patient Name</th>
+                            <th>Last Visit</th>
+                            <th>Current AOG</th>
+                            <th>Remaining to Full-Term</th>
+                            <th>Action</th>
                         </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: #888; padding: 20px;">Walang nakitang rekord ng pasyente.</td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php if(count($patients) > 0): ?>
+                            <?php foreach($patients as $row): ?>
+                            <tr>
+                                <td>
+                                    <div class="patient-name-wrap">
+                                        <span class="patient-name"><?= htmlspecialchars($row['full_name']) ?></span>
+                                        <?php
+                                            $badgeClass = 'trimester-none';
+                                            $badgeText = 'No data';
+                                            if (($row['gestational_age_weeks'] ?? 0) >= 1 && ($row['gestational_age_weeks'] ?? 0) <= 13) {
+                                                $badgeClass = 'trimester-1';
+                                                $badgeText = '1st';
+                                            } elseif (($row['gestational_age_weeks'] ?? 0) >= 14 && ($row['gestational_age_weeks'] ?? 0) <= 27) {
+                                                $badgeClass = 'trimester-2';
+                                                $badgeText = '2nd';
+                                            } elseif (($row['gestational_age_weeks'] ?? 0) >= 28) {
+                                                $badgeClass = 'trimester-3';
+                                                $badgeText = '3rd';
+                                            }
+                                        ?>
+                                        <span class="trimester-badge <?= $badgeClass ?>"><?= $badgeText ?> Trimester</span>
+                                    </div>
+                                </td>
+                                <td><?= $row['checkup_date'] ? date('M d, Y', strtotime($row['checkup_date'])) : 'No records' ?></td>
+                                <td>
+                                    <span style="color: #333; font-weight: 700;"><?= htmlspecialchars($row['current_aog']) ?></span>
+                                </td>
+                                <td>
+                                    <?php if($row['computed_remaining'] !== 'N/A'): ?>
+                                        <span style="background: #eef4ec; color: var(--sage-green-dark); padding: 5px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700;">
+                                            <?= htmlspecialchars($row['computed_remaining']) ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span style="color: #999; font-style: italic;">N/A</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><button class="view-btn" onclick='openModal(<?= json_encode($row) ?>)'>View Details</button></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #7a7d79; padding: 26px; font-weight: 600;">No patient records found for the selected filter.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <!-- READ-ONLY PATIENT DETAILS MODAL -->
     <div id="maternalModal" class="modal">
         <div class="modal-content">
-            <h1 id="m_name" style="color: var(--sage-green); margin: 0 0 10px 0; font-size: 1.8rem;"></h1>
+            <div class="modal-header">
+                <h1 id="m_name"></h1>
+                <span class="patient-pill">Maternal Profile</span>
+            </div>
             
             <div class="info-card">
                 <div class="info-item"><label>Age</label><span id="m_age">--</span></div>
@@ -260,13 +486,13 @@ while ($row = mysqli_fetch_assoc($result)) {
 
             <!-- TABS -->
             <div class="tab-menu">
-                <button class="tab-btn active" onclick="switchTab(event, 'tab-history')">Medical & Verification History (DOH Form)</button>
+                <button class="tab-btn active" onclick="switchTab(event, 'tab-history')">Medical & Verification History </button>
                 <button class="tab-btn" onclick="switchTab(event, 'tab-visits')">Check-up Visits History</button>
             </div>
 
             <!-- TAB 1: MEDICAL & VERIFICATION HISTORY (DOH FORM) -->
             <div id="tab-history" class="tab-content active">
-                <div style="background:#fafafa; border:1px solid #eee; padding:20px; border-radius:10px; font-size:0.85rem; line-height:1.6;">
+                <div class="history-panel">
                     
                     <div class="section-title" style="margin-top:0;">Personal & Registration Details</div>
                     <div class="grid-2">
@@ -356,12 +582,16 @@ while ($row = mysqli_fetch_assoc($result)) {
     <!-- CUSTOM CONFIRMATION MODAL CARD -->
     <div id="confirmModal" class="modal">
         <div class="confirm-modal-content">
-            <h3>Confirmation </h3>
-            <p>Are you sure you want to delete this</p>
-            <div class="confirm-actions">
-                <button type="button" class="btn-confirm-no" onclick="closeConfirmModal()">Cancel</button>
-                <button type="button" class="btn-confirm-yes" onclick="executeDelete()">Delete</button>
-            </div>
+            <form method="post" action="admin_maternal_rec.php" id="deletePatientForm">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="delete_id" id="delete_id" value="">
+                <h3>Confirm Delete</h3>
+                <p id="deletePromptText">Are you sure you want to delete this patient record?</p>
+                <div class="confirm-actions">
+                    <button type="button" class="btn-confirm-no" onclick="closeConfirmModal()">Cancel</button>
+                    <button type="submit" class="btn-confirm-yes">Delete</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -387,7 +617,13 @@ while ($row = mysqli_fetch_assoc($result)) {
             document.getElementById('m_lmp').innerText = data.lmp || "Not set";
 
             // AJAX call to fetch all records
-            fetch(`admin_maternal_rec.php?fetch_patient_details=${data.id}`)
+            fetch('admin_maternal_rec.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                },
+                body: new URLSearchParams({ fetch_patient_details: data.id })
+            })
                 .then(res => res.json())
                 .then(resData => {
                     const reg = resData.registration_info || {};
@@ -512,18 +748,15 @@ while ($row = mysqli_fetch_assoc($result)) {
 
         function confirmDelete() {
             if (currentMotherId) {
+                document.getElementById('delete_id').value = currentMotherId;
+                const patientName = document.getElementById('m_name')?.innerText || 'this patient';
+                document.getElementById('deletePromptText').innerText = `Are you sure you want to delete the record for ${patientName}?`;
                 document.getElementById('confirmModal').style.display = "block";
             }
         }
 
         function closeConfirmModal() {
             document.getElementById('confirmModal').style.display = "none";
-        }
-
-        function executeDelete() {
-            if (currentMotherId) {
-                window.location.href = `admin_maternal_rec.php?delete_id=${currentMotherId}`;
-            }
         }
     </script>
 </body>
