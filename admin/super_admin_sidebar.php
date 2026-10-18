@@ -9,6 +9,13 @@ $base_url = "/FINAL_CAPSTONE/admin/";
 <head>
 <script src="../theme.js"></script>
 <link rel="stylesheet" href="../theme.css">
+<script>
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+</script>
 <style>
     :root {
         --sage: #8DAE74;
