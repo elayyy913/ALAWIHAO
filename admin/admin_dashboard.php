@@ -187,128 +187,169 @@ usort($upcoming_schedule, function ($first, $second) {
             box-sizing: border-box;
         }
 
-        .welcome-title {
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            border-bottom: 2px solid #E1E1D7;
+            padding-bottom: 18px;
+            margin: 0 0 24px;
+        }
+
+        .page-heading-copy { min-width: 0; }
+
+        .page-header h1 {
+            color: var(--dark-sage);
+            font-size: clamp(1.55rem, 2.4vw, 2rem);
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .page-header p {
+            margin: 7px 0 0;
+            color: #687365;
+            font-size: .92rem;
+        }
+
+        .page-header-tools {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            margin-bottom: 26px;
-            padding: 22px 26px;
-            border: 1px solid #e3eadb;
-            border-radius: 14px;
-            background: linear-gradient(120deg, #ffffff 0%, #f2f7ed 100%);
-            box-shadow: 0 4px 16px rgba(54, 78, 45, 0.06);
+            gap: 14px;
+            flex: 0 0 auto;
         }
 
-        .welcome-heading {
-            color: #344b2c;
-            font-size: 1.55rem;
-            font-weight: 750;
-            line-height: 1.3;
-        }
-
-        .welcome-subtitle {
-            color: var(--text-muted);
-            font-size: 0.88rem;
-            font-weight: 400;
-            margin-top: 5px;
-        }
-
-        .welcome-date {
-            color: var(--dark-sage);
-            font-size: 0.88rem;
-            font-weight: 700;
+        .dashboard-date {
+            color: #687365;
+            font-size: .82rem;
             white-space: nowrap;
         }
 
         .quick-actions {
             display: flex;
-            align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
-            margin: -8px 0 24px;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 24px;
         }
 
         .quick-actions-label {
-            color: var(--text-muted);
-            font-size: 0.78rem;
-            font-weight: 800;
-            letter-spacing: 0.05em;
+            color: #687365;
+            font-size: .8rem;
+            font-weight: 700;
             margin-right: 2px;
-            text-transform: uppercase;
         }
 
-        .quick-action,
-        .register-action summary {
+        .quick-action {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
-            min-height: 42px;
-            padding: 10px 15px;
-            border: 1px solid var(--dark-sage);
-            border-radius: 9px;
-            background: var(--dark-sage);
-            color: #fff;
-            cursor: pointer;
-            font: inherit;
-            font-size: 0.82rem;
-            font-weight: 700;
+            min-height: 38px;
+            padding: 8px 13px;
+            border: 1px solid #dce5d6;
+            border-radius: 8px;
+            background: #fff;
+            color: #465736;
+            font-size: .82rem;
+            font-weight: 650;
             text-decoration: none;
-            transition: background 0.2s ease, transform 0.2s ease;
-            list-style: none;
+            transition: background .2s ease, border-color .2s ease, transform .2s ease;
         }
 
-        .quick-action:hover,
-        .register-action summary:hover {
-            background: #587548;
+        .quick-action:hover {
+            background: #f0f5ec;
+            border-color: var(--sage);
             transform: translateY(-1px);
         }
 
-        .quick-action:focus-visible,
-        .register-action summary:focus-visible,
-        .register-menu a:focus-visible {
-            outline: 3px solid rgba(107, 142, 85, 0.35);
-            outline-offset: 3px;
+        .quick-action-primary {
+            background: #5f7f49;
+            border-color: #5f7f49;
+            color: #fff;
         }
 
-        .register-action { position: relative; }
-        .register-action summary::-webkit-details-marker { display: none; }
-        .register-action summary::after {
-            content: "\f078";
-            font-family: "Font Awesome 6 Free";
-            font-size: 0.68rem;
-            font-weight: 900;
-            margin-left: 3px;
+        .quick-action-primary:hover {
+            background: #4f6d3c;
+            color: #fff;
+            border-color: #4f6d3c;
         }
 
-        .register-menu {
+        .quick-action-dropdown {
+            position: relative;
+        }
+
+        .quick-action-dropdown > summary {
+            list-style: none;
+            cursor: pointer;
+        }
+
+        .quick-action-dropdown > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .quick-action-dropdown > summary::marker {
+            content: "";
+        }
+
+        .quick-action-chevron {
+            margin-left: 2px;
+            font-size: .68rem;
+            transition: transform .2s ease;
+        }
+
+        .quick-action-dropdown[open] .quick-action-chevron {
+            transform: rotate(180deg);
+        }
+
+        .quick-action-menu {
             position: absolute;
             top: calc(100% + 7px);
             left: 0;
-            z-index: 1200;
-            min-width: 205px;
+            z-index: 20;
+            display: grid;
+            min-width: 190px;
             padding: 6px;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            background: var(--card-bg);
-            box-shadow: 0 10px 24px rgba(30, 41, 59, 0.14);
+            border: 1px solid #dce5d6;
+            border-radius: 9px;
+            background: #fff;
+            box-shadow: 0 8px 20px rgba(34, 48, 28, .14);
         }
 
-        .register-menu a {
+        .quick-action-menu a {
             display: flex;
             align-items: center;
             gap: 9px;
-            padding: 10px 11px;
-            border-radius: 7px;
-            color: var(--text-main);
-            font-size: 0.82rem;
+            padding: 10px;
+            border-radius: 6px;
+            color: #465736;
+            font-size: .8rem;
             font-weight: 600;
             text-decoration: none;
+            white-space: nowrap;
         }
 
-        .register-menu a:hover {
-            background: #f2f7ed;
+        .quick-action-menu a:hover,
+        .quick-action-menu a:focus-visible {
+            background: #f0f5ec;
+            outline: none;
+        }
+
+        .quick-action-menu a i {
+            width: 16px;
+            color: #5f7f49;
+            text-align: center;
+        }
+
+        .dashboard-sync {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #687365;
+            font-size: .72rem;
+            white-space: nowrap;
+        }
+
+        .dashboard-sync i {
             color: var(--dark-sage);
         }
 
@@ -366,18 +407,18 @@ usort($upcoming_schedule, function ($first, $second) {
             color: var(--text-main);
         }
 
-        .grid-container { 
-            display: grid; 
-            grid-template-columns: 2fr 1fr; 
-            gap: 24px; 
+        .grid-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
         }
 
-        .card { 
-            background: var(--card-bg); 
-            padding: 24px; 
-            border-radius: 8px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-            margin-bottom: 24px; 
+        .card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
             border: 1px solid var(--border-color);
         }
 
@@ -410,28 +451,28 @@ usort($upcoming_schedule, function ($first, $second) {
 
         .card-header-row .card-header-title { margin-bottom: 0; }
 
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        th { 
-            text-align: left; 
-            padding: 10px 12px; 
+        th {
+            text-align: left;
+            padding: 10px 12px;
             background-color: #F8FAFC;
-            border-bottom: 1px solid var(--border-color); 
-            color: var(--text-muted); 
-            font-size: 0.7rem; 
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             font-weight: 700;
             vertical-align: middle;
         }
 
-        td { 
-            padding: 14px 12px; 
-            border-bottom: 1px solid #F1F5F9; 
-            font-size: 0.85rem; 
+        td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #F1F5F9;
+            font-size: 0.85rem;
             color: var(--text-main);
             vertical-align: middle;
         }
@@ -443,40 +484,40 @@ usort($upcoming_schedule, function ($first, $second) {
             font-size: 0.85rem;
         }
 
-        .btn-approve { 
-            background: var(--sage); 
-            color: white; 
-            padding: 6px 12px; 
-            border-radius: 4px; 
-            text-decoration: none; 
-            font-weight: bold; 
-            font-size: 0.7rem; 
-            display: inline-block; 
-            border: none; 
+        .btn-approve {
+            background: var(--sage);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.7rem;
+            display: inline-block;
+            border: none;
             cursor: pointer;
         }
         .btn-approve:hover { background: var(--dark-sage); }
 
-        .btn-reject { 
-            background: #e74c3c; 
-            color: white; 
-            padding: 6px 12px; 
-            border-radius: 4px; 
-            text-decoration: none; 
-            font-size: 0.7rem; 
-            margin-left: 5px; 
-            display: inline-block; 
-            border: none; 
-            cursor: pointer; 
+        .btn-reject {
+            background: #e74c3c;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.7rem;
+            margin-left: 5px;
+            display: inline-block;
+            border: none;
+            cursor: pointer;
         }
         .btn-reject:hover { background: #c0392b; }
 
-        .sched-item { 
-            padding: 12px; 
-            border-left: 3px solid #3B82F6; 
-            background: #FAFAF9; 
-            margin-bottom: 12px; 
-            border-radius: 0 8px 8px 0; 
+        .sched-item {
+            padding: 12px;
+            border-left: 3px solid #3B82F6;
+            background: #FAFAF9;
+            margin-bottom: 12px;
+            border-radius: 0 8px 8px 0;
         }
 
         .sched-item.child-sched {
@@ -600,7 +641,7 @@ usort($upcoming_schedule, function ($first, $second) {
         .form-group { display: flex; flex-direction: column; margin-bottom: 10px; }
         .form-group label { font-size: 0.75rem; font-weight: bold; color: #555; margin-bottom: 4px; text-transform: uppercase; }
         .form-group input[type="text"], .form-group input[type="number"], .form-group input[type="date"], .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; background: white; }
-        
+
         .patient-info-box { background: #F4F4ED; border: 1px solid var(--border-color); padding: 15px; border-radius: 6px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
         .checkbox-group { background: #FAFAFA; border: 1px solid #E1E1D7; padding: 10px; border-radius: 4px; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
         .checkbox-label { font-size: 0.8rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-main); font-weight: normal; text-transform: none; }
@@ -623,7 +664,7 @@ usort($upcoming_schedule, function ($first, $second) {
             display: flex; align-items: center; justify-content: center;
         }
         .notif-dropdown {
-            display: none; position: fixed; 
+            display: none; position: fixed;
             width: 320px; background: white;
             border: 1px solid var(--border-color); border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 99999; overflow: hidden;
@@ -659,9 +700,9 @@ usort($upcoming_schedule, function ($first, $second) {
 
         @media (max-width: 640px) {
             #main { padding: 16px; }
-            .welcome-title { align-items: flex-start; padding: 18px; }
-            .welcome-heading { font-size: 1.25rem; }
-            .welcome-date { display: none; }
+            .page-header { align-items: flex-start; }
+            .page-header-tools { gap: 8px; }
+            .dashboard-date { display: none; }
             .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
             .metric-card { min-height: 96px; padding: 15px; }
             .metric-value { font-size: 1.45rem; }
@@ -711,12 +752,12 @@ usort($upcoming_schedule, function ($first, $second) {
         [data-theme="dark"] #main .notif-empty,
         [data-theme="dark"] #main .notif-mark-all { color: var(--dm-text2) !important; }
 
-        [data-theme="dark"] #main .welcome-title {
-            background: linear-gradient(120deg, var(--dm-surface) 0%, var(--dm-surface2) 100%);
-            border-color: var(--dm-border);
+        [data-theme="dark"] #main .page-header {
+            border-color: var(--dm-border) !important;
         }
-        [data-theme="dark"] #main .welcome-heading { color: var(--dm-text); }
-        [data-theme="dark"] #main .welcome-date { color: var(--dm-sage); }
+        [data-theme="dark"] #main .page-header h1 { color: var(--dm-sage) !important; }
+        [data-theme="dark"] #main .page-header p { color: var(--dm-text2) !important; }
+        [data-theme="dark"] #main .dashboard-date { color: var(--dm-text2) !important; }
         [data-theme="dark"] #main .schedule-count {
             background: var(--dm-surface2);
             color: var(--dm-sage);
@@ -732,41 +773,29 @@ usort($upcoming_schedule, function ($first, $second) {
     <?php include('admin_sidebar.php'); ?>
 
     <div id="main">
-        <div class="welcome-title">
-            <div>
-                <div class="welcome-heading">Welcome, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?></div>
-                <div class="welcome-subtitle">Here is your health center overview for today.</div>
+        <div class="page-header">
+            <div class="page-heading-copy">
+                <h1>Good day, <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?></h1>
+                <p>Your health center overview at a glance.</p>
             </div>
-            <div class="welcome-date"><?php echo date('l, F j, Y'); ?></div>
-            <?php include '../notif_bell.php'; ?>
+            <div class="page-header-tools">
+                <span class="dashboard-date"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <?php echo date('l, F j, Y'); ?></span>
+                <?php include '../notif_bell.php'; ?>
+            </div>
         </div>
 
-        <nav class="quick-actions" aria-label="Quick actions">
+        <nav class="quick-actions" aria-label="Dashboard quick actions">
             <span class="quick-actions-label">Quick actions</span>
-            <a class="quick-action" href="#pending-approvals">
-                <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
-                Review approvals
-            </a>
-            <details class="register-action">
-                <summary>
-                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-                    Register
-                </summary>
-                <div class="register-menu">
-                    <a href="admin_maternal_reg.php">
-                        <i class="fa-solid fa-person-pregnant" aria-hidden="true"></i>
-                        Maternal registration
-                    </a>
-                    <a href="admin_child_reg.php">
-                        <i class="fa-solid fa-baby" aria-hidden="true"></i>
-                        Child registration
-                    </a>
+            <a class="quick-action quick-action-primary" href="#pending-approvals"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Review approvals</a>
+            <details class="quick-action-dropdown">
+                <summary class="quick-action quick-action-primary"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Register <i class="fa-solid fa-chevron-down quick-action-chevron" aria-hidden="true"></i></summary>
+                <div class="quick-action-menu">
+                    <a href="admin_maternal_reg.php"><i class="fa-solid fa-person-pregnant" aria-hidden="true"></i> Maternal patient</a>
+                    <a href="admin_child_reg.php"><i class="fa-solid fa-baby" aria-hidden="true"></i> Child patient</a>
                 </div>
             </details>
-            <a class="quick-action" href="schedule_management.php">
-                <i class="fa-regular fa-calendar-check" aria-hidden="true"></i>
-                Manage schedules
-            </a>
+            <a class="quick-action" href="schedule_management.php"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Manage schedules</a>
+            <span class="dashboard-sync" role="status" aria-live="polite"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Updated <time id="dashboardLastUpdated" datetime="<?php echo date(DATE_ATOM); ?>"><?php echo date('g:i:s A'); ?></time></span>
         </nav>
         
         <?php if (!empty($message)): ?>
