@@ -623,21 +623,13 @@ label {
 }
 </style>
 </head>
-<body class="sidebar-closed">
+<body>
 
 <div id="progressBar" class="progress-bar"></div>
 
-<div class="sidebar-container">
-    <?php include 'admin_sidebar.php'; ?>
-</div>
+<?php include 'admin_sidebar.php'; ?>
 
 <div class="topbar">
-    <div class="topbar-brand">
-        <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
-            <i class="fa fa-bars"></i>
-        </button>
-        <img src="../images/logo.jpg" alt="Brgy Logo" class="logo-img">
-    </div>
     <span class="page-label">Account Settings & Profile</span>
 </div>
 
@@ -865,10 +857,6 @@ window.addEventListener('scroll', () => {
     const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
     document.getElementById('progressBar').style.width = progress + '%';
 });
-
-function toggleSidebar() {
-    document.body.classList.toggle('sidebar-closed');
-}
 
 function toggleEdit(isEditing) {
     const values = document.querySelectorAll('.info-value');

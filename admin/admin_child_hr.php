@@ -500,15 +500,10 @@ let currentChildNameForWord = "Child_Record";
 
 function toggleSidebar() {
     const sidebar = document.getElementById('mainSidebar');
-    const content = document.getElementById('main');
-    const isShowing = sidebar.classList.toggle('show');
-    
-    if (isShowing) {
-        content.classList.add('main-content-active');
-        localStorage.setItem('sidebarVisible', 'true');
+    if (sidebar && sidebar.classList.contains('is-hidden')) {
+        if (typeof showSidebar === 'function') showSidebar();
     } else {
-        content.classList.remove('main-content-active');
-        localStorage.setItem('sidebarVisible', 'false');
+        if (typeof hideSidebar === 'function') hideSidebar();
     }
 }
 
