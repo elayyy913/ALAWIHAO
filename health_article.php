@@ -4,25 +4,14 @@ include 'db_connect.php';
 
 $slug = $_GET['topic'] ?? '';
 
-// ── Article data ─────────────────────────────────────────────────────────────
-// Section types:
-//   'detailed' – items with 'label' + 'why' (DOH/study reasoning)
-//   'list'     – plain bullet items
-//   'table'    – rows array
-//   'text'     – single paragraph
-//   'highlight'– boxed callout
-//   'myth'     – myth/truth pair
-//   'steps'    – numbered steps with optional 'note'
-// ─────────────────────────────────────────────────────────────────────────────
-
 $articles = [
 
 // ═══════════════════════════════════════════════════════════
 'warning-signs' => [
     'title'    => 'Mga Babala Habang Buntis',
     'icon'     => 'fa-triangle-exclamation',
-    'images'    => 'images/pic9.jpg',
-    'color'    => '#c0392b',
+    'image'    => 'images/pic9.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines – Focused Antenatal Care Guidelines',
     'intro'    => 'Nanay, ang mga palatandaang ito ay senyales na kailangan ng agarang medikal na atensyon. Huwag hintayin na lumala — pumunta agad sa pinakamalapit na health center o ospital.',
     'sections' => [
@@ -80,8 +69,8 @@ $articles = [
 'prenatal-checkup' => [
     'title'    => 'Pre-natal Check-up: Ang Iyong Gabay',
     'icon'     => 'fa-stethoscope',
-    'images'    => 'images/pic10.jpg',
-    'color'    => '#2980b9',
+    'image'    => 'images/pic10.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines – Focused Antenatal Care (FANC) Protocol',
     'intro'    => 'Ang pre-natal check-up ay hindi lang basta pormal na bisita — ito ang susi sa pagprotekta sa buhay mo at ng iyong sanggol. Ang bawat check-up ay may layunin at siyentipikong batayan.',
     'sections' => [
@@ -134,8 +123,8 @@ $articles = [
 'pregnancy-dos' => [
     'title'    => "Pregnancy Do's: Mga Dapat Gawin",
     'icon'     => 'fa-thumbs-up',
-    'images'    => 'images/pic11.jpg',
-    'color'    => '#27ae60',
+    'image'    => 'images/pic11.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'WHO Antenatal Care Guidelines & DOH Philippines Maternal Health Program',
     'intro'    => 'Ang bawat magandang gawi sa panahon ng pagbubuntis ay may direktang epekto sa kalusugan mo at ng iyong sanggol. Hindi lang ito tradisyon — may siyensya sa likod ng bawat rekomendasyon.',
     'sections' => [
@@ -192,8 +181,8 @@ $articles = [
 'pregnancy-donts' => [
     'title'    => "Pregnancy Don'ts: Mga Dapat Iwasan",
     'icon'     => 'fa-ban',
-    'images'    => 'images/pic8.jpg',
-    'color'    => '#e74c3c',
+    'image'    => 'images/pic8.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'WHO, CDC, at DOH Philippines Guidelines on Maternal Health',
     'intro'    => 'Ang mga bagay na ito ay may siyentipikong patunay na mapanganib sa pagbubuntis. Ang pag-iwas sa mga ito ay isa sa pinakaepektibong paraan ng pag-protekta sa iyong sanggol.',
     'sections' => [
@@ -254,8 +243,8 @@ $articles = [
 'pamahiin' => [
     'title'    => 'Mga Pamahiin: Sabi-sabi vs. Agham',
     'icon'     => 'fa-book-open',
-    'images'    => 'images/pic12.webp',
-    'color'    => '#8e44ad',
+    'image'    => 'images/pic12.webp',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines Health Literacy Program & Philippine Obstetrical and Gynecological Society',
     'intro'    => 'Ang mga pamahiin ay bahagi ng ating kultura, ngunit ang ilang maling paniniwala ay maaaring makapinsala sa iyo at sa iyong sanggol. Alamin ang katotohanan batay sa siyensya at medikal na pananaliksik.',
     'sections' => [
@@ -302,8 +291,8 @@ $articles = [
 'baby-growth' => [
     'title'    => 'Ang Paglaki ni Baby sa Sinapupunan',
     'icon'     => 'fa-baby',
-    'images'    => 'images/pic13.jpg',
-    'color'    => '#16a085',
+    'image'    => 'images/pic13.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'Moore KL, Persaud TVN – The Developing Human: Clinically Oriented Embryology; DOH Philippines',
     'intro'    => 'Sa loob ng 40 linggo, ang isang simpleng cell ay nagiging isang kumpletong tao. Narito ang isang detalyadong patnubay — at ang mga bagay na maaari mong gawin para masuportahan ang bawat yugto ng pagbubuntis.',
     'sections' => [
@@ -368,8 +357,8 @@ $articles = [
 'newborn-care' => [
     'title'    => 'Pangangalaga sa Bagong Silang na Sanggol',
     'icon'     => 'fa-hands-holding-child',
-    'images'    => 'images/pic6.jpg',
-    'color'    => '#e67e22',
+    'image'    => 'images/pic6.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines – Essential Newborn Care (ENC) Protocol; WHO Guidelines for Care of the Newborn',
     'intro'    => 'Ang mga unang minuto, oras, at araw ng buhay ni baby ay kritikal para sa kanyang kalusugan at pag-unlad. Ang bawat hakbang ng Essential Newborn Care ay may siyentipikong batayan.',
     'sections' => [
@@ -425,8 +414,8 @@ $articles = [
 'breastfeeding' => [
     'title'    => 'Eksklusibong Pagpapasuso: Ang Pinakamabisang Proteksyon',
     'icon'     => 'fa-heart-pulse',
-    'images'    => 'images/pic1.jpg',
-    'color'    => '#e91e8c',
+    'image'    => 'images/pic1.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'WHO/UNICEF Global Breastfeeding Collective; DOH Philippines – National Breastfeeding Program',
     'intro'    => 'Ang gatas ng ina ay hindi lamang pagkain — ito ay isang buhay na sustansya na nagbabago araw-araw upang matugunan ang pangangailangan ng lumalaki at nagbabagong sanggol. Walang formula ang maaaring tularan ito.',
     'sections' => [
@@ -494,8 +483,8 @@ $articles = [
 'baby-milestones' => [
     'title'    => 'Mga Developmental Milestones ng Sanggol',
     'icon'     => 'fa-chart-line',
-    'images'    => 'images/pic7.webp',
-    'color'    => '#2980b9',
+    'image'    => 'images/pic7.webp',
+    'color'    => '#5A6B47',
     'source'   => 'WHO Child Growth Standards; CDC Developmental Milestones; DOH Philippines Integrated Child Development Service',
     'intro'    => 'Ang pag-unawa sa mga developmental milestones ay tumutulong sa mga magulang na suportahan ang pag-unlad ng kanilang anak at matuklasan ang mga posibleng problema nang maaga — kung saan ang maagang intervention ay pinaka-epektibo.',
     'sections' => [
@@ -569,7 +558,8 @@ $articles = [
 'baby-safety' => [
     'title'    => 'Kaligtasan ng Sanggol at Batang Bata',
     'icon'     => 'fa-shield-halved',
-    'color'    => '#2c3e50',
+    'image'    => 'images/pic2.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines; American Academy of Pediatrics (AAP) Safe Sleep Guidelines',
     'intro'    => 'Ang maraming aksidente sa mga bata ay maaaring maiwasan. Ang pag-alam sa mga panganib at pagsunod sa mga simpleng hakbang ng kaligtasan ay nagliligtas ng buhay.',
     'sections' => [
@@ -624,7 +614,8 @@ $articles = [
 'unang-linggo' => [
     'title'    => 'Ang Unang Linggo ng Buhay ni Baby',
     'icon'     => 'fa-calendar-day',
-    'color'    => '#f39c12',
+    'image'    => 'images/pic3.jpg',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines – Essential Newborn Care Protocol; AAP Guidelines',
     'intro'    => 'Ang unang 7 araw ay isa sa mga pinaka-kritikal na panahon sa buhay ni baby. Halos 75% ng neonatal deaths ay nangyayari sa loob ng unang linggo — kaya naman mahalaga ang tamang pag-aaruga.',
     'sections' => [
@@ -677,7 +668,8 @@ $articles = [
 'philhealth' => [
     'title'    => 'PhilHealth: Mga Benepisyo para sa Ina at Sanggol',
     'icon'     => 'fa-id-card',
-    'color'    => '#1565c0',
+    'image'    => 'images/pic13.webp',
+    'color'    => '#5A6B47',
     'source'   => 'Philippine Health Insurance Corporation (PhilHealth) – Updated Benefit Packages 2024',
     'intro'    => 'Ang PhilHealth ay nagbibigay ng financial protection para sa mga Pilipino sa panahon ng sakit at panganganak. Alamin ang iyong mga karapatan at paano gamitin ang mga benepisyo.',
     'sections' => [
@@ -727,7 +719,8 @@ $articles = [
 'family-planning' => [
     'title'    => 'Responsible Parenthood at Family Planning',
     'icon'     => 'fa-people-group',
-    'color'    => '#6d4c41',
+    'image'    => 'images/pic14.webp',
+    'color'    => '#5A6B47',
     'source'   => 'DOH Philippines – National Family Planning Program; Responsible Parenthood and Reproductive Health Act (RA 10354)',
     'intro'    => 'Ang family planning ay hindi lamang tungkol sa pagpipigil sa pagbubuntis — ito ay tungkol sa pagbibigay ng pagkakataon sa bawat pamilya na magkaroon ng healthy, planned, at financially prepared na mga anak. Ito ay karapatan ng bawat Pilipino.',
     'sections' => [
@@ -822,18 +815,18 @@ $section_count = count($article['sections']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($article['title']) ?> | Alawihao Health Center</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?php $notif_path = ''; include 'notif_assets.php'; ?>
     <style>
         :root {
-            --green:   #2d5016;
-            --accent:  #3d6b22;
-            --light:   #8fbf5a;
-            --bg:      #f5f5f0;
+            --green:   #5A6B47;
+            --accent:  #8DAE74;
+            --light:   #8DAE74;
+            --bg:      #F9F9F4;
             --white:   #ffffff;
-            --text:    #1c1c1c;
-            --muted:   #5a5a5a;
+            --text:    #2D2D2D;
+            --muted:   #666666;
             --card-bg: #ffffff;
-            --border:  #c8cfc8;
+            --border:  #E1E1D7;
             --sidebar-width: 260px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -846,43 +839,93 @@ $section_count = count($article['sections']);
         }
 
         /* PROGRESS BAR */
-        .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: #2d5016; width: 0%; z-index: 9999; transition: width 0.1s; }
+        .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: #2D5016; width: 0%; z-index: 9999; transition: width 0.1s; }
 
         /* SIDEBAR */
         .sidebar-container { width: var(--sidebar-width) !important; min-width: var(--sidebar-width) !important; height: 100vh; position: fixed; top: 0; left: 0; z-index: 300; overflow-y: auto; transition: transform 0.3s ease; }
         body.sidebar-closed .sidebar-container { transform: translateX(-100%); }
 
         /* TOPBAR */
-        .topbar { background: #ffffff; border-bottom: 2px solid #2d5016; padding: 8px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 200; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; }
+        .topbar { background: #ffffff; border-bottom: 2px solid #2D5016; padding: 8px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 200; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; }
         body.sidebar-closed .topbar { margin-left: 0; width: 100%; }
-        .topbar .hamburger-btn { background: #2d5016; border: none; cursor: pointer; color: #fff; font-size: 0.9rem; width: 34px; height: 34px; border-radius: 4px; display: none; align-items: center; justify-content: center; flex-shrink: 0; }
-        .topbar .hamburger-btn:hover { background: #3d6b22; }
-        body.sidebar-closed .topbar .hamburger-btn { display: inline-flex; }
-        .topbar .logo-img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid #2d5016; flex-shrink: 0; }
-        .topbar .page-label { font-size: 0.88rem; font-weight: 700; color: #2d5016; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px; }
+        .topbar .hamburger-btn { background: #2D5016; border: none; cursor: pointer; color: #fff; font-size: 0.9rem; width: 34px; height: 34px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .topbar .hamburger-btn:hover { background: #5A7C3A; }
+        .topbar .article-back-link { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2D5016; border: 1px solid #E1E1D7; border-radius: 4px; text-decoration: none; }
+        .topbar .article-back-link:hover { background: #F1F5ED; }
+        .topbar .logo-img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid #2D5016; flex-shrink: 0; }
+        .topbar .page-label { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 700; color: #2D5016; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px; }
+        .topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .article-search { position: relative; }
+        .article-search-toggle {
+            width: 36px; height: 36px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: transparent; color: #2D5016;
+            border: 1px solid transparent; border-radius: 4px;
+            cursor: pointer; font-size: 1rem;
+        }
+        .article-search-toggle:hover { background: #F1F5ED; border-color: #E1E1D7; }
+        .article-search-panel {
+            position: absolute; top: calc(100% + 10px); right: 0;
+            width: min(360px, calc(100vw - 24px)); max-height: 70vh;
+            overflow: auto; padding: 14px;
+            background: var(--dm-surface, #ffffff); color: var(--dm-text, #2D2D2D);
+            border: 1px solid var(--dm-border, #E1E1D7); border-radius: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.16); z-index: 500;
+        }
+        .article-search-panel[hidden] { display: none; }
+        .article-search-panel label { display: block; margin-bottom: 7px; font-size: 0.75rem; font-weight: 700; color: var(--dm-muted, #6b7280); }
+        .article-search-input {
+            width: 100%; padding: 9px 11px;
+            border: 1px solid var(--dm-input-border, #E1E1D7); border-radius: 3px;
+            background: var(--dm-input-bg, #ffffff); color: var(--dm-text, #2D2D2D);
+            font: inherit; font-size: 0.86rem;
+        }
+        .article-search-results { display: grid; gap: 2px; margin-top: 8px; }
+        .article-search-result { display: block; padding: 8px; border-radius: 3px; color: inherit; font-size: 0.82rem; text-decoration: none; }
+        .article-search-result:hover { background: var(--dm-hover, #F1F5ED); color: inherit; }
+        .article-search-result[hidden], .article-search-empty[hidden] { display: none; }
+        .article-search-empty { margin: 8px; color: var(--dm-muted, #6b7280); font-size: 0.82rem; }
 
         /* MAIN */
         #main { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; padding: 24px 20px 80px; background: var(--bg); }
         body.sidebar-closed #main { margin-left: 0; width: 100%; }
-        .article-wrap { max-width: 820px; margin: 0 auto; }
+        .article-wrap { width: 100%; max-width: none; margin: 0; }
+
+        .article-cover {
+            width: 100%;
+            height: 56vh;
+            min-height: 330px;
+            max-height: 560px;
+            margin: 0 0 24px;
+            overflow: hidden;
+        }
+        .article-cover img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
 
         /* ── PAMPHLET HEADER ── */
         .article-header {
-            background: #2d5016;
-            color: white;
+            width: 100%;
+            background: #5A6B47;
+            color: #FFFFFF;
             border-radius: 0;
             padding: 28px 36px;
-            margin-bottom: 0;
-            border-bottom: 4px solid #8fbf5a;
+            margin: -24px 0 0;
+            border-bottom: 4px solid #8DAE74;
             position: relative;
             display: flex;
             align-items: flex-start;
             gap: 20px;
         }
-        .article-header .header-body { flex: 1; }
+        .article-header .header-body { flex: 1; width: 100%; }
         .article-header h1 {
             font-size: 1.45rem;
             font-weight: 700;
+            color: #FFFFFF;
             margin-bottom: 6px;
             line-height: 1.3;
             letter-spacing: -0.2px;
@@ -892,7 +935,7 @@ $section_count = count($article['sections']);
             opacity: 0.88;
             line-height: 1.6;
             margin-bottom: 10px;
-            max-width: 600px;
+            max-width: none;
         }
         .source-tag {
             display: inline-flex; align-items: center; gap: 5px;
@@ -908,46 +951,28 @@ $section_count = count($article['sections']);
 
         /* ── META STRIP ── */
         .article-meta {
+            width: 100%;
             display: flex; align-items: center; gap: 0;
-            background: #3d6b22;
-            padding: 8px 20px;
+            background: #F4F4ED;
+            padding: 8px 36px;
             margin-bottom: 20px;
             font-size: 0.76rem;
-            color: rgba(255,255,255,0.85);
+            color: #5A6B47;
             flex-wrap: wrap; gap: 4px;
         }
         .article-meta span {
             display: flex; align-items: center; gap: 5px;
             padding: 2px 12px;
-            border-right: 1px solid rgba(255,255,255,0.2);
+            border-right: 1px solid #E1E1D7;
         }
         .article-meta span:last-child { border-right: none; }
         .article-meta i { opacity: 0.75; }
-
-        /* ── BACK BUTTON ── */
-        .article-actions { display: flex; align-items: center; margin-bottom: 16px; }
-        .btn-back {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 7px 16px;
-            background: white;
-            color: #2d5016;
-            border: 1.5px solid #2d5016;
-            border-radius: 3px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            text-decoration: none;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            transition: background 0.15s, color 0.15s;
-        }
-        .btn-back:hover { background: #2d5016; color: white; }
-        .btn-back i { font-size: 0.75rem; }
 
         /* ── TOC — pamphlet index style ── */
         .toc-box {
             background: white;
             border: 1px solid var(--border);
-            border-top: 3px solid #2d5016;
+            border-top: 3px solid #2D5016;
             border-radius: 0;
             padding: 16px 20px;
             margin-bottom: 18px;
@@ -956,7 +981,7 @@ $section_count = count($article['sections']);
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: #2d5016;
+            color: #2D5016;
             font-weight: 700;
             margin-bottom: 10px;
             padding-bottom: 6px;
@@ -966,7 +991,7 @@ $section_count = count($article['sections']);
         .toc-box ol li {
             counter-increment: toc-counter;
             font-size: 0.83rem;
-            color: #1c1c1c;
+            color: #2D2D2D;
             padding: 5px 0 5px 28px;
             border-bottom: 1px dotted #ddd;
             position: relative;
@@ -977,26 +1002,26 @@ $section_count = count($article['sections']);
         .toc-box ol li::before {
             content: counter(toc-counter) ".";
             position: absolute; left: 0;
-            color: #2d5016;
+            color: #2D5016;
             font-weight: 700;
             font-size: 0.78rem;
             width: 22px;
         }
-        .toc-box ol li:hover { color: #2d5016; text-decoration: underline; }
+        .toc-box ol li:hover { color: #2D5016; text-decoration: underline; }
 
         /* ── KEY TAKEAWAY ── */
         .key-takeaway {
-            background: #eef6e4;
-            border: 1px solid #b8d98a;
-            border-left: 4px solid #2d5016;
+            background: #F1F5ED;
+            border: 1px solid #C8E0A8;
+            border-left: 4px solid #2D5016;
             border-radius: 0;
             padding: 14px 18px;
             margin-bottom: 18px;
             display: flex; gap: 12px; align-items: flex-start;
         }
-        .key-takeaway-icon { font-size: 1.2rem; flex-shrink: 0; color: #2d5016; margin-top: 1px; }
-        .key-takeaway h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; color: #2d5016; font-weight: 700; margin-bottom: 4px; }
-        .key-takeaway p { font-size: 0.86rem; color: #2a3d12; line-height: 1.65; }
+        .key-takeaway-icon { font-size: 1.2rem; flex-shrink: 0; color: #2D5016; margin-top: 1px; }
+        .key-takeaway h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; color: #2D5016; font-weight: 700; margin-bottom: 4px; }
+        .key-takeaway p { font-size: 0.86rem; color: #2D3D20; line-height: 1.65; }
 
         /* ── SECTION CARD — pamphlet section ── */
         .section-card {
@@ -1011,13 +1036,13 @@ $section_count = count($article['sections']);
             font-size: 0.82rem;
             font-weight: 700;
             color: white;
-            background: #2d5016;
+            background: #2D5016;
             margin: 0;
             padding: 9px 16px;
             text-transform: uppercase;
             letter-spacing: 0.6px;
             display: flex; align-items: center; gap: 8px;
-            border-bottom: 2px solid #8fbf5a;
+            border-bottom: 2px solid #8FBF5A;
         }
         .section-card h2::before { display: none; }
         .section-card-body { padding: 16px 18px; }
@@ -1026,7 +1051,7 @@ $section_count = count($article['sections']);
         .detailed-item {
             margin-bottom: 0;
             border: none;
-            border-bottom: 1px solid #e8eed8;
+            border-bottom: 1px solid #E0E8DC;
             border-radius: 0;
             overflow: hidden;
         }
@@ -1038,10 +1063,10 @@ $section_count = count($article['sections']);
             cursor: pointer;
             transition: background 0.15s;
         }
-        .detailed-label:hover { background: #f6faf2; }
+        .detailed-label:hover { background: #F1F5ED; }
         .detailed-bullet {
             width: 22px; height: 22px;
-            background: #2d5016;
+            background: #2D5016;
             color: white;
             border-radius: 2px;
             display: flex; align-items: center; justify-content: center;
@@ -1050,12 +1075,12 @@ $section_count = count($article['sections']);
             margin-top: 1px;
         }
         .detailed-text { flex: 1; }
-        .detailed-text strong { font-size: 0.88rem; color: #1c1c1c; display: block; font-weight: 600; }
+        .detailed-text strong { font-size: 0.88rem; color: #2D2D2D; display: block; font-weight: 600; }
         .detailed-toggle { color: #999; font-size: 0.7rem; transition: transform 0.2s; flex-shrink: 0; margin-top: 4px; }
         .detailed-why {
             padding: 10px 14px 14px 38px;
-            background: #f8fbf4;
-            border-top: 1px solid #dceeda;
+            background: #F1F5ED;
+            border-top: 1px solid #D8E8C8;
             display: none;
         }
         .detailed-why .why-label {
@@ -1063,13 +1088,13 @@ $section_count = count($article['sections']);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.6px;
-            color: #2d5016;
+            color: #2D5016;
             margin-bottom: 5px;
             display: flex; align-items: center; gap: 4px;
             padding-bottom: 4px;
-            border-bottom: 1px solid #cce8b0;
+            border-bottom: 1px solid #C8E0A8;
         }
-        .detailed-why p { font-size: 0.84rem; color: #2a3a2a; line-height: 1.7; }
+        .detailed-why p { font-size: 0.84rem; color: #2D3D2D; line-height: 1.7; }
         .detailed-item.open .detailed-why { display: block; }
         .detailed-item.open .detailed-toggle { transform: rotate(180deg); }
 
@@ -1077,9 +1102,9 @@ $section_count = count($article['sections']);
         .plain-list { list-style: none; padding: 0; margin: 0; }
         .plain-list li {
             padding: 8px 10px 8px 30px;
-            border-bottom: 1px solid #eef4e4;
+            border-bottom: 1px solid #EDF2ED;
             font-size: 0.87rem;
-            color: #1c1c1c;
+            color: #2D2D2D;
             position: relative;
             line-height: 1.6;
         }
@@ -1087,14 +1112,14 @@ $section_count = count($article['sections']);
         .plain-list li::before {
             content: '▸';
             position: absolute; left: 8px; top: 8px;
-            color: #2d5016;
+            color: #2D5016;
             font-size: 0.75rem;
         }
 
         /* ── TABLE ── */
         .article-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
         .article-table th {
-            background: #2d5016;
+            background: #2D5016;
             color: white;
             padding: 9px 12px;
             text-align: left;
@@ -1107,26 +1132,26 @@ $section_count = count($article['sections']);
         .article-table th:last-child { border-right: none; }
         .article-table td {
             padding: 9px 12px;
-            border-bottom: 1px solid #d8e8c0;
+            border-bottom: 1px solid #D8E8C8;
             border-right: 1px solid #e8eee8;
             vertical-align: top;
-            color: #1c1c1c;
+            color: #2D2D2D;
         }
         .article-table td:last-child { border-right: none; }
-        .article-table tr:nth-child(even) td { background: #f4f9ee; }
+        .article-table tr:nth-child(even) td { background: #F1F5ED; }
         .article-table tr:last-child td { border-bottom: none; }
-        .article-table tr:hover td { background: #eef6e4; }
+        .article-table tr:hover td { background: #F1F5ED; }
 
         /* HIGHLIGHT BOX */
         .highlight-box {
-            background: #f4f9ee;
-            border: 1px solid #b8d98a;
-            border-left: 4px solid #2d5016;
+            background: #F1F5ED;
+            border: 1px solid #C8E0A8;
+            border-left: 4px solid #2D5016;
             border-radius: 0;
             padding: 14px 18px;
             font-size: 0.88rem;
             line-height: 1.7;
-            color: #2a3d12;
+            color: #2D3D20;
         }
         .highlight-box::before { content: none; }
 
@@ -1155,12 +1180,12 @@ $section_count = count($article['sections']);
             letter-spacing: 0.3px;
         }
         .truth-label {
-            background: #f6faf0;
+            background: #F1F5ED;
             border-left: none;
             border-top: none;
             border-radius: 0;
             padding: 10px 14px;
-            color: #1a2e0a;
+            color: #2A3520;
             font-size: 0.86rem;
             line-height: 1.7;
         }
@@ -1175,7 +1200,7 @@ $section_count = count($article['sections']);
         .steps-list li {
             counter-increment: step-counter;
             padding: 10px 12px 10px 46px;
-            border-bottom: 1px solid #e8eed8;
+            border-bottom: 1px solid #E0E8DC;
             background: white;
             position: relative;
             font-size: 0.87rem;
@@ -1185,17 +1210,17 @@ $section_count = count($article['sections']);
             content: counter(step-counter);
             position: absolute; left: 12px; top: 10px;
             width: 22px; height: 22px;
-            background: #2d5016; color: white;
+            background: #2D5016; color: white;
             border-radius: 2px;
             display: flex; align-items: center; justify-content: center;
             font-weight: 700; font-size: 0.75rem;
         }
-        .steps-list li strong { display: block; color: #1c1c1c; margin-bottom: 2px; font-weight: 600; }
+        .steps-list li strong { display: block; color: #2D2D2D; margin-bottom: 2px; font-weight: 600; }
         .steps-list li small { color: #5a5a5a; font-size: 0.8rem; }
 
         /* ── CTA CARD ── */
         .cta-card {
-            background: #2d5016;
+            background: #2D5016;
             border-radius: 0;
             padding: 18px 22px;
             margin-top: 20px;
@@ -1203,7 +1228,7 @@ $section_count = count($article['sections']);
             align-items: center;
             gap: 16px;
             color: white;
-            border-left: 5px solid #8fbf5a;
+            border-left: 5px solid #8FBF5A;
         }
         .cta-icon {
             width: 44px; height: 44px;
@@ -1219,7 +1244,7 @@ $section_count = count($article['sections']);
         .cta-text p  { font-size: 0.8rem; opacity: 0.85; line-height: 1.55; margin: 0; }
         .cta-btn {
             display: inline-flex; align-items: center; gap: 6px;
-            background: white; color: #2d5016;
+            background: white; color: #2D5016;
             font-weight: 700; font-size: 0.8rem;
             padding: 8px 16px; border-radius: 3px;
             text-decoration: none; white-space: nowrap;
@@ -1229,6 +1254,11 @@ $section_count = count($article['sections']);
         }
         .cta-btn:hover { opacity: 0.88; }
         @media (max-width: 600px) {
+            .article-cover {
+                height: 46vh;
+                min-height: 240px;
+                max-height: 380px;
+            }
             .cta-card { flex-direction: column; }
             .cta-btn { width: 100%; justify-content: center; }
         }
@@ -1238,10 +1268,10 @@ $section_count = count($article['sections']);
         .related-section h3 {
             font-size: 0.72rem; font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.8px;
-            color: #2d5016;
+            color: #2D5016;
             margin-bottom: 10px;
             padding-bottom: 6px;
-            border-bottom: 2px solid #2d5016;
+            border-bottom: 2px solid #2D5016;
             display: flex; align-items: center; gap: 7px;
         }
         .related-grid {
@@ -1252,7 +1282,7 @@ $section_count = count($article['sections']);
         .related-card {
             background: white;
             border: 1px solid var(--border);
-            border-top: 3px solid #2d5016;
+            border-top: 3px solid #2D5016;
             border-radius: 0;
             padding: 12px 14px;
             text-decoration: none;
@@ -1263,48 +1293,48 @@ $section_count = count($article['sections']);
         .related-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.10); }
         .related-card-icon {
             width: 32px; height: 32px;
-            background: #eef6e4;
-            color: #2d5016;
-            border: 1px solid #b8d98a;
+            background: #F1F5ED;
+            color: #2D5016;
+            border: 1px solid #C8E0A8;
             border-radius: 3px;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.88rem; flex-shrink: 0;
         }
-        .related-card-title { font-size: 0.82rem; font-weight: 600; color: #2d5016; line-height: 1.35; }
+        .related-card-title { font-size: 0.82rem; font-weight: 600; color: #2D5016; line-height: 1.35; }
         .related-card-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
 
         /*FOOTER*/
         .article-footer {
             background: #ffffff;
-            border-top: 3px solid #2d5016;
+            border-top: 3px solid #2D5016;
             padding: 36px 20px 20px;
             margin-top: 40px;
-            color: #1c1c1c;
+            color: #2D2D2D;
         }
-        .footer-inner { max-width: 820px; margin: 0 auto; }
+        .footer-inner { width: 100%; margin: 0; }
 
         .footer-top {
             display: grid;
-            grid-template-columns: 1.6fr 1fr 1fr;
-            gap: 32px;
+            grid-template-columns: 1.8fr 1fr 1fr;
+            gap: 36px;
             padding-bottom: 20px;
             border-bottom: 1px solid #e0e8dc;
             margin-bottom: 16px;
         }
-        @media (max-width: 640px) {
+        @media (max-width: 700px) {
             .footer-top { grid-template-columns: 1fr; gap: 20px; }
+            .article-meta { padding-right: 20px; padding-left: 20px; }
         }
-
         /*identity */
         .footer-brand { display: flex; align-items: flex-start; gap: 12px; }
         .footer-brand img {
-            width: 48px; height: 48px; border-radius: 50%;
+            width: 46px; height: 46px; border-radius: 50%;
             object-fit: cover;
-            border: 2px solid #2d5016;
+            border: 2px solid #2D5016;
             flex-shrink: 0;
         }
         .footer-brand-text h4 {
-            font-size: 0.88rem; font-weight: 700; color: #2d5016;
+            font-size: 0.88rem; font-weight: 700; color: #2D5016;
             line-height: 1.3; margin-bottom: 3px;
         }
         .footer-brand-text span {
@@ -1325,14 +1355,14 @@ $section_count = count($article['sections']);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            color: #2d5016;
+            color: #2D5016;
             margin-bottom: 10px;
             padding-bottom: 5px;
-            border-bottom: 1px solid #d8e8c8;
+            border-bottom: 1px solid #D8E8C8;
         }
         .footer-col ul { list-style: none; padding: 0; margin: 0; }
         .footer-col ul li {
-            font-size: 0.78rem;
+            font-size: 0.77rem;
             color: #444;
             padding: 4px 0;
             display: flex;
@@ -1341,13 +1371,13 @@ $section_count = count($article['sections']);
             line-height: 1.4;
         }
         .footer-col ul li i {
-            color: #2d5016;
+            color: #2D5016;
             font-size: 0.72rem;
             margin-top: 2px;
             flex-shrink: 0;
         }
-        .footer-col ul li strong { color: #2d5016; }
-        .footer-col a { color: #3d6b22; text-decoration: none; }
+        .footer-col ul li strong { color: #2D5016; }
+        .footer-col a { color: #5A7C3A; text-decoration: none; }
         .footer-col a:hover { text-decoration: underline; }
 
         /* Bottom bar */
@@ -1365,11 +1395,11 @@ $section_count = count($article['sections']);
         .footer-badge {
             display: inline-flex; align-items: center; gap: 5px;
             background: #eef6e4;
-            border: 1px solid #c8e0a8;
-            border-radius: 3px;
+            border: 1px solid #C8E0A8;
+            border-radius: 4px;
             padding: 3px 10px;
             font-size: 0.68rem;
-            color: #2d5016;
+            color: #2D5016;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.4px;
@@ -1381,7 +1411,7 @@ $section_count = count($article['sections']);
             bottom: 0; left: 0;
             width: 0%;
             height: 3px;
-            background: #8fbf5a;
+            background: #8FBF5A;
             z-index: 9998;
             transition: width 0.1s;
         }            border-radius: 0 2px 0 0;
@@ -1389,7 +1419,7 @@ $section_count = count($article['sections']);
 
         /*CTA CARD*/
         .cta-card {
-            background: linear-gradient(135deg, #2d5016, #3d6b1e);
+            background: linear-gradient(135deg, #2D5016, #5A7C3A);
             border-radius: 16px;
             padding: 24px 28px;
             margin-top: 24px;
@@ -1412,7 +1442,7 @@ $section_count = count($article['sections']);
         .cta-text p  { font-size: 0.85rem; opacity: 0.88; line-height: 1.6; margin: 0; }
         .cta-btn {
             display: inline-flex; align-items: center; gap: 7px;
-            background: white; color: #2d5016;
+            background: white; color: #2D5016;
             font-weight: 700; font-size: 0.82rem;
             padding: 9px 18px; border-radius: 999px;
             text-decoration: none; white-space: nowrap;
@@ -1434,36 +1464,162 @@ $section_count = count($article['sections']);
         }
         .related-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            align-items: stretch;
         }
         .related-card {
+            width: 100%;
+            min-height: 96px;
             background: white;
-            border: 1px solid #e0edd4;
-            border-radius: 12px;
+            border: 1px solid #d8e8c8;
+            border-radius: 4px;
             padding: 16px;
             text-decoration: none;
             color: var(--text);
-            display: flex; align-items: flex-start; gap: 12px;
+            display: flex; align-items: center; gap: 12px;
             transition: box-shadow 0.2s, transform 0.2s;
         }
         .related-card:hover { box-shadow: 0 4px 14px rgba(45,80,22,0.12); transform: translateY(-2px); }
         .related-card-icon {
-            width: 52px; height: 52px; border-radius: 4px;
-            background: #eef6e6; color: #2d5016;
+            width: 56px; height: 56px; border-radius: 4px;
+            background: #F1F5ED; color: #2D5016;
             display: flex; align-items: center; justify-content: center;
             font-size: 1rem; flex-shrink: 0; overflow: hidden;
         }
-        .related-card-title { font-size: 0.85rem; font-weight: 600; color: #2d5016; line-height: 1.4; }
+        .related-card > div:last-child { min-width: 0; }
+        .related-card-title { font-size: 0.85rem; font-weight: 600; color: #2D5016; line-height: 1.4; }
         .related-card-sub   { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+        @media (max-width: 900px) {
+            .related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 600px) {
+            .related-grid { grid-template-columns: 1fr; }
+        }
 
         /* PRINT */
         @media print {
-            .sidebar-container, .topbar, .article-actions, .toc-box, .progress-bar { display: none !important; }
+            .sidebar-container, .topbar, .toc-box, .progress-bar { display: none !important; }
             #main { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
             .article-wrap { max-width: 100%; }
             .detailed-why { display: block !important; }
         }
+
+        /* Match the super-admin dashboard's sage palette across the article. */
+        body, #main { background: #F9F9F4; color: #2D2D2D; }
+        .progress-bar, .reading-progress-bar { background: #5A6B47; }
+        .topbar { border-bottom-color: #5A6B47; }
+        .topbar .hamburger-btn { background: #5A6B47; }
+        .topbar .hamburger-btn:hover { background: #8DAE74; }
+        .topbar .logo-img { border-color: #5A6B47; }
+        .topbar .page-label, .article-search-toggle { color: #5A6B47; }
+        .article-search-toggle:hover { background: #F0F5EC; border-color: #E1E1D7; }
+        .article-header { background: #5A6B47; color: #FFFFFF; border-bottom-color: #8DAE74; }
+        .article-header h1 { color: #FFFFFF; }
+        .article-meta { background: #F4F4ED; color: #5A6B47; }
+        .toc-box { border-top-color: #5A6B47; }
+        .toc-box h3, .toc-box ol li::before, .toc-box ol li:hover { color: #5A6B47; }
+        .key-takeaway { background: #F4F7F0; border-color: #E1E1D7; border-left-color: #5A6B47; }
+        .key-takeaway-icon, .key-takeaway h3 { color: #5A6B47; }
+        .key-takeaway p { color: #2D2D2D; }
+        .section-card h2, .article-table th, .steps-list li::before { background: #5A6B47; }
+        .section-card h2 { border-bottom-color: #8DAE74; }
+        .detailed-bullet { background: #5A6B47; }
+        .detailed-label:hover, .detailed-why, .article-table tr:nth-child(even) td,
+        .article-table tr:hover td, .highlight-box, .truth-label { background: #F4F7F0; }
+        .detailed-why, .article-table td, .highlight-box, .myth-box,
+        .detailed-item, .plain-list li, .steps-list li { border-color: #E1E1D7; }
+        .detailed-why .why-label, .plain-list li::before { color: #5A6B47; }
+        .detailed-why .why-label, .highlight-box { border-left-color: #5A6B47; }
+        .myth-label { background: #F4F7F0; color: #2D2D2D; border-color: #E1E1D7; }
+        .truth-label { color: #2D2D2D; }
+        .myth-label .badge, .truth-label .badge { background: #5A6B47; color: #FFFFFF; }
+        .steps-list li::before { background: #5A6B47; }
+        .cta-card { background: #5A6B47; border-left-color: #8DAE74; }
+        .cta-btn { color: #5A6B47; }
+        .related-section h3 { color: #5A6B47; border-bottom-color: #5A6B47; }
+        .related-card, .related-card-icon { border-color: #E1E1D7; }
+        .related-card { border-top-color: #5A6B47; }
+        .related-card-icon { background: #F4F7F0; color: #5A6B47; }
+        .related-card-title { color: #5A6B47; }
+        .article-footer { border-top-color: #5A6B47; }
+        .footer-brand img { border-color: #5A6B47; }
+        .footer-brand-text h4, .footer-col h5, .footer-col ul li i,
+        .footer-col ul li strong, .footer-badge { color: #5A6B47; }
+        .footer-col a { color: #5A6B47; }
+        .footer-col h5 { border-bottom-color: #E1E1D7; }
+        .footer-badge { background: #F0F5EC; border-color: #E1E1D7; }
+
+        [data-theme="dark"] .article-header { background: #242826 !important; color: #E8EDE5 !important; border-color: #8DAE74 !important; }
+        [data-theme="dark"] .article-header p { color: #E8EDE5 !important; }
+        [data-theme="dark"] .article-header h1 { color: #8DAE74 !important; }
+        [data-theme="dark"] .article-meta,
+        [data-theme="dark"] .article-meta span { background: #242826 !important; color: #8DAE74 !important; }
+        [data-theme="dark"] .key-takeaway h3,
+        [data-theme="dark"] .related-section h3,
+        [data-theme="dark"] .footer-brand-text h4,
+        [data-theme="dark"] .footer-col h5,
+        [data-theme="dark"] .footer-col ul li i,
+        [data-theme="dark"] .footer-col ul li strong,
+        [data-theme="dark"] .footer-badge { color: #8DAE74 !important; }
+        [data-theme="dark"] .section-card h2,
+        [data-theme="dark"] .article-table th,
+        [data-theme="dark"] .detailed-bullet,
+        [data-theme="dark"] .steps-list li::before,
+        [data-theme="dark"] .cta-card { background: #5A6B47 !important; }
+        [data-theme="dark"] .section-card h2,
+        [data-theme="dark"] .article-table th { color: #FFFFFF !important; border-color: #8DAE74 !important; }
+        [data-theme="dark"] .detailed-label,
+        [data-theme="dark"] .steps-list li,
+        [data-theme="dark"] .myth-label,
+        [data-theme="dark"] .truth-label,
+        [data-theme="dark"] .related-card {
+            background: #242826 !important;
+            color: #E8EDE5 !important;
+            border-color: #3A403A !important;
+        }
+        [data-theme="dark"] .detailed-text strong,
+        [data-theme="dark"] .steps-list li strong,
+        [data-theme="dark"] .steps-list li small,
+        [data-theme="dark"] .detailed-why p,
+        [data-theme="dark"] .plain-list li,
+        [data-theme="dark"] .article-table td,
+        [data-theme="dark"] .related-card-title,
+        [data-theme="dark"] .related-card-sub,
+        [data-theme="dark"] .key-takeaway p,
+        [data-theme="dark"] .highlight-box,
+        [data-theme="dark"] .myth-label,
+        [data-theme="dark"] .truth-label { color: #E8EDE5 !important; }
+        [data-theme="dark"] .detailed-why,
+        [data-theme="dark"] .key-takeaway,
+        [data-theme="dark"] .highlight-box { background: #242826 !important; border-color: #3A403A !important; }
+        [data-theme="dark"] .detailed-why .why-label,
+        [data-theme="dark"] .toc-box h3,
+        [data-theme="dark"] .toc-box li,
+        [data-theme="dark"] .topbar .page-label,
+        [data-theme="dark"] .article-search-toggle,
+        [data-theme="dark"] .key-takeaway-icon,
+        [data-theme="dark"] .related-card-icon { color: #8DAE74 !important; }
+        [data-theme="dark"] .related-card-icon { background: #2C302C !important; }
+        [data-theme="dark"] .myth-label .badge,
+        [data-theme="dark"] .truth-label .badge { background: #5A6B47 !important; color: #FFFFFF !important; }
+        [data-theme="dark"] .article-footer { background: #1E1E1E !important; border-top-color: #8DAE74 !important; color: #D0D0D0 !important; }
+        [data-theme="dark"] .footer-top { border-bottom-color: #2E2E2E !important; }
+        [data-theme="dark"] .footer-brand-text span,
+        [data-theme="dark"] .footer-tagline,
+        [data-theme="dark"] .footer-col ul li,
+        [data-theme="dark"] .footer-copy { color: #B8C4B0 !important; }
+        [data-theme="dark"] .footer-col a { color: #8DAE74 !important; }
+        [data-theme="dark"] .footer-col h5 { border-bottom-color: #2E2E2E !important; }
+        [data-theme="dark"] .footer-badge { background: #1A2E14 !important; border-color: #3A6B20 !important; }
+        [data-theme="dark"] .article-meta img,
+        [data-theme="dark"] .key-takeaway-icon img,
+        [data-theme="dark"] .why-label img,
+        [data-theme="dark"] .related-section h3 img,
+        [data-theme="dark"] .footer-col h5 img,
+        [data-theme="dark"] .footer-col ul li img { filter: brightness(0) invert(1); }
+
     </style>
 </head>
 <body class="sidebar-closed">
@@ -1475,16 +1631,35 @@ $section_count = count($article['sections']);
 </div>
 
 <div class="topbar">
+    <a class="article-back-link" href="user_dashboard.php" title="Bumalik sa Health Hub" aria-label="Bumalik sa Health Hub">
+        <i class="fa fa-arrow-left"></i>
+    </a>
     <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
         <i class="fa fa-bars"></i>
     </button>
-    <img src="images/logo.png" alt="Brgy Logo" class="logo-img" onerror="this.style.display='none'">
+    <img src="images/logo.jpg?v=<?= time() ?>" alt="Brgy Logo" class="logo-img" onerror="this.style.display='none'">
     <span class="page-label"><?= htmlspecialchars($article['title']) ?></span>
+    <div class="topbar-actions">
+        <div class="article-search" id="articleSearch">
+            <button type="button" class="article-search-toggle" id="articleSearchToggle" onclick="toggleArticleSearch()" title="Maghanap ng health topic" aria-label="Maghanap ng health topic" aria-controls="articleSearchPanel" aria-expanded="false">
+                <i class="fa fa-search"></i>
+            </button>
+            <div class="article-search-panel" id="articleSearchPanel" hidden>
+                <label for="articleSearchInput">Maghanap ng health topic</label>
+                <input class="article-search-input" id="articleSearchInput" type="search" placeholder="Hal. prenatal, bakuna..." autocomplete="off">
+                <div class="article-search-results" id="articleSearchResults">
+                    <?php foreach ($articles as $topic_key => $topic_data): ?>
+                    <a class="article-search-result" href="health_article.php?topic=<?= rawurlencode($topic_key) ?>" data-search-text="<?= htmlspecialchars(strtolower($topic_data['title'] . ' ' . $topic_data['intro']), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($topic_data['title']) ?></a>
+                    <?php endforeach; ?>
+                    <p class="article-search-empty" id="articleSearchEmpty" hidden>Walang nahanap na health topic.</p>
+                </div>
+            </div>
+        </div>
+        <?php include 'notif_bell.php'; ?>
+    </div>
 </div>
 
 <div id="main">
-<div class="article-wrap">
-
     <!-- HEADER -->
     <div class="article-header">
         <div class="header-body">
@@ -1495,18 +1670,19 @@ $section_count = count($article['sections']);
 
     <!-- META -->
     <div class="article-meta">
-        <span><img src="images/clock.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> <?= $read_min ?> min basahin</span>
-        <span><img src="images/greenbook.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> <?= $section_count ?> seksyon</span>
-        <span><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Alawihao Health Center</span>
-        <span><img src="images/shield.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> DOH-verified</span>
+        <span><i class="fa fa-clock" style="font-size:11px;margin-right:3px;color:#5A6B47;vertical-align:middle;"></i> <?= $read_min ?> min basahin</span>
+        <span><i class="fa fa-book" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> <?= $section_count ?> seksyon</span>
+        <span><i class="fa fa-location-dot" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> Alawihao Health Center</span>
+        <span><i class="fa fa-shield-halved" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> DOH-verified</span>
     </div>
 
-    <!-- BACK BUTTON -->
-    <div class="article-actions">
-        <a href="user_dashboard.php" class="btn-back">
-            <img src="images/left arrow.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Bumalik sa Dashboard
-        </a>
-    </div>
+    <?php if (!empty($article['image'])): ?>
+    <figure class="article-cover">
+        <img src="<?= htmlspecialchars($article['image'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($article['title'], ENT_QUOTES, 'UTF-8') ?>" loading="eager" decoding="async">
+    </figure>
+    <?php endif; ?>
+
+<div class="article-wrap">
 
     <!-- TOC -->
     <?php if ($section_count > 2): ?>
@@ -1559,7 +1735,7 @@ $section_count = count($article['sections']);
                 </div>
                 <?php if (!empty($item['why'])): ?>
                 <div class="detailed-why">
-                    <div class="why-label"><img src="images/stethoscope.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> Bakit? — Batay sa Agham</div>
+                    <div class="why-label"><i class="fa fa-stethoscope" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> Bakit? — Batay sa Agham</div>
                     <p><?= htmlspecialchars($item['why']) ?></p>
                 </div>
                 <?php endif; ?>
@@ -1577,7 +1753,7 @@ $section_count = count($article['sections']);
             <div class="highlight-box"><?= htmlspecialchars($sec['content']) ?></div>
 
         <?php elseif ($sec['type'] === 'text'): ?>
-            <p style="line-height:1.85;color:var(--text);font-size:0.95rem;background:#f8fbf5;padding:16px 18px;border-radius:10px;border-left:3px solid #c8ddb0;"><?= htmlspecialchars($sec['content']) ?></p>
+            <p style="line-height:1.85;color:var(--text);font-size:0.95rem;background:#F4F7F0;padding:16px 18px;border-radius:10px;border-left:3px solid #E1E1D7;"><?= htmlspecialchars($sec['content']) ?></p>
 
         <?php elseif ($sec['type'] === 'myth'): ?>
             <div class="myth-box">
@@ -1616,19 +1792,19 @@ $section_count = count($article['sections']);
     <?php
     // ── Related articles map ────────────────────────────────────────────────
     $all_related = [
-        'warning-signs'    => ['icon'=>'fa-triangle-exclamation', 'images'=>'images/pic9.jpg',    'label'=>'Mga Babala Habang Buntis'],
-        'prenatal-checkup' => ['icon'=>'fa-stethoscope',          'images'=>'images/pic10.jpg',   'label'=>'Pre-natal Check-up'],
-        'pregnancy-dos'    => ['icon'=>'fa-thumbs-up',            'images'=>'images/pic11.jpg',   'label'=>"Pregnancy Do's"],
-        'pregnancy-donts'  => ['icon'=>'fa-ban',                  'images'=>'images/pic8.jpg',    'label'=>"Pregnancy Don'ts"],
-        'pamahiin'         => ['icon'=>'fa-book-open',            'images'=>'images/pic12.webp',  'label'=>'Sabi-sabi vs. Totoo'],
-        'baby-growth'      => ['icon'=>'fa-baby',                 'images'=>'images/pic13.jpg',   'label'=>'Paglaki ni Baby'],
-        'newborn-care'     => ['icon'=>'fa-hands-holding-child',  'images'=>'images/pic6.jpg',    'label'=>'Newborn Care'],
-        'breastfeeding'    => ['icon'=>'fa-heart-pulse',          'images'=>'images/pic1.jpg',    'label'=>'Eksklusibong Pagpapasuso'],
-        'baby-milestones'  => ['icon'=>'fa-chart-line',           'images'=>'images/pic7.webp',   'label'=>'Baby Milestones'],
-        'baby-safety'      => ['icon'=>'fa-shield-halved',        'images'=>'images/pic2.jpg',    'label'=>'Kaligtasan ng Baby'],
-        'unang-linggo'     => ['icon'=>'fa-calendar-day',         'images'=>'images/pic3.jpg',    'label'=>'Unang Linggo ni Baby'],
-        'philhealth'       => ['icon'=>'fa-id-card',              'images'=>'images/pic13.webp',  'label'=>'PhilHealth Benefits'],
-        'family-planning'  => ['icon'=>'fa-people-group',         'images'=>'images/pic14.webp',  'label'=>'Family Planning'],
+        'warning-signs'    => ['icon'=>'fa-triangle-exclamation', 'image'=>'images/pic9.jpg',    'label'=>'Mga Babala Habang Buntis'],
+        'prenatal-checkup' => ['icon'=>'fa-stethoscope',          'image'=>'images/pic10.jpg',   'label'=>'Pre-natal Check-up'],
+        'pregnancy-dos'    => ['icon'=>'fa-thumbs-up',            'image'=>'images/pic11.jpg',   'label'=>"Pregnancy Do's"],
+        'pregnancy-donts'  => ['icon'=>'fa-ban',                  'image'=>'images/pic8.jpg',    'label'=>"Pregnancy Don'ts"],
+        'pamahiin'         => ['icon'=>'fa-book-open',            'image'=>'images/pic12.webp',  'label'=>'Sabi-sabi vs. Totoo'],
+        'baby-growth'      => ['icon'=>'fa-baby',                 'image'=>'images/pic13.jpg',   'label'=>'Paglaki ni Baby'],
+        'newborn-care'     => ['icon'=>'fa-hands-holding-child',  'image'=>'images/pic6.jpg',    'label'=>'Newborn Care'],
+        'breastfeeding'    => ['icon'=>'fa-heart-pulse',          'image'=>'images/pic1.jpg',    'label'=>'Eksklusibong Pagpapasuso'],
+        'baby-milestones'  => ['icon'=>'fa-chart-line',           'image'=>'images/pic7.webp',   'label'=>'Baby Milestones'],
+        'baby-safety'      => ['icon'=>'fa-shield-halved',        'image'=>'images/pic2.jpg',    'label'=>'Kaligtasan ng Baby'],
+        'unang-linggo'     => ['icon'=>'fa-calendar-day',         'image'=>'images/pic3.jpg',    'label'=>'Unang Linggo ni Baby'],
+        'philhealth'       => ['icon'=>'fa-id-card',              'image'=>'images/pic13.webp',  'label'=>'PhilHealth Benefits'],
+        'family-planning'  => ['icon'=>'fa-people-group',         'image'=>'images/pic14.webp',  'label'=>'Family Planning'],
     ];
     // Pick 3 related topics (exclude current)
     $related_keys = array_filter(array_keys($all_related), fn($k) => $k !== $slug);
@@ -1640,14 +1816,14 @@ $section_count = count($article['sections']);
     <!-- RELATED ARTICLES -->
     <?php if (!empty($picks)): ?>
     <div class="related-section">
-        <h3><img src="images/greenbook.png" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;"> Related Topics</h3>
+        <h3><i class="fa fa-book-open" style="font-size:12px;color:#5A6B47;vertical-align:middle;margin-right:4px;"></i> Related Topics</h3>
         <div class="related-grid">
             <?php foreach ($picks as $key): ?>
             <?php $r = $all_related[$key]; ?>
             <a href="health_article.php?topic=<?= $key ?>" class="related-card">
                 <div class="related-card-icon">
-                    <?php if (!empty($r['images'])): ?>
-                    <img src="<?= htmlspecialchars($r['images']) ?>" alt="<?= htmlspecialchars($r['label']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:3px;">
+                    <?php if (!empty($r['image'])): ?>
+                    <img src="<?= htmlspecialchars($r['image']) ?>" alt="<?= htmlspecialchars($r['label']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:3px;">
                     <?php else: ?>
                     <i class="fa <?= $r['icon'] ?>"></i>
                     <?php endif; ?>
@@ -1672,7 +1848,7 @@ $section_count = count($article['sections']);
 
             <div>
                 <div class="footer-brand">
-                    <img src="images/logo.png" alt="Brgy Logo" onerror="this.style.display='none'">
+                    <img src="images/logo.jpg?v=<?= time() ?>" alt="Brgy Logo" onerror="this.style.display='none'">
                     <div class="footer-brand-text">
                         <h4>Barangay Alawihao Health Center</h4>
                         <span>Alawihao, Daet, Camarines Norte</span>
@@ -1684,9 +1860,9 @@ $section_count = count($article['sections']);
             <div class="footer-col">
                 <h5><i class="fa fa-address-book"></i> Contact Us</h5>
                 <ul>
-                    <li><img src="images/fb.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
-                    <li><img src="images/email.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
-                    <li><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> Alawihao, Daet, Camarines Norte, 4600</li>
+                    <li><i class="fa-brands fa-facebook" style="font-size:12px;color:#5A6B47;vertical-align:middle;flex-shrink:0;"></i> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
+                    <li><i class="fa fa-envelope" style="font-size:12px;color:#5A6B47;vertical-align:middle;flex-shrink:0;"></i> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
+                    <li><i class="fa fa-location-dot" style="font-size:12px;color:#5A6B47;vertical-align:middle;flex-shrink:0;"></i> Alawihao, Daet, Camarines Norte, 4600</li>
                 </ul>
             </div>
 
@@ -1703,13 +1879,62 @@ $section_count = count($article['sections']);
 
         <div class="footer-bottom">
             <span class="footer-copy">&copy; <?= date('Y') ?> Barangay Alawihao Health Center. All rights reserved.</span>
-            <span class="footer-badge"><img src="images/shield.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;"> DOH-Accredited Facility</span>
+            <span class="footer-badge"><i class="fa fa-shield-halved" aria-hidden="true"></i> DOH-Accredited Facility</span>
         </div>
 
     </div>
 </div>
 
 <script>
+    const articleSearch = document.getElementById('articleSearch');
+    const articleSearchPanel = document.getElementById('articleSearchPanel');
+    const articleSearchToggle = document.getElementById('articleSearchToggle');
+    const articleSearchInput = document.getElementById('articleSearchInput');
+    const articleSearchEmpty = document.getElementById('articleSearchEmpty');
+
+    function filterArticleTopics() {
+        const query = articleSearchInput.value.trim().toLowerCase();
+        let matches = 0;
+        document.querySelectorAll('.article-search-result').forEach(function (result) {
+            const visible = result.dataset.searchText.includes(query);
+            result.hidden = !visible;
+            if (visible) matches++;
+        });
+        articleSearchEmpty.hidden = query.length === 0 || matches > 0;
+    }
+
+    function toggleArticleSearch() {
+        articleSearchPanel.hidden = !articleSearchPanel.hidden;
+        articleSearchToggle.setAttribute('aria-expanded', String(!articleSearchPanel.hidden));
+        if (!articleSearchPanel.hidden) {
+            articleSearchInput.focus();
+        } else {
+            articleSearchInput.value = '';
+            filterArticleTopics();
+        }
+    }
+
+    articleSearchInput.addEventListener('input', filterArticleTopics);
+    articleSearchInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            const firstResult = document.querySelector('.article-search-result:not([hidden])');
+            if (firstResult) firstResult.click();
+        }
+    });
+    document.addEventListener('click', function (event) {
+        if (!articleSearch.contains(event.target) && !articleSearchPanel.hidden) {
+            articleSearchPanel.hidden = true;
+            articleSearchToggle.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !articleSearchPanel.hidden) {
+            articleSearchPanel.hidden = true;
+            articleSearchToggle.setAttribute('aria-expanded', 'false');
+            articleSearchToggle.focus();
+        }
+    });
+
     window.addEventListener('scroll', () => {
         const pct = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight) * 100;
         const val = isNaN(pct) ? 0 : Math.min(pct, 100);
@@ -1722,5 +1947,6 @@ $section_count = count($article['sections']);
         if (el) el.classList.toggle('open');
     }
 </script>
+<?php $notif_path = ''; include 'notif_js.php'; ?>
 </body>
 </html>

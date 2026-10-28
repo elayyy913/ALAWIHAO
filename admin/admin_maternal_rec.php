@@ -489,7 +489,7 @@ foreach ($patients as $patient) {
                 <button class="tab-btn active" onclick="switchTab(event, 'tab-history')">Medical & Verification History </button>
                 <button class="tab-btn" onclick="switchTab(event, 'tab-visits')">Check-up Visits History</button>
             </div>
-
+            
             <!-- TAB 1: MEDICAL & VERIFICATION HISTORY (DOH FORM) -->
             <div id="tab-history" class="tab-content active">
                 <div class="history-panel">
