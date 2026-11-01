@@ -414,7 +414,8 @@ $articles = [
 'breastfeeding' => [
     'title'    => 'Eksklusibong Pagpapasuso: Ang Pinakamabisang Proteksyon',
     'icon'     => 'fa-heart-pulse',
-    'image'    => 'images/pic1.jpg',
+    'image'    => 'images/breastfeeding_cover.jpg',
+    'image_credit' => 'Larawan ni Vyacheslav Argenberg / Wikimedia Commons, CC BY 4.0',
     'color'    => '#5A6B47',
     'source'   => 'WHO/UNICEF Global Breastfeeding Collective; DOH Philippines – National Breastfeeding Program',
     'intro'    => 'Ang gatas ng ina ay hindi lamang pagkain — ito ay isang buhay na sustansya na nagbabago araw-araw upang matugunan ang pangangailangan ng lumalaki at nagbabagong sanggol. Walang formula ang maaaring tularan ito.',
@@ -474,6 +475,54 @@ $articles = [
                 'Huwag magbigay ng tubig, formula, o iba pang pagkain hanggang 6 na buwan',
                 'Kumain ng malusog at uminom ng sapat na tubig — ang hydration ng nanay ay nakakaapekto sa milk supply',
                 'Humingi ng tulong sa Breastfeeding Peer Counselor ng iyong health center kung may problema',
+            ],
+        ],
+        [
+            'heading' => 'Mga Posisyon sa Pagpapasuso',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Cradle Position',
+                    'why'   => 'Ihele si baby sa braso sa panig ng suso na gagamitin at iharap ang katawan niya sa iyo. Suportahan ang ulo at leeg; ilagay ang ibabang braso ni baby sa paligid ng tagiliran mo, hindi nakasingit sa pagitan ng dibdib niya at ng katawan mo. Panatilihing tuwid at komportable ang leeg niya.',
+                ],
+                [
+                    'label' => 'Cross-Cradle Position',
+                    'why'   => 'Iharap si baby sa iyo at suportahan ang ulo at leeg gamit ang braso na nasa kabilang panig ng suso na gagamitin. Maaaring maglagay ng unan sa kandungan para masuportahan ang braso. Ilapit ang tiyan ni baby sa tiyan mo upang hindi niya kailangang pumihit para sumuso.',
+                ],
+                [
+                    'label' => 'Football Hold o Underarm Position',
+                    'why'   => 'Ilagay si baby sa ilalim ng braso sa panig ng suso na gagamitin, habang nakaturo sa likod mo ang mga paa niya at suportado ang ulo at leeg. Maaaring makatulong ito kung kambal ang pinapasuso o kung nais mong makita nang mabuti ang pagkakadikit ni baby. Huwag hayaang yumuko ang leeg niya o dumikit ang baba sa dibdib.',
+                ],
+                [
+                    'label' => 'Laid-Back Position',
+                    'why'   => 'Sumandal nang bahagya sa sofa o kama—huwag nakahiga nang patag—at gumamit ng mga unan upang masuportahan ang likod, balikat, at leeg. Ilagay si baby sa harap mo, tiyan niya sa tiyan mo, at tiyaking nakikita ang mukha at malayang nakakahinga. Kung hindi komportable, subukan ang posisyong nakatagilid.',
+                ],
+                [
+                    'label' => 'Lying-Down o Side-Lying Position',
+                    'why'   => 'Humiga nang patagilid habang nakaharap sa iyo si baby. Maaari itong maging komportable habang nagpapahinga o pagkatapos ng cesarean section. Itapat ang ilong ni baby sa utong upang hindi niya kailangang pilipitin o iyuko ang leeg para sumuso. Panatilihing malaya ang ilong at bibig niya; pagkatapos magpasuso, ilagay siya sa hiwalay at ligtas na tulugan.',
+                ],
+            ],
+        ],
+        [
+            'heading' => 'Mga Benepisyo ng Gatas ng Ina',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Sustansyang angkop sa pangangailangan ni baby',
+                    'why'   => 'Ang gatas ng ina ay nagbibigay ng mahahalagang sustansya para sa paglaki ng sanggol. Sa unang anim na buwan, inirerekomenda ang eksklusibong pagpapasuso kung maaari; pagdating ng anim na buwan, simulan ang angkop na karagdagang pagkain habang ipinagpapatuloy ang pagpapasuso.',
+                ],
+                [
+                    'label' => 'May antibodies na tumutulong laban sa impeksyon',
+                    'why'   => 'May antibodies at iba pang pananggalang ang gatas ng ina na tumutulong sa immune system ng sanggol. Hindi nito ginagarantiya na hindi magkakasakit si baby, kaya mahalaga pa rin ang bakuna at regular na check-up.',
+                ],
+                [
+                    'label' => 'Madaling tunawin at handa nang ipasuso',
+                    'why'   => 'Para sa maraming sanggol, madaling tunawin ang gatas ng ina at hindi na kailangang ihanda o bilhin. Nakakatulong din ang pagpapasuso sa pagbubuklod ng magulang at sanggol.',
+                ],
+                [
+                    'label' => 'Nakakatulong sa kalusugan at kapakanan ng ina',
+                    'why'   => 'Maaaring makatulong ang pagpapasuso sa paghilom pagkatapos manganak at may mga benepisyo rin ito sa kalusugan ng ina. Kung masakit ang pagpapasuso, nahihirapang sumuso si baby, o may alalahanin sa dami ng gatas, kumonsulta sa health worker o breastfeeding counselor.',
+                ],
             ],
         ],
     ],
@@ -549,6 +598,160 @@ $articles = [
                 'Hindi tumutugon sa sariling pangalan sa 9 na buwan',
                 'Hindi nagsasalita ng kahit isang salita sa 16 na buwan',
                 'Nawala ang mga dating nakamit na kasanayan (developmental regression)',
+            ],
+        ],
+    ],
+],
+
+// ═══════════════════════════════════════════════════════════
+'child-nutrition' => [
+    'title'    => 'Gabay sa Pagkain at Nutrisyon ng Bata',
+    'icon'     => 'fa-bowl-food',
+    'image'    => 'images/child_nutrition.jpg',
+    'color'    => '#5A6B47',
+    'source'   => 'DOH Philippines complementary feeding guidance; National Nutrition Council Pinggang Pinoy for Kids',
+    'intro'    => 'Mahalaga ang sapat at iba-ibang pagkain habang lumalaki ang bata. Gamitin ang gabay na ito bilang panimula at kumonsulta sa health center para sa payong angkop sa edad, kalusugan, at pangangailangan ng iyong anak.',
+    'sections' => [
+        [
+            'heading' => 'Pinggang Pinoy para sa mga Bata',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'GO foods para sa enerhiya',
+                    'why'   => 'Pumili ng kanin, mais, kamote, tinapay, o iba pang pagkaing nagbibigay-enerhiya. Iba-ibahin ang mga ito at iayon ang dami at lambot sa edad at kakayahan ng bata.',
+                ],
+                [
+                    'label' => 'GROW foods para sa paglaki ng katawan',
+                    'why'   => 'Isama ang pagkaing may protina tulad ng itlog, isda, karne, beans, o tokwa. Pumili ng ligtas na paghahanda at alisin ang tinik o matitigas na bahagi upang mabawasan ang panganib na mabulunan.',
+                ],
+                [
+                    'label' => 'GLOW foods para sa kalusugan',
+                    'why'   => 'Mag-alok ng iba-ibang prutas at gulay. Hugasan at ihanda ang mga ito nang malinis at gawing angkop ang laki at lambot sa kakayahan ng bata sa pagnguya at paglunok.',
+                ],
+                [
+                    'label' => 'Tubig at masustansyang inumin',
+                    'why'   => 'Mag-alok ng malinis na tubig ayon sa edad at gabay ng health worker. Limitahan ang matatamis na inumin; hindi dapat ipalit ang mga ito sa masustansyang pagkain o gatas na angkop sa edad.',
+                ],
+            ],
+        ],
+        [
+            'heading' => 'Ligtas na Complementary Feeding Simula 6 na Buwan',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Simulan ang angkop na pagkain sa edad na 6 na buwan',
+                    'why'   => 'Sa edad na ito, kailangan na ng karamihan sa mga sanggol ng karagdagang pagkain kasabay ng gatas ng ina. Magsimula sa kaunting dami at malambot na pagkain, at unti-unting dagdagan ang dami at lapot habang natututo siyang kumain.',
+                ],
+                [
+                    'label' => 'Ipagpatuloy ang pagpapasuso hanggang 2 taon o higit pa',
+                    'why'   => 'Panatilihin ang madalas at ayon-sa-pangangailangang pagpapasuso habang nagbibigay ng angkop na pagkain. Humingi ng payo sa health worker kung may alalahanin sa paglaki, pagkain, o pagpapasuso.',
+                ],
+                [
+                    'label' => 'Pakainin nang tumutugon sa senyales ng bata',
+                    'why'   => 'Tulungan at hikayatin ang bata na kumain nang matiyaga at mahinahon. Sundan ang senyales ng gutom at pagkabusog; huwag pilitin, pagalitan, o gambalain habang kumakain.',
+                ],
+                [
+                    'label' => 'Panatilihin ang kalinisan at ligtas na paghahanda',
+                    'why'   => 'Maghugas ng kamay bago maghanda at magpakain, gumamit ng malinis na kagamitan at ligtas na tubig, at ihanda nang sariwa at maayos ang pagkain. Bantayan palagi ang bata habang kumakain upang mabawasan ang panganib na mabulunan.',
+                ],
+                [
+                    'label' => 'Iba-ibahin ang pagkain at unti-unting dagdagan ang texture',
+                    'why'   => 'Mag-alok ng iba-ibang pagkain mula sa mga pangkat na GO, GROW, at GLOW, pati mga pagkaing mayaman sa iron ayon sa payo ng health worker. Unti-unting dagdagan ang lapot at texture habang lumalaki at natututong ngumunguya ang bata.',
+                ],
+                [
+                    'label' => 'Iangkop ang dalas ng pagkain sa edad',
+                    'why'   => 'Nagbabago ang dami at dalas ng pagkain habang lumalaki ang bata. Ang gabay na nasa ibinigay na materyal ay nagmumungkahi ng 2–3 pagkain bawat araw para sa 6–8 buwan at 3–4 para sa 9–23 buwan, na may 1–2 meryenda kung kailangan. Ipaangkop ito sa health worker batay sa pangangailangan ng iyong anak.',
+                ],
+            ],
+        ],
+    ],
+],
+
+// ═══════════════════════════════════════════════════════════
+'developmental-red-flags' => [
+    'title'    => 'Mga Palatandaan sa Pag-unlad na Dapat Ipasuri',
+    'icon'     => 'fa-clipboard-check',
+    'image'    => 'images/child_development.jpg',
+    'color'    => '#5A6B47',
+    'source'   => 'Preventive Pediatric Health Care Handbook (2018), Philippine Pediatric Society; DOH child development guidance',
+    'intro'    => 'Nagkakaiba-iba ang bilis ng pag-unlad ng mga bata. Ang mga halimbawang palatandaan sa ibaba ay hindi diagnosis o kumpletong screening test. Kung may napapansin kang pagkaantala, pagkawala ng dating kakayahan, o alalahanin sa pag-unlad, kumonsulta sa pediatrician o health center.',
+    'sections' => [
+        [
+            'heading' => 'Galaw at Malalaking Kalamnan',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Hindi gumugulong o nakauupo nang may suporta sa mga inaasahang buwan',
+                    'why'   => 'Ayon sa gabay na nasa materyal, dapat ipasuri kung hindi pa gumugulong pagsapit ng mga 5 buwan o hindi nakauupo nang may suporta pagsapit ng mga 7–8 buwan. Iba-iba ang bata; ipasuri rin kung tila naninigas o sobrang malambot ang katawan.',
+                ],
+                [
+                    'label' => 'Hindi nakakatayo habang may hawak o hindi pa nakakalakad',
+                    'why'   => 'Ipinapakita ng materyal ang pagtayo habang may suporta sa mga 9–10 buwan at paglalakad pagsapit ng mga 15 buwan bilang mga kakayahang dapat subaybayan. Kung hindi ito nagagawa o nawawala ang dating kakayahan, magtanong sa health worker.',
+                ],
+                [
+                    'label' => 'Patuloy na hirap sa pagtalon o pagbabalanse habang lumalaki',
+                    'why'   => 'Ang kawalan ng kakayahang tumalon gamit ang dalawang paa sa bandang 2½ taon o tumayo sandali sa isang paa sa bandang 3 taon ay mga halimbawang dapat talakayin sa doktor, lalo na kung may iba pang alalahanin sa galaw.',
+                ],
+            ],
+        ],
+        [
+            'heading' => 'Paggamit ng Kamay at Maliliit na Kalamnan',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Hindi kumukuha o humahawak ng maliliit na bagay habang lumalaki',
+                    'why'   => 'Subaybayan kung hindi pa ginagamit ang hinlalaki at hintuturo sa pagkuha ng maliliit na bagay bandang 10–11 buwan, o kung hirap humawak ng laruan sa magkabilang kamay. Banggitin ito sa regular na check-up.',
+                ],
+                [
+                    'label' => 'Hindi nagsisimulang magsulat o gumuhit ng simpleng marka',
+                    'why'   => 'Maaaring ipasuri kung hindi nagsisimulang mag-scribble bandang 2 taon o hindi nakagagaya ng simpleng hugis habang papalapit sa edad na 4–5 taon. Isaalang-alang din ang pagkakataong nakapagsanay ang bata.',
+                ],
+            ],
+        ],
+        [
+            'heading' => 'Pagsasalita at Pag-unawa',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Walang babbling o tunog ng pagsasalita sa bandang 6 na buwan',
+                    'why'   => 'Kung hindi pa nagba-babble ang sanggol, kumonsulta upang masuri ang pandinig at komunikasyon. Ipaalam din kung hindi tumutugon ang bata sa tunog o boses.',
+                ],
+                [
+                    'label' => 'Walang makabuluhang salita o hirap umunawa ng simpleng panuto',
+                    'why'   => 'Ipaalam sa health worker kung walang makabuluhang salita sa bandang 16–18 buwan, o kung hindi nakauunawa ng simpleng panuto habang papalapit sa 2 taon. Ang maagang pagsusuri ay makakatulong matukoy kung anong suporta ang kailangan.',
+                ],
+                [
+                    'label' => 'Nauutal, hindi malinaw, o hindi umuunlad ang komunikasyon',
+                    'why'   => 'Kung hirap umunawa o gumamit ng salita kumpara sa dati, o may napansing pagkawala ng salita at iba pang kasanayan, huwag maghintay—ipakonsulta sa pediatrician o health center.',
+                ],
+            ],
+        ],
+        [
+            'heading' => 'Pag-iisip, Pakikisalamuha, at Pag-uugali',
+            'type'    => 'detailed',
+            'items'   => [
+                [
+                    'label' => 'Hindi tumitingin, ngumingiti, o nakikipag-ugnayan sa tao',
+                    'why'   => 'Banggitin sa doktor kung kakaunti o walang pagtugon sa mukha at boses, walang ngiti o pakikipaglaro habang lumalaki, o hindi naghahanap ng bagay na naitago sa simpleng laro.',
+                ],
+                [
+                    'label' => 'Hindi nakikilahok sa simpleng laro o pang-araw-araw na gawain',
+                    'why'   => 'Ipasuri kung hirap makilahok sa simpleng pakikipaglaro, hindi nakasusunod sa payak na tagubilin, o hindi natututo ng mga kasanayang inaasahan sa edad. Isulat ang mga napapansin at kailan ito nangyayari upang maibahagi sa health worker.',
+                ],
+                [
+                    'label' => 'Nawawala ang dating kasanayan sa anumang edad',
+                    'why'   => 'Ang pagkawala ng dati nang nagagawang salita, galaw, pakikisalamuha, o iba pang kasanayan ay dahilan para kumonsulta agad. Hindi kailangang hintayin ang susunod na milestone bago humingi ng tulong.',
+                ],
+            ],
+        ],
+        [
+            'heading' => 'Ano ang Dapat Gawin?',
+            'type'    => 'list',
+            'items'   => [
+                'Ibahagi sa pediatrician o health center ang partikular na napansin at edad kung kailan ito nagsimula',
+                'Dalhin ang talaan ng bakuna, check-up, at mga halimbawa ng kilos o tunog ng bata kung mayroon',
+                'Huwag gamitin ang isang palatandaan lamang para mag-diagnose; kailangan ng propesyonal na pagsusuri',
+                'Kung may pagkawala ng dating kakayahan, magpakonsulta sa lalong madaling panahon',
             ],
         ],
     ],
@@ -893,18 +1096,24 @@ $section_count = count($article['sections']);
 
         .article-cover {
             width: 100%;
-            height: 56vh;
-            min-height: 330px;
-            max-height: 560px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin: 0 0 24px;
-            overflow: hidden;
         }
         .article-cover img {
             display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 560px;
+            object-fit: contain;
+        }
+        .article-cover figcaption {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.72rem;
+            text-align: center;
         }
 
         /* ── PAMPHLET HEADER ── */
@@ -1046,6 +1255,14 @@ $section_count = count($article['sections']);
         }
         .section-card h2::before { display: none; }
         .section-card-body { padding: 16px 18px; }
+        .section-reference-image {
+            display: block;
+            width: min(100%, 500px);
+            height: auto;
+            margin: 0 auto 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
 
         /* ── DETAILED LIST ── */
         .detailed-item {
@@ -1254,11 +1471,7 @@ $section_count = count($article['sections']);
         }
         .cta-btn:hover { opacity: 0.88; }
         @media (max-width: 600px) {
-            .article-cover {
-                height: 46vh;
-                min-height: 240px;
-                max-height: 380px;
-            }
+            .article-cover img { max-height: 46vh; }
             .cta-card { flex-direction: column; }
             .cta-btn { width: 100%; justify-content: center; }
         }
@@ -1670,15 +1883,20 @@ $section_count = count($article['sections']);
 
     <!-- META -->
     <div class="article-meta">
-        <span><i class="fa fa-clock" style="font-size:11px;margin-right:3px;color:#5A6B47;vertical-align:middle;"></i> <?= $read_min ?> min basahin</span>
-        <span><i class="fa fa-book" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> <?= $section_count ?> seksyon</span>
-        <span><i class="fa fa-location-dot" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> Alawihao Health Center</span>
-        <span><i class="fa fa-shield-halved" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> DOH-verified</span>
+        <span><img src="images/clock.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;margin-right:3px;"> <?= $read_min ?> min basahin</span>
+        <span><img src="images/greenbook.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> <?= $section_count ?> seksyon</span>
+        <span><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;"> Alawihao Health Center</span>
+        <span><i class="fa fa-shield-halved" aria-hidden="true"></i> DOH-verified</span>
     </div>
 
     <?php if (!empty($article['image'])): ?>
     <figure class="article-cover">
         <img src="<?= htmlspecialchars($article['image'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($article['title'], ENT_QUOTES, 'UTF-8') ?>" loading="eager" decoding="async">
+        <?php if (!empty($article['image_credit'])): ?>
+        <figcaption><?= htmlspecialchars($article['image_credit'], ENT_QUOTES, 'UTF-8') ?> —
+            <a href="https://commons.wikimedia.org/wiki/File:Breastfeeding_a_newborn_baby,_Moscow,_Russia.jpg" target="_blank" rel="noopener">tingnan ang source at lisensya</a>
+        </figcaption>
+        <?php endif; ?>
     </figure>
     <?php endif; ?>
 
@@ -1723,6 +1941,10 @@ $section_count = count($article['sections']);
         <h2><?= htmlspecialchars($sec['heading']) ?></h2>
         <div class="section-card-body">
 
+        <?php if (!empty($sec['image'])): ?>
+            <img class="section-reference-image" src="<?= htmlspecialchars($sec['image'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($sec['heading'], ENT_QUOTES, 'UTF-8') ?>">
+        <?php endif; ?>
+
         <?php if ($sec['type'] === 'detailed'): ?>
             <?php foreach ($sec['items'] as $k => $item): ?>
             <div class="detailed-item" id="item-<?= $idx ?>-<?= $k ?>">
@@ -1735,7 +1957,7 @@ $section_count = count($article['sections']);
                 </div>
                 <?php if (!empty($item['why'])): ?>
                 <div class="detailed-why">
-                    <div class="why-label"><i class="fa fa-stethoscope" style="font-size:11px;color:#5A6B47;vertical-align:middle;margin-right:3px;"></i> Bakit? — Batay sa Agham</div>
+                    <div class="why-label"><i class="fa fa-stethoscope" aria-hidden="true"></i> Bakit? — Batay sa Agham</div>
                     <p><?= htmlspecialchars($item['why']) ?></p>
                 </div>
                 <?php endif; ?>
@@ -1799,8 +2021,10 @@ $section_count = count($article['sections']);
         'pamahiin'         => ['icon'=>'fa-book-open',            'image'=>'images/pic12.webp',  'label'=>'Sabi-sabi vs. Totoo'],
         'baby-growth'      => ['icon'=>'fa-baby',                 'image'=>'images/pic13.jpg',   'label'=>'Paglaki ni Baby'],
         'newborn-care'     => ['icon'=>'fa-hands-holding-child',  'image'=>'images/pic6.jpg',    'label'=>'Newborn Care'],
-        'breastfeeding'    => ['icon'=>'fa-heart-pulse',          'image'=>'images/pic1.jpg',    'label'=>'Eksklusibong Pagpapasuso'],
+        'breastfeeding'    => ['icon'=>'fa-heart-pulse',          'image'=>'images/breastfeeding_cover.jpg', 'label'=>'Eksklusibong Pagpapasuso'],
         'baby-milestones'  => ['icon'=>'fa-chart-line',           'image'=>'images/pic7.webp',   'label'=>'Baby Milestones'],
+        'developmental-red-flags' => ['icon'=>'fa-clipboard-check', 'image'=>'images/pic7.webp', 'label'=>'Mga Babala sa Pag-unlad'],
+        'child-nutrition'  => ['icon'=>'fa-bowl-food',            'image'=>'images/pic6.jpg',    'label'=>'Nutrisyon ng Bata'],
         'baby-safety'      => ['icon'=>'fa-shield-halved',        'image'=>'images/pic2.jpg',    'label'=>'Kaligtasan ng Baby'],
         'unang-linggo'     => ['icon'=>'fa-calendar-day',         'image'=>'images/pic3.jpg',    'label'=>'Unang Linggo ni Baby'],
         'philhealth'       => ['icon'=>'fa-id-card',              'image'=>'images/pic13.webp',  'label'=>'PhilHealth Benefits'],
@@ -1816,7 +2040,7 @@ $section_count = count($article['sections']);
     <!-- RELATED ARTICLES -->
     <?php if (!empty($picks)): ?>
     <div class="related-section">
-        <h3><i class="fa fa-book-open" style="font-size:12px;color:#5A6B47;vertical-align:middle;margin-right:4px;"></i> Related Topics</h3>
+        <h3><img src="images/greenbook.png" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;"> Related Topics</h3>
         <div class="related-grid">
             <?php foreach ($picks as $key): ?>
             <?php $r = $all_related[$key]; ?>
@@ -1860,9 +2084,9 @@ $section_count = count($article['sections']);
             <div class="footer-col">
                 <h5><i class="fa fa-address-book"></i> Contact Us</h5>
                 <ul>
-                    <li><i class="fa-brands fa-facebook" style="font-size:12px;color:#5A6B47;vertical-align:middle;flex-shrink:0;"></i> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
-                    <li><i class="fa fa-envelope" style="font-size:12px;color:#5A6B47;vertical-align:middle;flex-shrink:0;"></i> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
-                    <li><i class="fa fa-location-dot" style="font-size:12px;color:#5A6B47;vertical-align:middle;flex-shrink:0;"></i> Alawihao, Daet, Camarines Norte, 4600</li>
+                    <li><img src="images/fb.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="https://www.facebook.com/barangay.alawihao" target="_blank" rel="noopener">facebook.com/barangay.alawihao</a></li>
+                    <li><img src="images/email.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> <a href="mailto:alawihaohealth@gmail.com">alawihaohealth@gmail.com</a></li>
+                    <li><img src="images/location.png" alt="" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;flex-shrink:0;"> Alawihao, Daet, Camarines Norte, 4600</li>
                 </ul>
             </div>
 
