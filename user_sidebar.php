@@ -56,6 +56,25 @@ $is_home = ($current_page == 'user_dashboard.php');
     </div>
 </nav>
 
+<?php
+$chatbot_pages = [
+    'user_dashboard.php',
+    'user_child_records.php',
+    'user_infant_reg.php',
+    'user_infant_hr.php',
+    'user_history.php',
+    'user_maternal_records.php',
+    'user_maternal_reg.php',
+    'user_profile.php',
+    'user_schedule.php',
+    'user_settings.php',
+    'health_article.php',
+];
+if (in_array($current_page, $chatbot_pages, true)) {
+    include 'user_chatbot.php';
+}
+?>
+
 <style>
     :root {
         --sage: #8DAE74;
