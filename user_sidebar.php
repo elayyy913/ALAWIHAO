@@ -30,18 +30,14 @@ $is_home = ($current_page == 'user_dashboard.php');
         <a href="user_dashboard.php" class="nav-link" id="link-home">Home</a>
 
         <span class="nav-label">(services)</span>
-        <button class="dropdown-btn" onclick="toggleDropdown('regDrop', this)">
-            Registration <span class="chevron">▼</span>
-        </button>
-        <div class="dropdown-container" id="regDrop">
+        <div class="dropdown-heading">Registration</div>
+        <div class="dropdown-container show" id="regDrop">
             <a href="user_maternal_reg.php" id="link-reg-pregnancy">Maternal Form</a>
             <a href="user_infant_reg.php" id="link-reg-newborn">Child Form</a>
         </div>
 
-        <button class="dropdown-btn" onclick="toggleDropdown('recordsDrop', this)">
-            My Records <span class="chevron">▼</span>
-        </button>
-        <div class="dropdown-container" id="recordsDrop">
+        <div class="dropdown-heading">My Records</div>
+        <div class="dropdown-container show" id="recordsDrop">
             <a href="user_maternal_records.php" id="link-maternal-rec">Maternal Health</a>
             <a href="user_child_records.php" id="link-child-rec">Child Health</a>
         </div>
@@ -220,7 +216,7 @@ if (in_array($current_page, $chatbot_pages, true)) {
         font-weight: 700;
         letter-spacing: 1px;
     }
-    .nav-link, .dropdown-btn {
+    .nav-link, .dropdown-heading {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -238,11 +234,18 @@ if (in_array($current_page, $chatbot_pages, true)) {
         cursor: pointer;
         text-align: left;
     }
-    .nav-link:hover, .dropdown-btn:hover {
+    .dropdown-heading {
+        cursor: default;
+        margin-top: 2px;
+        margin-bottom: 0;
+        padding-top: 8px;
+        padding-bottom: 6px;
+    }
+    .nav-link:hover {
         background-color: var(--soft-sage);
         color: var(--dark-sage);
     }
-    .nav-link.active, .dropdown-btn.active-parent {
+    .nav-link.active {
         background-color: var(--sage);
         color: var(--pure-white) !important;
         font-weight: 600;
@@ -256,6 +259,7 @@ if (in_array($current_page, $chatbot_pages, true)) {
         margin: 4px 0 8px 0;
         padding: 5px 0;
     }
+    .dropdown-container.show { display: block; }
     .dropdown-container a {
         padding: 8px 15px 8px 35px;
         text-decoration: none;
@@ -267,9 +271,6 @@ if (in_array($current_page, $chatbot_pages, true)) {
         margin: 0 8px;
     }
     .dropdown-container a:hover { background-color: var(--soft-sage); color: var(--dark-sage); }
-    .chevron { font-size: 0.7rem; transition: transform 0.3s; }
-    .rotate { transform: rotate(180deg); }
-
     .sidebar-footer {
         padding: 15px 10px;
         border-top: 1px solid var(--border-color);
@@ -285,20 +286,52 @@ if (in_array($current_page, $chatbot_pages, true)) {
         transition: var(--transition);
     }
     .logout-btn:hover { background: #FFF5F5; }
+
+    [data-theme="dark"] .sidebar {
+        background-color: var(--dm-sidebar-bg) !important;
+        color: var(--dm-text) !important;
+        border-color: var(--dm-border) !important;
+    }
+    [data-theme="dark"] .sidebar .brand-name,
+    [data-theme="dark"] .sidebar .dropdown-heading,
+    [data-theme="dark"] .sidebar .nav-link,
+    [data-theme="dark"] .sidebar .dropdown-container a {
+        color: var(--dm-text) !important;
+    }
+    [data-theme="dark"] .sidebar .brand-name span {
+        color: #A8C88E !important;
+    }
+    [data-theme="dark"] .sidebar .sidebar-header p,
+    [data-theme="dark"] .sidebar .nav-label,
+    [data-theme="dark"] .sidebar .close-sidebar-x {
+        color: var(--dm-text2) !important;
+    }
+    [data-theme="dark"] .sidebar .dropdown-container {
+        background-color: var(--dm-surface2) !important;
+    }
+    [data-theme="dark"] .sidebar .nav-link:hover,
+    [data-theme="dark"] .sidebar .dropdown-container a:hover {
+        background-color: var(--dm-hover) !important;
+        color: var(--dm-text) !important;
+    }
+    [data-theme="dark"] .sidebar .nav-link.active,
+    [data-theme="dark"] .sidebar .dropdown-container a.active {
+        background-color: var(--dm-sage) !important;
+        color: #172016 !important;
+    }
+    [data-theme="dark"] .sidebar .logout-btn {
+        color: #FF8A8A !important;
+    }
+    [data-theme="dark"] .sidebar .logout-btn:hover {
+        background-color: rgba(255, 107, 107, 0.12) !important;
+        color: #FFB3B3 !important;
+    }
+    [data-theme="dark"] .hamburger-btn {
+        color: var(--dm-text) !important;
+    }
 </style>
 
 <script>
-    function toggleDropdown(id, btn) {
-        const dropdown = document.getElementById(id);
-        if(dropdown) {
-            dropdown.style.display = (dropdown.style.display === "block") ? "none" : "block";
-        }
-        if(btn) {
-            const chevron = btn.querySelector('.chevron');
-            if(chevron) chevron.classList.toggle('rotate');
-        }
-    }
-
     function toggleSidebar() {
         document.body.classList.toggle('sidebar-closed');
         
@@ -324,16 +357,6 @@ if (in_array($current_page, $chatbot_pages, true)) {
             const activeLink = document.getElementById(links[currentPath]);
             if (activeLink) {
                 activeLink.classList.add('active');
-                const parentDropdown = activeLink.closest('.dropdown-container');
-                if (parentDropdown) {
-                    parentDropdown.style.display = 'block';
-                    const btn = parentDropdown.previousElementSibling;
-                    if(btn) {
-                        btn.classList.add('active-parent');
-                        const chevron = btn.querySelector('.chevron');
-                        if(chevron) chevron.classList.add('rotate');
-                    }
-                }
             }
         }
     });

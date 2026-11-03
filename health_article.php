@@ -32,9 +32,9 @@ $section_count = count($article['sections']);
     <?php $notif_path = ''; include 'notif_assets.php'; ?>
     <style>
         :root {
-            --green:   #5A6B47;
-            --accent:  #8DAE74;
-            --light:   #8DAE74;
+            --green:   #3d6426;
+            --accent:  #6b9148;
+            --light:   #a2ce6f;
             --bg:      #F9F9F4;
             --white:   #ffffff;
             --text:    #2D2D2D;
@@ -62,9 +62,9 @@ $section_count = count($article['sections']);
         /* TOPBAR */
         .topbar { background: #ffffff; border-bottom: 2px solid #2D5016; padding: 8px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 200; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; }
         body.sidebar-closed .topbar { margin-left: 0; width: 100%; }
-        .topbar .hamburger-btn { background: #2D5016; border: none; cursor: pointer; color: #fff; font-size: 0.9rem; width: 34px; height: 34px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .topbar .hamburger-btn { position: static !important; top: auto !important; left: auto !important; background: #5A6B47; border: none; cursor: pointer; color: #fff; font-size: 0.9rem; width: 34px; height: 34px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .topbar .hamburger-btn:hover { background: #5A7C3A; }
-        .topbar .article-back-link { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2D5016; border: 1px solid #E1E1D7; border-radius: 4px; text-decoration: none; }
+        .topbar .article-back-link { position: relative; z-index: 1; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #5A6B47; background: #ffffff; border: 1px solid #E1E1D7; border-radius: 4px; text-decoration: none; }
         .topbar .article-back-link:hover { background: #F1F5ED; }
         .topbar .logo-img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid #2D5016; flex-shrink: 0; }
         .topbar .page-label { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 700; color: #2D5016; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px; }
@@ -736,6 +736,9 @@ $section_count = count($article['sections']);
         .topbar { border-bottom-color: #5A6B47; }
         .topbar .hamburger-btn { background: #5A6B47; }
         .topbar .hamburger-btn:hover { background: #8DAE74; }
+        .sidebar-container > #hamburgerBtn { display: none !important; }
+        .topbar .article-back-link { color: #5A6B47; }
+        .topbar .article-back-link:hover { background: #F0F5EC; color: #5A6B47; }
         .topbar .logo-img { border-color: #5A6B47; }
         .topbar .page-label, .article-search-toggle { color: #5A6B47; }
         .article-search-toggle:hover { background: #F0F5EC; border-color: #E1E1D7; }
@@ -775,11 +778,11 @@ $section_count = count($article['sections']);
         .footer-col h5 { border-bottom-color: #E1E1D7; }
         .footer-badge { background: #F0F5EC; border-color: #E1E1D7; }
 
-        [data-theme="dark"] .article-header { background: #242826 !important; color: #E8EDE5 !important; border-color: #8DAE74 !important; }
+        [data-theme="dark"] .article-header { background: #242826 !important; color: #E8EDE5 !important; border-color: var(--light) !important; }
         [data-theme="dark"] .article-header p { color: #E8EDE5 !important; }
-        [data-theme="dark"] .article-header h1 { color: #8DAE74 !important; }
+        [data-theme="dark"] .article-header h1 { color: var(--light) !important; }
         [data-theme="dark"] .article-meta,
-        [data-theme="dark"] .article-meta span { background: #242826 !important; color: #8DAE74 !important; }
+        [data-theme="dark"] .article-meta span { background: #242826 !important; color: var(--light) !important; }
         [data-theme="dark"] .key-takeaway h3,
         [data-theme="dark"] .related-section h3,
         [data-theme="dark"] .footer-brand-text h4,
@@ -837,12 +840,150 @@ $section_count = count($article['sections']);
         [data-theme="dark"] .footer-col a { color: #8DAE74 !important; }
         [data-theme="dark"] .footer-col h5 { border-bottom-color: #2E2E2E !important; }
         [data-theme="dark"] .footer-badge { background: #1A2E14 !important; border-color: #3A6B20 !important; }
+        [data-theme="dark"] .topbar {
+            background: var(--dm-topbar-bg) !important;
+            border-bottom-color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] .topbar .article-back-link {
+            background: var(--dm-surface) !important;
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .topbar .article-back-link:hover {
+            background: var(--dm-hover) !important;
+            color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] .topbar .hamburger-btn {
+            background: var(--light) !important;
+            color: var(--green) !important;
+        }
+        [data-theme="dark"] .topbar .hamburger-btn:hover {
+            background: var(--accent) !important;
+        }
+        [data-theme="dark"] .topbar .logo-img {
+            border-color: var(--light) !important;
+        }
         [data-theme="dark"] .article-meta img,
         [data-theme="dark"] .key-takeaway-icon img,
         [data-theme="dark"] .why-label img,
         [data-theme="dark"] .related-section h3 img,
         [data-theme="dark"] .footer-col h5 img,
         [data-theme="dark"] .footer-col ul li img { filter: brightness(0) invert(1); }
+
+        body, #main { background: var(--bg); color: var(--text); }
+        .progress-bar, .reading-progress-bar { background: var(--green); }
+        .topbar { background: var(--white); border-bottom-color: var(--green); }
+        .topbar .hamburger-btn { background: var(--green); color: #FFFFFF; }
+        .topbar .hamburger-btn:hover { background: var(--accent); }
+        .topbar .article-back-link {
+            background: var(--white);
+            border-color: var(--border);
+            color: var(--green);
+        }
+        .topbar .article-back-link:hover { background: #F0F5EC; }
+        .topbar .logo-img { border-color: var(--green); }
+        .topbar .page-label, .article-search-toggle,
+        .toc-box h3, .toc-box ol li::before, .toc-box ol li:hover,
+        .key-takeaway-icon, .key-takeaway h3,
+        .detailed-why .why-label, .plain-list li::before,
+        .related-section h3, .related-card-title,
+        .footer-brand-text h4, .footer-col h5,
+        .footer-col ul li i, .footer-col ul li strong,
+        .footer-col a, .footer-badge { color: var(--green); }
+        .article-header, .cta-card {
+            background: var(--green);
+            border-color: var(--light);
+        }
+        .article-header { color: #FFFFFF; }
+        .article-header h1, .article-header p, .cta-card { color: #FFFFFF; }
+        .article-meta, .key-takeaway, .detailed-why, .highlight-box,
+        .myth-label, .truth-label, .related-card-icon, .footer-badge {
+            background-color: #F4F7F0;
+            border-color: var(--border);
+        }
+        .key-takeaway { border-left-color: var(--green); }
+        .section-card h2, .article-table th, .steps-list li::before,
+        .detailed-bullet, .myth-label .badge, .truth-label .badge {
+            background: var(--green);
+        }
+        .section-card h2, .article-table th,
+        .myth-label .badge, .truth-label .badge { color: #FFFFFF; }
+        .related-card { border-top-color: var(--green); }
+        .article-footer {
+            background: var(--white);
+            border-top-color: var(--green);
+            color: var(--text);
+        }
+        .footer-badge { color: var(--green); }
+
+        [data-theme="dark"] .article-header,
+        [data-theme="dark"] .article-footer {
+            background: var(--dm-surface) !important;
+            border-color: var(--dm-border) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .article-header { border-bottom-color: var(--light) !important; }
+        [data-theme="dark"] .article-header h1,
+        [data-theme="dark"] .article-header p,
+        [data-theme="dark"] .article-footer,
+        [data-theme="dark"] .key-takeaway p,
+        [data-theme="dark"] .detailed-text,
+        [data-theme="dark"] .article-table td,
+        [data-theme="dark"] .plain-list li,
+        [data-theme="dark"] .steps-list li,
+        [data-theme="dark"] .myth-label,
+        [data-theme="dark"] .truth-label,
+        [data-theme="dark"] .related-card,
+        [data-theme="dark"] .footer-brand-text span,
+        [data-theme="dark"] .footer-tagline,
+        [data-theme="dark"] .footer-col ul li,
+        [data-theme="dark"] .footer-copy { color: var(--dm-text) !important; }
+        [data-theme="dark"] .topbar .hamburger-btn,
+        [data-theme="dark"] .section-card h2,
+        [data-theme="dark"] .article-table th,
+        [data-theme="dark"] .myth-label .badge,
+        [data-theme="dark"] .truth-label .badge {
+            background: var(--light) !important;
+            color: var(--green) !important;
+        }
+        [data-theme="dark"] .cta-card {
+            background: var(--dm-surface2) !important;
+            border-color: var(--light) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] .cta-btn {
+            background: var(--light) !important;
+            color: var(--green) !important;
+        }
+        [data-theme="dark"] .article-meta,
+        [data-theme="dark"] .key-takeaway,
+        [data-theme="dark"] .detailed-why,
+        [data-theme="dark"] .highlight-box,
+        [data-theme="dark"] .myth-label,
+        [data-theme="dark"] .truth-label,
+        [data-theme="dark"] .related-card,
+        [data-theme="dark"] .related-card-icon,
+        [data-theme="dark"] .footer-badge {
+            background: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+        }
+        [data-theme="dark"] .article-meta,
+        [data-theme="dark"] .article-meta span,
+        [data-theme="dark"] .key-takeaway h3,
+        [data-theme="dark"] .key-takeaway-icon,
+        [data-theme="dark"] .detailed-why .why-label,
+        [data-theme="dark"] .toc-box h3,
+        [data-theme="dark"] .toc-box li,
+        [data-theme="dark"] .related-section h3,
+        [data-theme="dark"] .related-card-title,
+        [data-theme="dark"] .footer-brand-text h4,
+        [data-theme="dark"] .footer-col h5,
+        [data-theme="dark"] .footer-col ul li i,
+        [data-theme="dark"] .footer-col ul li strong,
+        [data-theme="dark"] .footer-col a,
+        [data-theme="dark"] .footer-badge { color: var(--light) !important; }
+        [data-theme="dark"] .steps-list li::before,
+        [data-theme="dark"] .detailed-bullet { background: var(--light) !important; }
 
     </style>
 </head>
@@ -855,12 +996,12 @@ $section_count = count($article['sections']);
 </div>
 
 <div class="topbar">
-    <a class="article-back-link" href="user_dashboard.php" title="Bumalik sa Health Hub" aria-label="Bumalik sa Health Hub">
-        <i class="fa fa-arrow-left"></i>
-    </a>
     <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
         <i class="fa fa-bars"></i>
     </button>
+    <a class="article-back-link" href="user_dashboard.php" title="Bumalik sa Health Hub" aria-label="Bumalik sa Health Hub">
+        <i class="fa fa-arrow-left"></i>
+    </a>
     <img src="images/logo.jpg?v=<?= time() ?>" alt="Brgy Logo" class="logo-img" onerror="this.style.display='none'">
     <span class="page-label"><?= htmlspecialchars($article['title']) ?></span>
     <div class="topbar-actions">
