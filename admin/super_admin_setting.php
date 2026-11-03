@@ -1,9 +1,41 @@
 <?php
 session_start();
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Super Admin') {
+    header("Location: ../login.php");
+    exit();
+}
+
 include '../db_connect.php';
+require_once '../profile_picture_helpers.php';
 
 $message = "";
 $message_type = "";
+$recovery_csrf_token = $_SESSION['recovery_csrf_token'] ??= bin2hex(random_bytes(32));
+$recovery_email_configured = (bool)getenv('ALAWIHAO_SMTP_USERNAME') && (bool)getenv('ALAWIHAO_SMTP_PASSWORD');
+$profile_picture_csrf_token = $_SESSION['profile_picture_csrf_token'] ??= bin2hex(random_bytes(32));
+$profile_picture_message = $_SESSION['profile_picture_message'] ?? '';
+$profile_picture_message_type = $_SESSION['profile_picture_message_type'] ?? 'success';
+unset($_SESSION['profile_picture_message'], $_SESSION['profile_picture_message_type']);
+
+$user_id = (int) $_SESSION['user_id'];
+$account_stmt = $conn->prepare("SELECT email, profile_picture, first_name FROM users WHERE id = ?");
+if (!$account_stmt) {
+    die("Unable to load the Super Admin account.");
+}
+$account_stmt->bind_param("i", $user_id);
+if (!$account_stmt->execute()) {
+    die("Unable to load the Super Admin account.");
+}
+$account_result = $account_stmt->get_result();
+$account = $account_result->fetch_assoc();
+$account_stmt->close();
+if (!$account) {
+    die("Super Admin account not found.");
+}
+
+$recovery_message_type = isset($_SESSION['error_message']) ? 'error' : 'success';
+$recovery_message = $_SESSION['error_message'] ?? $_SESSION['success_message'] ?? '';
+unset($_SESSION['error_message'], $_SESSION['success_message']);
 
 
 // 1. HANDLE SYSTEM INFO UPDATE
@@ -59,6 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super Admin Settings | Alawihao Health Center</title>
+    <link rel="stylesheet" href="../profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -200,6 +233,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .recovery-email-box, .recovery-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .recovery-email-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: var(--text);
+        }
+        .recovery-info {
+            background: var(--soft-sage);
+            color: var(--green);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
 
         /* CUSTOM SECURITY MODAL STYLING */
         .modal-overlay {
@@ -265,7 +318,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 <?php include 'super_admin_sidebar.php'; ?>
 
 <div class="topbar">
-    <span class="page-label">Administrative Settings</span>
+    <span class="page-label">Super Admin Settings</span>
 </div>
 
 <!-- CUSTOM SECURITY PIN MODAL -->
@@ -287,6 +340,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
         <?php if (!empty($message)): ?>
             <div class="alert <?php echo $message_type; ?>">
                 <i class="fa-solid fa-circle-check"></i> <?php echo $message; ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($recovery_message !== ''): ?>
+            <div class="alert <?php echo $recovery_message_type; ?>">
+                <i class="fa-solid <?php echo $recovery_message_type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'; ?>"></i>
+                <?php echo htmlspecialchars($recovery_message, ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($profile_picture_message !== ''): ?>
+            <div class="alert <?php echo $profile_picture_message_type === 'error' ? 'error' : 'success'; ?>">
+                <?php echo htmlspecialchars($profile_picture_message, ENT_QUOTES, 'UTF-8'); ?>
             </div>
         <?php endif; ?>
 
@@ -321,6 +385,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
                 <span><i class="fa-solid fa-user-shield"></i> Admin Profile & Security</span>
                 <button type="button" class="btn-edit" onclick="openSecurityModal('adminForm', this)"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
             </div>
+            <form action="update_profile_picture.php" method="POST" enctype="multipart/form-data" style="margin-bottom: 24px;">
+                <div style="font-weight: 600; color: var(--green); margin-bottom: 14px;"><i class="fa-solid fa-camera"></i> Profile Picture</div>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($profile_picture_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <?php $profile_picture_url = profilePictureUrl($account['profile_picture'] ?? ''); ?>
+                <?php if ($profile_picture_url !== ''): ?>
+                    <img src="<?php echo htmlspecialchars($profile_picture_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Current profile picture" class="profile-avatar" style="width: 84px; height: 84px; margin-bottom: 14px;">
+                <?php else: ?>
+                    <span class="profile-avatar profile-avatar-fallback" aria-hidden="true" style="width: 84px; height: 84px; margin-bottom: 14px;"><?php echo htmlspecialchars(strtoupper(substr($account['first_name'] ?? 'S', 0, 1)), ENT_QUOTES, 'UTF-8'); ?></span>
+                <?php endif; ?>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="profile_picture">Choose a profile picture (JPG, PNG, or WEBP; max 5MB)</label>
+                    <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/webp" required>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload"></i> Upload Picture</button>
+            </form>
             <form id="adminForm" method="POST">
                 <div class="form-row">
                     <div class="form-group">
@@ -349,6 +428,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
                 </div>
                 <button type="submit" name="update_admin_profile" id="saveAdminBtn" class="btn btn-primary" disabled><i class="fa-solid fa-shield-halved"></i> Update Credentials</button>
             </form>
+        </div>
+
+        <!-- ACCOUNT RECOVERY -->
+        <div class="settings-card">
+            <div class="settings-section-title">
+                <span><i class="fa-solid fa-envelope-circle-check"></i> Account Recovery</span>
+            </div>
+            <p style="font-size: 0.9rem; color: #666; line-height: 1.5; margin-bottom: 20px;">
+                Your account email is also your recovery email. Once updated, the new email will be used for login and password recovery.
+            </p>
+            <?php if (!$recovery_email_configured): ?>
+                <div class="recovery-info" style="margin-bottom: 16px; background: #fff8e1; color: #7a4c00;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span>Email verification is not configured on the server yet. Please configure SMTP before requesting a code.</span>
+                </div>
+            <?php endif; ?>
+            <form action="send_otp.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($recovery_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Current Email</label>
+                    <div class="recovery-email-box">
+                        <i class="fa-solid fa-envelope"></i>
+                        <span><?php echo htmlspecialchars($account['email'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="recovery_email">New Email Address</label>
+                    <input type="email" id="recovery_email" name="recovery_email" class="settings-input" placeholder="Enter your new email address" required>
+                    <small style="display: block; margin-top: 6px; color: #666;">This will become your new login and recovery email.</small>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="recovery_password">Current Password</label>
+                    <input type="password" id="recovery_password" name="recovery_password" class="settings-input" placeholder="Enter your current password" required>
+                </div>
+                <button type="submit" name="update_recovery" class="btn btn-primary">
+                    <i class="fa-solid fa-envelope-circle-check"></i> Send OTP Verification
+                </button>
+            </form>
+            <div class="recovery-info" style="margin-top: 20px;">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>A verification code will be sent to your new email address. Your password will remain unchanged.</span>
+            </div>
         </div>
 
         <!-- 3. DATABASE & SYSTEM MAINTENANCE -->

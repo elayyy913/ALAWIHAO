@@ -1,8 +1,20 @@
 <?php
 session_start();
 include 'db_connect.php';
+require_once 'profile_picture_helpers.php';
 // if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
+$profileAccount = [];
+if (isset($_SESSION['user_id'])) {
+    $profileStmt = $conn->prepare("SELECT first_name, profile_picture FROM users WHERE id = ?");
+    if ($profileStmt) {
+        $profileStmt->bind_param("i", $_SESSION['user_id']);
+        if ($profileStmt->execute()) {
+            $profileAccount = $profileStmt->get_result()->fetch_assoc() ?: [];
+        }
+        $profileStmt->close();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="fil">
@@ -12,6 +24,7 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
     <title>Health Hub | Alawihao Health Center</title>
     <script src="theme.js"></script>
     <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Segoe+UI:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -489,6 +502,9 @@ $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
             </div>
 
             <?php include 'notif_bell.php'; ?>
+            <?php if (($_SESSION['role'] ?? '') === 'User'): ?>
+                <?php renderProfileLink($profileAccount['profile_picture'] ?? '', $profileAccount['first_name'] ?? ($_SESSION['name'] ?? 'Profile'), 'user_settings.php'); ?>
+            <?php endif; ?>
         </div>
     </div>
 

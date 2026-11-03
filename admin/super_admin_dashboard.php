@@ -1,11 +1,23 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 session_start();
 include '../db_connect.php';
+require_once '../profile_picture_helpers.php';
 
 // 1. SECURITY CHECK
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
     header("Location: login.php");
     exit();
+}
+
+$profileAccount = [];
+$profileStmt = $conn->prepare("SELECT first_name, profile_picture FROM users WHERE id = ?");
+if ($profileStmt) {
+    $profileStmt->bind_param("i", $_SESSION['user_id']);
+    if ($profileStmt->execute()) {
+        $profileAccount = $profileStmt->get_result()->fetch_assoc() ?: [];
+    }
+    $profileStmt->close();
 }
 
 $dashboardMessages = [
@@ -269,6 +281,7 @@ if (check_table_exists($conn, 'schedules')) {
     <title>Super Admin Dashboard | Alawihao</title>
     <script src="../theme.js?v=<?= time() ?>"></script>
     <link rel="stylesheet" href="../theme.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="../profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <?php $notif_path='../'; include '../notif_assets.php'; ?>
     <style>
@@ -703,6 +716,7 @@ if (check_table_exists($conn, 'schedules')) {
         <div class="page-header-tools">
             <span class="dashboard-date"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <?php echo date('l, F j, Y'); ?></span>
             <?php include '../notif_bell.php'; ?>
+            <?php renderProfileLink($profileAccount['profile_picture'] ?? '', $profileAccount['first_name'] ?? 'Super Admin', 'super_admin_setting.php'); ?>
         </div>
     </div>
 
@@ -745,7 +759,7 @@ if (check_table_exists($conn, 'schedules')) {
         </details>
         <a class="quick-action" href="vaccine_inventory.php"><i class="fa-solid fa-syringe" aria-hidden="true"></i> Vaccine inventory</a>
         <a class="quick-action" href="schedule_management.php"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Manage schedules</a>
-        <span class="dashboard-sync" role="status" aria-live="polite"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Updated <time id="dashboardLastUpdated" datetime="<?php echo date(DATE_ATOM); ?>"><?php echo date('g:i:s A'); ?></time></span>
+        <span class="dashboard-sync" role="status" aria-live="polite" title="Time dashboard data was last refreshed, Philippine Time"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Updated <time id="dashboardLastUpdated" datetime="<?php echo date(DATE_ATOM); ?>"><?php echo date('g:i:s A'); ?></time> PHT</span>
     </nav>
 
     <div class="stats-grid" aria-label="Health center summary">
@@ -1040,10 +1054,16 @@ if (check_table_exists($conn, 'schedules')) {
                     ? pendingCount + (pendingCount === 1 ? ' item needs review' : ' items need review')
                     : 'All caught up — no pending approvals';
 
-                const updatedAt = new Date();
+                const updatedAt = new Date(data.updated_at);
                 const lastUpdated = document.getElementById('dashboardLastUpdated');
                 lastUpdated.dateTime = updatedAt.toISOString();
-                lastUpdated.innerText = updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+                lastUpdated.innerText = updatedAt.toLocaleTimeString('en-PH', {
+                    timeZone: 'Asia/Manila',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
 
                 // Keep registration progress and counts synchronized with the live summary.
                         const updateRegistrationMetric = (prefix, approved, pending, rejected, total, label) => {

@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db_connect.php';
+require_once '../profile_picture_helpers.php';
 
 if (!isset($_SESSION['admin_id']) && !isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -9,6 +10,15 @@ if (!isset($_SESSION['admin_id']) && !isset($_SESSION['user_id'])) {
 
 $admin_id = (int)($_SESSION['admin_id'] ?? $_SESSION['user_id']);
 $message = "";
+$recovery_csrf_token = $_SESSION['recovery_csrf_token'] ??= bin2hex(random_bytes(32));
+$recovery_email_configured = (bool)getenv('ALAWIHAO_SMTP_USERNAME') && (bool)getenv('ALAWIHAO_SMTP_PASSWORD');
+$profile_picture_csrf_token = $_SESSION['profile_picture_csrf_token'] ??= bin2hex(random_bytes(32));
+$profile_picture_message = $_SESSION['profile_picture_message'] ?? '';
+$profile_picture_message_type = $_SESSION['profile_picture_message_type'] ?? 'success';
+unset($_SESSION['profile_picture_message'], $_SESSION['profile_picture_message_type']);
+$recovery_message_type = isset($_SESSION['error_message']) ? 'error' : 'success';
+$recovery_message = $_SESSION['error_message'] ?? $_SESSION['success_message'] ?? '';
+unset($_SESSION['error_message'], $_SESSION['success_message']);
 
 /* GET ADMIN DATA */
 $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
@@ -60,59 +70,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_profile'])) {
             }
 
             $stmt->close();
-        }
-
-        $check->close();
-    }
-}
-
-/* UPDATE RECOVERY EMAIL */
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_recovery'])) {
-    $new_recovery_email = trim($_POST['recovery_email'] ?? '');
-    $recovery_password = $_POST['recovery_password'] ?? '';
-
-    if ($new_recovery_email === '') {
-        $message = "<div class='alert error'>Please enter your new email address.</div>";
-    } elseif (!filter_var($new_recovery_email, FILTER_VALIDATE_EMAIL)) {
-        $message = "<div class='alert error'>Please enter a valid email address.</div>";
-    } elseif ($recovery_password === '') {
-        $message = "<div class='alert error'>Please enter your current password.</div>";
-    } elseif (strcasecmp($new_recovery_email, $admin['email'] ?? '') === 0) {
-        $message = "<div class='alert error'>The new email is the same as your current email.</div>";
-    } else {
-        $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-        $check->bind_param("si", $new_recovery_email, $admin_id);
-        $check->execute();
-        $check_result = $check->get_result();
-
-        if ($check_result->num_rows > 0) {
-            $message = "<div class='alert error'>That email address is already being used by another account.</div>";
-        } else {
-            $db_pass = $admin['password'] ?? '';
-            $is_match = false;
-
-            if (!empty($db_pass) && password_verify($recovery_password, $db_pass)) {
-                $is_match = true;
-            } elseif (!empty($db_pass) && hash_equals($db_pass, $recovery_password)) {
-                $is_match = true;
-            }
-
-            if (!$is_match) {
-                $message = "<div class='alert error'>Incorrect current password. Email was not changed.</div>";
-            } else {
-                $stmt = $conn->prepare("UPDATE users SET email = ? WHERE id = ?");
-                $stmt->bind_param("si", $new_recovery_email, $admin_id);
-
-                if ($stmt->execute()) {
-                    $admin['email'] = $new_recovery_email;
-
-                    $message = "<div class='alert success'>Recovery email updated successfully! Your new email is now your login and recovery email.</div>";
-                } else {
-                    $message = "<div class='alert error'>Email update failed: " . htmlspecialchars($conn->error) . "</div>";
-                }
-
-                $stmt->close();
-            }
         }
 
         $check->close();
@@ -205,6 +162,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['delete_account'])) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Account Settings & Profile | Alawihao Health Center</title>
+<link rel="stylesheet" href="../profile_picture.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 :root {
@@ -637,8 +595,36 @@ label {
     <div class="settings-container">
 
         <?php echo $message; ?>
+        <?php if ($recovery_message !== ''): ?>
+            <div class="alert <?php echo $recovery_message_type; ?>">
+                <?php echo htmlspecialchars($recovery_message, ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($profile_picture_message !== ''): ?>
+            <div class="alert <?php echo $profile_picture_message_type === 'error' ? 'error' : 'success'; ?>">
+                <?php echo htmlspecialchars($profile_picture_message, ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+        <?php endif; ?>
 
         <!-- PROFILE INFORMATION CARD -->
+        <div class="settings-card">
+            <div class="settings-section-title"><i class="fa fa-camera"></i> Profile Picture</div>
+            <form action="update_profile_picture.php" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($profile_picture_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <?php $profile_picture_url = profilePictureUrl($admin['profile_picture'] ?? ''); ?>
+                <?php if ($profile_picture_url !== ''): ?>
+                    <img src="<?php echo htmlspecialchars($profile_picture_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Current profile picture" class="profile-avatar" style="width: 84px; height: 84px; margin-bottom: 14px;">
+                <?php else: ?>
+                    <span class="profile-avatar profile-avatar-fallback" aria-hidden="true" style="width: 84px; height: 84px; margin-bottom: 14px;"><?php echo htmlspecialchars(strtoupper(substr($admin['first_name'] ?? 'A', 0, 1)), ENT_QUOTES, 'UTF-8'); ?></span>
+                <?php endif; ?>
+                <div class="form-group">
+                    <label for="profile_picture">Choose a profile picture (JPG, PNG, or WEBP; max 5MB)</label>
+                    <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/webp" required>
+                </div>
+                <button type="submit" class="btn btn-primary-action"><i class="fa fa-upload"></i> Upload Picture</button>
+            </form>
+        </div>
+
         <div class="settings-card profile-card-header">
             <div class="settings-section-title">
                 <i class="fa fa-user-circle"></i> Admin Profile Information
@@ -752,9 +738,16 @@ label {
                 Your account email is also your recovery email. You can change it below.
                 Once updated, the new email will be used for login and password recovery.
             </p>
+            <?php if (!$recovery_email_configured): ?>
+                <div class="recovery-info" style="margin-bottom: 16px; background: #fff8e1; color: #7a4c00;">
+                    <i class="fa fa-circle-exclamation"></i>
+                    <span>Email verification is not configured on the server yet. Please contact the system administrator.</span>
+                </div>
+            <?php endif; ?>
 
             <!-- Tanging isang form tag na lang na patungong send_otp.php -->
             <form action="send_otp.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($recovery_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
 
                 <div class="form-group">
                     <label>Current Email</label>

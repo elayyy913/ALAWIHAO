@@ -9,7 +9,6 @@ $is_super_admin = (strtolower(trim($current_role)) === 'super admin' || strtolow
 
 $base_url = "/FINAL_CAPSTONE/admin/";
 $dashboard_url = $is_super_admin ? $base_url . 'super_admin_dashboard.php' : $base_url . 'admin_dashboard.php';
-$settings_url  = $is_super_admin ? $base_url . 'super_admin_setting.php' : $base_url . 'admin_settings.php';
 
 // Active states logic para sa mga links at dropdowns
 $is_overview_active = in_array($current_page, ['admin_dashboard.php', 'super_admin_dashboard.php']);
@@ -17,16 +16,18 @@ $is_workers_active  = in_array($current_page, ['admin_health_workers.php', 'regi
 $is_vaccines_active = ($current_page === 'vaccine_inventory.php');
 $is_mat_rec_active  = ($current_page === 'admin_maternal_rec.php');
 $is_child_rec_active= ($current_page === 'admin_child_rec.php');
+$is_mat_reg_active  = ($current_page === 'admin_maternal_reg.php');
+$is_child_reg_active = ($current_page === 'admin_child_reg.php');
 
 $is_mat_hr_active   = in_array($current_page, ['admin_maternal_hr.php', 'admin_maternal_history.php']);
-$is_maternal_open   = $is_mat_hr_active;
+$is_maternal_open   = $is_mat_reg_active || $is_mat_hr_active || (!$is_super_admin && $is_mat_rec_active);
 
 $is_child_hr_active = in_array($current_page, ['admin_child_hr.php', 'admin_child_history.php']);
-$is_child_open      = $is_child_hr_active;
+$is_child_open      = $is_child_reg_active || $is_child_rec_active || $is_child_hr_active;
 
 $is_sched_active    = in_array($current_page, ['schedule_management.php', 'admin_sched_maternal.php', 'admin_sched_child.php']);
 $is_logs_active     = ($current_page === 'activity_logs.php');
-$is_profile_active  = ($current_page === 'admin_profile.php');
+$is_sms_active      = ($current_page === 'sms_management.php');
 $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admin_setting.php']);
 ?>
 
@@ -170,7 +171,7 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         font-weight: 700 !important;
         letter-spacing: 1px !important;
     }
-    .nav-link, .dropdown-btn {
+    .nav-link, .dropdown-btn, .management-heading {
         display: flex !important;
         align-items: center !important;
         justify-content: space-between !important;
@@ -188,6 +189,13 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         cursor: pointer !important;
         text-align: left !important;
         box-sizing: border-box !important;
+    }
+    .management-heading {
+        cursor: default !important;
+        margin-top: 2px !important;
+        margin-bottom: 0 !important;
+        padding-top: 9px !important;
+        padding-bottom: 7px !important;
     }
     .nav-link:hover, .dropdown-btn:hover {
         background-color: var(--soft-sage) !important;
@@ -280,38 +288,52 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
     </div>
 
     <div class="nav-menu">
-        <a href="<?php echo $dashboard_url; ?>" class="nav-link <?php echo $is_overview_active ? 'active' : ''; ?>" id="link-overview">Overview</a>
+        <a href="<?php echo $dashboard_url; ?>" class="nav-link <?php echo $is_overview_active ? 'active' : ''; ?>" id="link-overview">Home</a>
 
-        <span class="nav-label">(inventory)</span>
         <?php if ($is_super_admin): ?>
+        <span class="nav-label">(inventory)</span>
         <a href="<?php echo $base_url; ?>admin_health_workers.php" class="nav-link <?php echo $is_workers_active ? 'active' : ''; ?>" id="link-workers">Health Worker</a>
         <a href="<?php echo $base_url; ?>vaccine_inventory.php" class="nav-link <?php echo $is_vaccines_active ? 'active' : ''; ?>" id="link-vaccines">Vaccines</a>
-        <?php endif; ?>
         <a href="<?php echo $base_url; ?>admin_maternal_rec.php" class="nav-link <?php echo $is_mat_rec_active ? 'active' : ''; ?>" id="link-maternal-rec">Maternal Records</a>
         <a href="<?php echo $base_url; ?>admin_child_rec.php" class="nav-link <?php echo $is_child_rec_active ? 'active' : ''; ?>" id="link-child-rec">Child/Infant Records</a>
+        <?php endif; ?>
 
-        <span class="nav-label">(management)</span>
-        <button class="dropdown-btn <?php echo $is_maternal_open ? 'active-parent' : ''; ?>" onclick="toggleDropdown('maternalDrop', this)">
-            <span>Maternal Management</span> <span class="chevron <?php echo $is_maternal_open ? 'rotate' : ''; ?>">▼</span>
-        </button>
-        <div class="dropdown-container <?php echo $is_maternal_open ? 'show' : ''; ?>" id="maternalDrop" style="<?php echo $is_maternal_open ? 'display: block;' : ''; ?>">
+        <span class="nav-label">(managements)</span>
+        <div class="management-heading">Maternal Management</div>
+        <div class="dropdown-container show management-links" id="maternalDrop">
+            <a href="<?php echo $base_url; ?>admin_maternal_reg.php" class="<?php echo $is_mat_reg_active ? 'active' : ''; ?>" id="link-maternal-reg">Registration Form</a>
+            <?php if (!$is_super_admin): ?>
+            <a href="<?php echo $base_url; ?>admin_maternal_rec.php" class="<?php echo $is_mat_rec_active ? 'active' : ''; ?>" id="link-maternal-rec">Maternal Records</a>
+            <?php endif; ?>
+            <?php if ($is_super_admin): ?>
             <a href="<?php echo $base_url; ?>admin_maternal_hr.php" class="<?php echo $is_mat_hr_active ? 'active' : ''; ?>" id="id-maternal-health">Maternal Health Record</a>
+            <?php endif; ?>
         </div>
 
-        <button class="dropdown-btn <?php echo $is_child_open ? 'active-parent' : ''; ?>" onclick="toggleDropdown('childDrop', this)">
-            <span>Child Management</span> <span class="chevron <?php echo $is_child_open ? 'rotate' : ''; ?>">▼</span>
-        </button>
-        <div class="dropdown-container <?php echo $is_child_open ? 'show' : ''; ?>" id="childDrop" style="<?php echo $is_child_open ? 'display: block;' : ''; ?>">
+        <div class="management-heading">Child Management</div>
+        <div class="dropdown-container show management-links" id="childDrop">
+            <a href="<?php echo $base_url; ?>admin_child_reg.php" class="<?php echo $is_child_reg_active ? 'active' : ''; ?>" id="link-child-reg">Registration Form</a>
+            <?php if (!$is_super_admin): ?>
+            <a href="<?php echo $base_url; ?>admin_child_rec.php" class="<?php echo $is_child_rec_active ? 'active' : ''; ?>" id="link-child-rec">Child/Infant Records</a>
+            <?php endif; ?>
+            <?php if ($is_super_admin): ?>
             <a href="<?php echo $base_url; ?>admin_child_hr.php" class="<?php echo $is_child_hr_active ? 'active' : ''; ?>" id="id-child-health">Child Health Record</a>
+            <?php endif; ?>
         </div>
 
         <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link <?php echo $is_sched_active ? 'active' : ''; ?>" id="link-schedule">Schedule Management</a>
 
-        <span class="nav-label">(others)</span>
         <?php if ($is_super_admin): ?>
+        <span class="nav-label">(others)</span>
+        <a href="<?php echo $base_url; ?>sms_management.php" class="nav-link <?php echo $is_sms_active ? 'active' : ''; ?>" id="link-sms">SMS Management</a>
         <a href="<?php echo $base_url; ?>activity_logs.php" class="nav-link <?php echo $is_logs_active ? 'active' : ''; ?>" id="link-history">History</a>
         <?php endif; ?>
-        <a href="<?php echo $settings_url; ?>" class="nav-link <?php echo $is_settings_active ? 'active' : ''; ?>" id="link-settings">Setting</a>
+        <span class="nav-label">(settings)</span>
+        <?php if ($is_super_admin): ?>
+        <a href="<?php echo $base_url; ?>super_admin_setting.php" class="nav-link <?php echo $is_settings_active ? 'active' : ''; ?>" id="link-settings">Super Admin Settings</a>
+        <?php else: ?>
+        <a href="<?php echo $base_url; ?>admin_settings.php" class="nav-link <?php echo $is_settings_active ? 'active' : ''; ?>" id="link-settings">Settings</a>
+        <?php endif; ?>
     </div>
 
     <div class="sidebar-footer">
@@ -415,15 +437,17 @@ document.addEventListener('DOMContentLoaded', function() {
         'vaccine_inventory.php': 'link-vaccines',
         'admin_maternal_rec.php': 'link-maternal-rec',
         'admin_child_rec.php': 'link-child-rec',
+        'admin_maternal_reg.php': 'link-maternal-reg',
         'admin_maternal_hr.php': 'id-maternal-health',
         'admin_maternal_history.php': 'id-maternal-health',
+        'admin_child_reg.php': 'link-child-reg',
         'admin_child_hr.php': 'id-child-health',
         'admin_child_history.php': 'id-child-health',
         'schedule_management.php': 'link-schedule',
         'admin_sched_maternal.php': 'link-schedule',
         'admin_sched_child.php': 'link-schedule',
+        'sms_management.php': 'link-sms',
         'activity_logs.php': 'link-history',
-        'admin_profile.php': 'link-profile',
         'admin_settings.php': 'link-settings',
         'super_admin_setting.php': 'link-settings',
         'register_worker.php': 'link-workers'
@@ -433,17 +457,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeLink = document.getElementById(links[currentPath]);
         if (activeLink) {
             activeLink.classList.add('active');
-            const parentDropdown = activeLink.closest('.dropdown-container');
-            if (parentDropdown) {
-                parentDropdown.classList.add('show');
-                parentDropdown.style.display = 'block';
-                const btn = parentDropdown.previousElementSibling;
-                if (btn) {
-                    btn.classList.add('active-parent');
-                    const chevron = btn.querySelector('.chevron');
-                    if (chevron) chevron.classList.add('rotate');
-                }
-            }
         }
     }
 });

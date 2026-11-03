@@ -1,51 +1,101 @@
 <?php
 session_start();
-include '../db_connect.php';
-
-// I-check kung naka-login ang admin
-if (!isset($_SESSION['admin_id']) && !isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+$role = $_SESSION['role'] ?? '';
+if (!isset($_SESSION['user_id']) || !in_array($role, ['Admin', 'Super Admin'], true)) {
+    header("Location: ../login.php");
     exit();
 }
 
-$admin_id = (int)($_SESSION['admin_id'] ?? $_SESSION['user_id']);
+$settings_page = ($_SESSION['role'] ?? '') === 'Super Admin'
+    ? 'super_admin_setting.php'
+    : 'admin_settings.php';
+$user_id = (int)$_SESSION['user_id'];
 $message = "";
 
-// I-check kung may pending email at OTP sa session
-if (!isset($_SESSION['otp_code']) || !isset($_SESSION['pending_new_email'])) {
-    header("Location: admin_settings.php");
+$clear_recovery = static function () {
+    unset(
+        $_SESSION['recovery_otp_hash'],
+        $_SESSION['recovery_pending_email'],
+        $_SESSION['recovery_user_id'],
+        $_SESSION['recovery_otp_expires_at'],
+        $_SESSION['recovery_otp_attempts']
+    );
+};
+
+if (
+    !isset($_SESSION['recovery_otp_hash'], $_SESSION['recovery_pending_email'], $_SESSION['recovery_user_id'], $_SESSION['recovery_otp_expires_at'])
+    || (int)$_SESSION['recovery_user_id'] !== $user_id
+) {
+    $_SESSION['error_message'] = "There is no active email verification. Please request a new code.";
+    header("Location: " . $settings_page);
     exit();
 }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['verify_otp'])) {
-    $user_otp = trim($_POST['otp_code'] ?? '');
-    
-    // Suriin kung nag-expire na ang OTP (5 minuto)
-    if (time() > ($_SESSION['otp_expiry'] ?? 0)) {
-        $message = "<div class='alert error'>The OTP code has expired. Please request a new one.</div>";
-    } elseif ($user_otp == $_SESSION['otp_code']) {
-        // Tamang OTP! I-update na ang email sa database
-        $new_email = $_SESSION['pending_new_email'];
+if (time() >= (int)$_SESSION['recovery_otp_expires_at']) {
+    $clear_recovery();
+    $_SESSION['error_message'] = "The OTP code has expired. Please request a new one.";
+    header("Location: " . $settings_page);
+    exit();
+}
 
-        $stmt = $conn->prepare("UPDATE users SET email = ? WHERE id = ?");
-        $stmt->bind_param("si", $new_email, $admin_id);
-
-        if ($stmt->execute()) {
-            // Linisin ang OTP sessions
-            unset($_SESSION['otp_code']);
-            unset($_SESSION['pending_new_email']);
-            unset($_SESSION['otp_expiry']);
-
-            // I-redirect pabalik sa settings na may success message (puwede mo ring gamitin ang session flash message)
-            $_SESSION['success_message'] = "<div class='alert success'>Recovery email updated successfully! Your new email is now your login and recovery email.</div>";
-            header("Location: admin_settings.php");
-            exit();
-        } else {
-            $message = "<div class='alert error'>Database update failed: " . htmlspecialchars($conn->error) . "</div>";
-        }
-        $stmt->close();
+$csrf_token = $_SESSION['recovery_csrf_token'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
+    $request_csrf_token = $_POST['csrf_token'] ?? '';
+    if ($csrf_token === '' || !is_string($request_csrf_token) || !hash_equals($csrf_token, $request_csrf_token)) {
+        $message = "Your session expired. Please return to settings and request a new code.";
     } else {
-        $message = "<div class='alert error'>Invalid OTP code. Please try again.</div>";
+        $user_otp = trim($_POST['otp_code'] ?? '');
+        if (!preg_match('/^\d{6}$/D', $user_otp) || !hash_equals($_SESSION['recovery_otp_hash'], hash('sha256', $user_otp))) {
+            $_SESSION['recovery_otp_attempts'] = (int)($_SESSION['recovery_otp_attempts'] ?? 0) + 1;
+            if ($_SESSION['recovery_otp_attempts'] >= 5) {
+                $clear_recovery();
+                $_SESSION['error_message'] = "Too many incorrect attempts. Please request a new verification code.";
+                header("Location: " . $settings_page);
+                exit();
+            } else {
+                $message = "Invalid OTP code. Please try again.";
+            }
+        } else {
+            include '../db_connect.php';
+            $new_email = (string)$_SESSION['recovery_pending_email'];
+            $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1");
+            if (!$check) {
+                error_log("Account recovery email verification query failed: " . $conn->error);
+                $message = "Unable to update your email right now. Please try again.";
+            } else {
+                $check->bind_param("si", $new_email, $user_id);
+                if (!$check->execute()) {
+                    error_log("Account recovery email verification query failed: " . $check->error);
+                    $message = "Unable to update your email right now. Please try again.";
+                } elseif ($check->get_result()->num_rows > 0) {
+                    $clear_recovery();
+                    $_SESSION['error_message'] = "That email address is now being used by another account. Please request a new code with a different address.";
+                    $check->close();
+                    header("Location: " . $settings_page);
+                    exit();
+                } else {
+                    $stmt = $conn->prepare("UPDATE users SET email = ? WHERE id = ? AND role = ?");
+                    if (!$stmt) {
+                        error_log("Account recovery email update preparation failed: " . $conn->error);
+                        $message = "Unable to update your email right now. Please try again.";
+                    } else {
+                        $stmt->bind_param("sis", $new_email, $user_id, $role);
+                        if ($stmt->execute() && $stmt->affected_rows === 1) {
+                            $clear_recovery();
+                            unset($_SESSION['recovery_last_sent_at']);
+                            $_SESSION['success_message'] = "Recovery email updated successfully! Your new email is now your login and recovery email.";
+                            header("Location: " . $settings_page);
+                            exit();
+                        }
+
+                        error_log("Account recovery email update failed: " . $stmt->error);
+                        $message = "Unable to update your email right now. Please try again.";
+                        $stmt->close();
+                    }
+                }
+                $check->close();
+            }
+        }
     }
 }
 ?>
@@ -163,15 +213,18 @@ label {
         <i class="fa fa-shield-halved"></i> Enter Verification Code
     </div>
     <p class="verify-text">
-        We've sent a 6-digit code to <strong><?php echo htmlspecialchars($_SESSION['pending_new_email']); ?></strong>. Please enter it below to confirm your new email.
+        We've sent a 6-digit code to <strong><?php echo htmlspecialchars($_SESSION['recovery_pending_email'], ENT_QUOTES, 'UTF-8'); ?></strong>. Please enter it below to confirm your new email.
     </p>
 
-    <?php echo $message; ?>
+    <?php if ($message !== ''): ?>
+        <div class="alert error"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php endif; ?>
 
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
         <div class="form-group">
             <label for="otp_code">6-Digit OTP Code</label>
-            <input type="text" id="otp_code" name="otp_code" class="settings-input" maxlength="6" placeholder="------" required autofocus>
+            <input type="text" id="otp_code" name="otp_code" class="settings-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="------" required autofocus>
         </div>
 
         <button type="submit" name="verify_otp" class="btn-primary-action">
@@ -179,7 +232,7 @@ label {
         </button>
     </form>
 
-    <a href="admin_settings.php" class="back-link">
+    <a href="<?php echo htmlspecialchars($settings_page, ENT_QUOTES, 'UTF-8'); ?>" class="back-link">
         <i class="fa fa-arrow-left"></i> Cancel and go back to settings
     </a>
 </div>

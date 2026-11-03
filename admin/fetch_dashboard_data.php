@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 session_start();
 include '../db_connect.php';
 
@@ -195,6 +196,7 @@ if (check_table_exists($conn, 'schedules')) {
 
 // Return JSON output
 echo json_encode([
+    'updated_at' => date(DATE_ATOM),
     'total_patients' => $total_patients,
     'total_newborns' => $total_newborns,
     'total_pregnant' => $total_pregnant,

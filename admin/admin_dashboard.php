@@ -1,6 +1,20 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 session_start();
 include '../db_connect.php';
+require_once '../profile_picture_helpers.php';
+
+$profileAccount = [];
+if (isset($_SESSION['user_id'])) {
+    $profileStmt = $conn->prepare("SELECT first_name, profile_picture FROM users WHERE id = ?");
+    if ($profileStmt) {
+        $profileStmt->bind_param("i", $_SESSION['user_id']);
+        if ($profileStmt->execute()) {
+            $profileAccount = $profileStmt->get_result()->fetch_assoc() ?: [];
+        }
+        $profileStmt->close();
+    }
+}
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
@@ -713,6 +727,7 @@ usort($upcoming_schedule, function ($first, $second) {
     </style>
     <script src="../theme.js"></script>
     <link rel="stylesheet" href="../theme.css">
+    <link rel="stylesheet" href="../profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         [data-theme="dark"] #main,
@@ -781,6 +796,7 @@ usort($upcoming_schedule, function ($first, $second) {
             <div class="page-header-tools">
                 <span class="dashboard-date"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <?php echo date('l, F j, Y'); ?></span>
                 <?php include '../notif_bell.php'; ?>
+                <?php renderProfileLink($profileAccount['profile_picture'] ?? '', $profileAccount['first_name'] ?? ($_SESSION['name'] ?? 'Admin'), 'admin_settings.php'); ?>
             </div>
         </div>
 
@@ -795,7 +811,7 @@ usort($upcoming_schedule, function ($first, $second) {
                 </div>
             </details>
             <a class="quick-action" href="schedule_management.php"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Manage schedules</a>
-            <span class="dashboard-sync" role="status" aria-live="polite"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Updated <time id="dashboardLastUpdated" datetime="<?php echo date(DATE_ATOM); ?>"><?php echo date('g:i:s A'); ?></time></span>
+            <span class="dashboard-sync" role="status" aria-live="polite" title="Time this dashboard was loaded, Philippine Time"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Updated <time id="dashboardLastUpdated" datetime="<?php echo date(DATE_ATOM); ?>"><?php echo date('g:i:s A'); ?></time> PHT</span>
         </nav>
         
         <?php if (!empty($message)): ?>

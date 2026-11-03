@@ -1,6 +1,7 @@
 <?php
 session_start();
 include 'db_connect.php';
+require_once 'profile_picture_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -9,6 +10,10 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 $message = "";
+$profile_picture_csrf_token = $_SESSION['profile_picture_csrf_token'] ??= bin2hex(random_bytes(32));
+$profile_picture_message = $_SESSION['profile_picture_message'] ?? '';
+$profile_picture_message_type = $_SESSION['profile_picture_message_type'] ?? 'success';
+unset($_SESSION['profile_picture_message'], $_SESSION['profile_picture_message_type']);
 
 // 1. Fetch current user data using 'id'
 $sql = "SELECT * FROM users WHERE id = '$user_id'";
@@ -46,6 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Settings & Profile | Alawihao Health Center</title>
+    <link rel="stylesheet" href="profile_picture.css">
     <style>
         :root {
             --green: #2d5016;
@@ -260,6 +266,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
     <div class="settings-container">
         
         <?php echo $message; ?>
+
+        <?php if ($profile_picture_message !== ''): ?>
+            <div class="alert <?php echo $profile_picture_message_type === 'error' ? 'error' : 'success'; ?>">
+                <?php echo htmlspecialchars($profile_picture_message, ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+        <?php endif; ?>
+
+        <div class="settings-card">
+            <div class="settings-section-title"><i class="fa fa-camera"></i> Profile Picture</div>
+            <form action="admin/update_profile_picture.php" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($profile_picture_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <?php $profile_picture_url = profilePictureUrl($user['profile_picture'] ?? ''); ?>
+                <?php if ($profile_picture_url !== ''): ?>
+                    <img src="<?php echo htmlspecialchars($profile_picture_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Current profile picture" class="profile-avatar" style="width: 84px; height: 84px; margin-bottom: 14px;">
+                <?php else: ?>
+                    <span class="profile-avatar profile-avatar-fallback" aria-hidden="true" style="width: 84px; height: 84px; margin-bottom: 14px;"><?php echo htmlspecialchars(strtoupper(substr($user['first_name'] ?? 'U', 0, 1)), ENT_QUOTES, 'UTF-8'); ?></span>
+                <?php endif; ?>
+                <div class="form-group">
+                    <label for="profile_picture">Choose a profile picture (JPG, PNG, or WEBP; max 5MB)</label>
+                    <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/webp" required>
+                </div>
+                <button type="submit" class="btn btn-primary-action"><i class="fa fa-upload"></i> Upload Picture</button>
+            </form>
+        </div>
 
         <!-- 1. MY PROFILE SECTION -->
         <div class="settings-card profile-card-header">
