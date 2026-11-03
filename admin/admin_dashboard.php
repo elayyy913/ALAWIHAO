@@ -781,6 +781,20 @@ usort($upcoming_schedule, function ($first, $second) {
             background: var(--dm-surface2);
             color: var(--dm-sage);
         }
+        [data-theme="dark"] #main .quick-action i,
+        [data-theme="dark"] #main .quick-action-menu a i {
+            color: currentColor !important;
+        }
+        [data-theme="dark"] #main .dashboard-date i,
+        [data-theme="dark"] #main .dashboard-sync i,
+        [data-theme="dark"] #main .notif-dropdown-header i {
+            color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] #main .notif-bell-btn i,
+        [data-theme="dark"] #main .notif-mark-all i,
+        [data-theme="dark"] #main .notif-empty i {
+            color: var(--dm-text2) !important;
+        }
     </style>
 </head>
 <body>

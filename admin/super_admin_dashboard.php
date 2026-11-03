@@ -651,6 +651,114 @@ if (check_table_exists($conn, 'schedules')) {
         [data-theme="dark"] .metric-empty,
         [data-theme="dark"] .metric-percent-label { color: var(--dm-text2) !important; }
         [data-theme="dark"] .metric-progress-track { background: #3A403A; }
+        [data-theme="dark"] #mainDashboard .analytic-card h5,
+        [data-theme="dark"] #mainDashboard .metric-percent,
+        [data-theme="dark"] #mainDashboard .metric-count-item strong,
+        [data-theme="dark"] #mainDashboard .metric-counts,
+        [data-theme="dark"] #mainDashboard .metric-status-percent,
+        [data-theme="dark"] #mainDashboard .metric-total,
+        [data-theme="dark"] #mainDashboard .metric-empty,
+        [data-theme="dark"] #mainDashboard .metric-percent-label,
+        [data-theme="dark"] #mainDashboard .sched-date,
+        [data-theme="dark"] #mainDashboard .sched-patient-name,
+        [data-theme="dark"] #mainDashboard .sched-type,
+        [data-theme="dark"] #mainDashboard .dashboard-empty-state,
+        [data-theme="dark"] #mainDashboard .dashboard-empty-state span {
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] #mainDashboard .metric-counts,
+        [data-theme="dark"] #mainDashboard .metric-status-percent,
+        [data-theme="dark"] #mainDashboard .metric-total,
+        [data-theme="dark"] #mainDashboard .metric-empty,
+        [data-theme="dark"] #mainDashboard .metric-percent-label,
+        [data-theme="dark"] #mainDashboard .sched-type {
+            color: var(--dm-text2) !important;
+        }
+        [data-theme="dark"] #mainDashboard .status-badge {
+            background: var(--dm-surface2) !important;
+            color: var(--dm-text) !important;
+        }
+        [data-theme="dark"] #mainDashboard .status-badge.pending {
+            background: #51411f !important;
+            color: #f4d58c !important;
+        }
+        [data-theme="dark"] #mainDashboard .status-badge.approved,
+        [data-theme="dark"] #mainDashboard .status-badge.completed {
+            background: #24412d !important;
+            color: #a7d8ae !important;
+        }
+        [data-theme="dark"] #mainDashboard .status-badge.rejected,
+        [data-theme="dark"] #mainDashboard .status-badge.declined,
+        [data-theme="dark"] #mainDashboard .status-badge.reschedule-requested {
+            background: #512b2a !important;
+            color: #f3aaaa !important;
+        }
+        [data-theme="dark"] #mainDashboard .status-badge.cancelled {
+            background: #3a403a !important;
+            color: #d3dbcf !important;
+        }
+        [data-theme="dark"] #mainDashboard .btn-mark-done {
+            background: #31523c !important;
+            color: #d7f0dc !important;
+        }
+        [data-theme="dark"] #mainDashboard .btn-mark-done:hover {
+            background: #3d684b !important;
+        }
+        [data-theme="dark"] #mainDashboard .btn-resched {
+            background: #55451e !important;
+            color: #ffe6a3 !important;
+        }
+        [data-theme="dark"] #mainDashboard .btn-resched:hover {
+            background: #6b5725 !important;
+        }
+        [data-theme="dark"] #mainDashboard .date-input {
+            background: var(--dm-input-bg) !important;
+            border-color: var(--dm-input-border) !important;
+            color: var(--dm-text) !important;
+            color-scheme: dark;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card:hover {
+            background: var(--dm-surface2) !important;
+            border-color: var(--dm-border) !important;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card.is-attention:hover {
+            background: linear-gradient(145deg, #302d22, #332d1d) !important;
+            border-color: #66532b !important;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card.is-clear:hover {
+            background: linear-gradient(145deg, #242d26, #253329) !important;
+            border-color: #38563e !important;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card-icon {
+            background: #354037 !important;
+            color: #b9d6a5 !important;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card.is-attention .stat-card-icon {
+            background: #51411f !important;
+            color: #f4d58c !important;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card.is-clear .stat-card-icon {
+            background: #24412d !important;
+            color: #a7d8ae !important;
+        }
+        [data-theme="dark"] #mainDashboard .stat-card-icon i {
+            color: inherit !important;
+        }
+        [data-theme="dark"] #mainDashboard .quick-action i,
+        [data-theme="dark"] #mainDashboard .quick-action-menu a i {
+            color: currentColor !important;
+        }
+        [data-theme="dark"] #mainDashboard .dashboard-date i,
+        [data-theme="dark"] #mainDashboard .dashboard-sync i,
+        [data-theme="dark"] #mainDashboard .dashboard-empty-state i,
+        [data-theme="dark"] #mainDashboard .notif-dropdown-header i {
+            color: var(--dm-sage) !important;
+        }
+        [data-theme="dark"] #mainDashboard .notif-bell-btn i,
+        [data-theme="dark"] #mainDashboard .notif-mark-all i,
+        [data-theme="dark"] #mainDashboard .notif-empty i {
+            color: var(--dm-text2) !important;
+        }
         @media (max-width: 1200px) {
             .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }

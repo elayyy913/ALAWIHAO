@@ -24,6 +24,8 @@ $is_maternal_open   = $is_mat_reg_active || $is_mat_hr_active || (!$is_super_adm
 
 $is_child_hr_active = in_array($current_page, ['admin_child_hr.php', 'admin_child_history.php']);
 $is_child_open      = $is_child_reg_active || $is_child_rec_active || $is_child_hr_active;
+$maternal_management_expanded = $is_mat_reg_active || $is_mat_hr_active;
+$child_management_expanded = $is_child_reg_active || $is_child_hr_active;
 
 $is_sched_active    = in_array($current_page, ['schedule_management.php', 'admin_sched_maternal.php', 'admin_sched_child.php']);
 $is_logs_active     = ($current_page === 'activity_logs.php');
@@ -197,6 +199,9 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         padding-top: 9px !important;
         padding-bottom: 7px !important;
     }
+    .management-toggle {
+        cursor: pointer !important;
+    }
     .nav-link:hover, .dropdown-btn:hover {
         background-color: var(--soft-sage) !important;
         color: var(--dark-sage) !important;
@@ -257,6 +262,53 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
     }
     .logout-btn:hover { background: #FFF5F5 !important; }
 
+    [data-theme="dark"] .sidebar {
+        color: var(--dm-text) !important;
+    }
+    [data-theme="dark"] .sidebar .brand-name,
+    [data-theme="dark"] .sidebar .management-heading,
+    [data-theme="dark"] .sidebar .nav-link,
+    [data-theme="dark"] .sidebar .dropdown-btn,
+    [data-theme="dark"] .sidebar .dropdown-container a {
+        color: var(--dm-text) !important;
+    }
+    [data-theme="dark"] .sidebar .brand-name span {
+        color: #A8C88E !important;
+    }
+    [data-theme="dark"] .sidebar .sidebar-header p,
+    [data-theme="dark"] .sidebar .nav-label,
+    [data-theme="dark"] .sidebar .close-sidebar-x {
+        color: var(--dm-text2) !important;
+    }
+    [data-theme="dark"] .sidebar .dropdown-container {
+        background-color: var(--dm-surface2) !important;
+    }
+    [data-theme="dark"] .sidebar .nav-link:hover,
+    [data-theme="dark"] .sidebar .dropdown-btn:hover,
+    [data-theme="dark"] .sidebar .dropdown-container a:hover {
+        background-color: var(--dm-hover) !important;
+        color: var(--dm-text) !important;
+    }
+    [data-theme="dark"] .sidebar .nav-link.active,
+    [data-theme="dark"] .sidebar .dropdown-btn.active-parent {
+        background-color: var(--dm-sage) !important;
+        color: #172016 !important;
+    }
+    [data-theme="dark"] .sidebar .dropdown-container a.active {
+        background-color: var(--dm-hover) !important;
+        color: var(--dm-text) !important;
+    }
+    [data-theme="dark"] .sidebar .logout-btn {
+        color: #FF8A8A !important;
+    }
+    [data-theme="dark"] .sidebar .logout-btn:hover {
+        background-color: rgba(255, 107, 107, 0.12) !important;
+        color: #FFB3B3 !important;
+    }
+    [data-theme="dark"] .open-sidebar-btn {
+        color: #172016 !important;
+    }
+
     /* DYNAMIC ADJUSTMENT FOR MAIN CONTENT */
     .main-content, #main, #main-wrapper {
         margin-left: var(--sidebar-width) !important;
@@ -299,8 +351,14 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         <?php endif; ?>
 
         <span class="nav-label">(managements)</span>
+        <?php if ($is_super_admin): ?>
+        <button type="button" class="management-heading management-toggle dropdown-btn <?php echo $maternal_management_expanded ? 'active-parent' : ''; ?>" onclick="toggleDropdown('maternalDrop', this)" aria-controls="maternalDrop" aria-expanded="<?php echo $maternal_management_expanded ? 'true' : 'false'; ?>">
+            Maternal Management <span class="chevron <?php echo $maternal_management_expanded ? 'rotate' : ''; ?>" aria-hidden="true">▼</span>
+        </button>
+        <?php else: ?>
         <div class="management-heading">Maternal Management</div>
-        <div class="dropdown-container show management-links" id="maternalDrop">
+        <?php endif; ?>
+        <div class="dropdown-container management-links <?php echo (!$is_super_admin || $maternal_management_expanded) ? 'show' : ''; ?>" id="maternalDrop"<?php echo $is_super_admin ? ' style="display: ' . ($maternal_management_expanded ? 'block' : 'none') . ';"' : ''; ?>>
             <a href="<?php echo $base_url; ?>admin_maternal_reg.php" class="<?php echo $is_mat_reg_active ? 'active' : ''; ?>" id="link-maternal-reg">Registration Form</a>
             <?php if (!$is_super_admin): ?>
             <a href="<?php echo $base_url; ?>admin_maternal_rec.php" class="<?php echo $is_mat_rec_active ? 'active' : ''; ?>" id="link-maternal-rec">Maternal Records</a>
@@ -310,8 +368,14 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
             <?php endif; ?>
         </div>
 
+        <?php if ($is_super_admin): ?>
+        <button type="button" class="management-heading management-toggle dropdown-btn <?php echo $child_management_expanded ? 'active-parent' : ''; ?>" onclick="toggleDropdown('childDrop', this)" aria-controls="childDrop" aria-expanded="<?php echo $child_management_expanded ? 'true' : 'false'; ?>">
+            Child Management <span class="chevron <?php echo $child_management_expanded ? 'rotate' : ''; ?>" aria-hidden="true">▼</span>
+        </button>
+        <?php else: ?>
         <div class="management-heading">Child Management</div>
-        <div class="dropdown-container show management-links" id="childDrop">
+        <?php endif; ?>
+        <div class="dropdown-container management-links <?php echo (!$is_super_admin || $child_management_expanded) ? 'show' : ''; ?>" id="childDrop"<?php echo $is_super_admin ? ' style="display: ' . ($child_management_expanded ? 'block' : 'none') . ';"' : ''; ?>>
             <a href="<?php echo $base_url; ?>admin_child_reg.php" class="<?php echo $is_child_reg_active ? 'active' : ''; ?>" id="link-child-reg">Registration Form</a>
             <?php if (!$is_super_admin): ?>
             <a href="<?php echo $base_url; ?>admin_child_rec.php" class="<?php echo $is_child_rec_active ? 'active' : ''; ?>" id="link-child-rec">Child/Infant Records</a>
@@ -403,6 +467,10 @@ function toggleDropdown(id, btn) {
     if (dropdown) {
         const isShown = dropdown.classList.toggle('show');
         dropdown.style.display = isShown ? 'block' : 'none';
+        if (btn) {
+            btn.setAttribute('aria-expanded', isShown ? 'true' : 'false');
+            btn.classList.toggle('active-parent', isShown);
+        }
     }
     if (btn) {
         const chevron = btn.querySelector('.chevron');
