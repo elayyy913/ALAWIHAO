@@ -1,15 +1,9 @@
 <?php
 /**
- * notif_assets.php — Notification CSS + Theme engine.
- * Include before </head>. Set $notif_path before including.
- *   $notif_path = '../';  // admin/ subfolder
- *   $notif_path = '';     // root pages
+ * notif_assets.php — Notification styles.
+ * Include before </head>.
  */
-$notif_path = $notif_path ?? '';
 ?>
-<?php /* theme.js must load FIRST — before any CSS renders — to avoid flash of wrong theme */ ?>
-<script src="<?php echo $notif_path; ?>theme.js"></script>
-<link rel="stylesheet" href="<?php echo $notif_path; ?>theme.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 /* ── NOTIFICATION BELL ─────────────────────────────────────── */

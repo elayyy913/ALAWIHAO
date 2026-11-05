@@ -82,23 +82,23 @@ $section_count = count($article['sections']);
             position: absolute; top: calc(100% + 10px); right: 0;
             width: min(360px, calc(100vw - 24px)); max-height: 70vh;
             overflow: auto; padding: 14px;
-            background: var(--dm-surface, #ffffff); color: var(--dm-text, #2D2D2D);
-            border: 1px solid var(--dm-border, #E1E1D7); border-radius: 4px;
+            background: #ffffff; color: #2D2D2D;
+            border: 1px solid #E1E1D7; border-radius: 4px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.16); z-index: 500;
         }
         .article-search-panel[hidden] { display: none; }
-        .article-search-panel label { display: block; margin-bottom: 7px; font-size: 0.75rem; font-weight: 700; color: var(--dm-muted, #6b7280); }
+        .article-search-panel label { display: block; margin-bottom: 7px; font-size: 0.75rem; font-weight: 700; color: #6b7280; }
         .article-search-input {
             width: 100%; padding: 9px 11px;
-            border: 1px solid var(--dm-input-border, #E1E1D7); border-radius: 3px;
-            background: var(--dm-input-bg, #ffffff); color: var(--dm-text, #2D2D2D);
+            border: 1px solid #E1E1D7; border-radius: 3px;
+            background: #ffffff; color: #2D2D2D;
             font: inherit; font-size: 0.86rem;
         }
         .article-search-results { display: grid; gap: 2px; margin-top: 8px; }
         .article-search-result { display: block; padding: 8px; border-radius: 3px; color: inherit; font-size: 0.82rem; text-decoration: none; }
-        .article-search-result:hover { background: var(--dm-hover, #F1F5ED); color: inherit; }
+        .article-search-result:hover { background: #F1F5ED; color: inherit; }
         .article-search-result[hidden], .article-search-empty[hidden] { display: none; }
-        .article-search-empty { margin: 8px; color: var(--dm-muted, #6b7280); font-size: 0.82rem; }
+        .article-search-empty { margin: 8px; color: #6b7280; font-size: 0.82rem; }
 
         /* MAIN */
         #main { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; padding: 24px 20px 80px; background: var(--bg); }
@@ -778,97 +778,32 @@ $section_count = count($article['sections']);
         .footer-col h5 { border-bottom-color: #E1E1D7; }
         .footer-badge { background: #F0F5EC; border-color: #E1E1D7; }
 
-        [data-theme="dark"] .article-header { background: #242826 !important; color: #E8EDE5 !important; border-color: var(--light) !important; }
-        [data-theme="dark"] .article-header p { color: #E8EDE5 !important; }
-        [data-theme="dark"] .article-header h1 { color: var(--light) !important; }
-        [data-theme="dark"] .article-meta,
-        [data-theme="dark"] .article-meta span { background: #242826 !important; color: var(--light) !important; }
-        [data-theme="dark"] .key-takeaway h3,
-        [data-theme="dark"] .related-section h3,
-        [data-theme="dark"] .footer-brand-text h4,
-        [data-theme="dark"] .footer-col h5,
-        [data-theme="dark"] .footer-col ul li i,
-        [data-theme="dark"] .footer-col ul li strong,
-        [data-theme="dark"] .footer-badge { color: #8DAE74 !important; }
-        [data-theme="dark"] .section-card h2,
-        [data-theme="dark"] .article-table th,
-        [data-theme="dark"] .detailed-bullet,
-        [data-theme="dark"] .steps-list li::before,
-        [data-theme="dark"] .cta-card { background: #5A6B47 !important; }
-        [data-theme="dark"] .section-card h2,
-        [data-theme="dark"] .article-table th { color: #FFFFFF !important; border-color: #8DAE74 !important; }
-        [data-theme="dark"] .detailed-label,
-        [data-theme="dark"] .steps-list li,
-        [data-theme="dark"] .myth-label,
-        [data-theme="dark"] .truth-label,
-        [data-theme="dark"] .related-card {
-            background: #242826 !important;
-            color: #E8EDE5 !important;
-            border-color: #3A403A !important;
-        }
-        [data-theme="dark"] .detailed-text strong,
-        [data-theme="dark"] .steps-list li strong,
-        [data-theme="dark"] .steps-list li small,
-        [data-theme="dark"] .detailed-why p,
-        [data-theme="dark"] .plain-list li,
-        [data-theme="dark"] .article-table td,
-        [data-theme="dark"] .related-card-title,
-        [data-theme="dark"] .related-card-sub,
-        [data-theme="dark"] .key-takeaway p,
-        [data-theme="dark"] .highlight-box,
-        [data-theme="dark"] .myth-label,
-        [data-theme="dark"] .truth-label { color: #E8EDE5 !important; }
-        [data-theme="dark"] .detailed-why,
-        [data-theme="dark"] .key-takeaway,
-        [data-theme="dark"] .highlight-box { background: #242826 !important; border-color: #3A403A !important; }
-        [data-theme="dark"] .detailed-why .why-label,
-        [data-theme="dark"] .toc-box h3,
-        [data-theme="dark"] .toc-box li,
-        [data-theme="dark"] .topbar .page-label,
-        [data-theme="dark"] .article-search-toggle,
-        [data-theme="dark"] .key-takeaway-icon,
-        [data-theme="dark"] .related-card-icon { color: #8DAE74 !important; }
-        [data-theme="dark"] .related-card-icon { background: #2C302C !important; }
-        [data-theme="dark"] .myth-label .badge,
-        [data-theme="dark"] .truth-label .badge { background: #5A6B47 !important; color: #FFFFFF !important; }
-        [data-theme="dark"] .article-footer { background: #1E1E1E !important; border-top-color: #8DAE74 !important; color: #D0D0D0 !important; }
-        [data-theme="dark"] .footer-top { border-bottom-color: #2E2E2E !important; }
-        [data-theme="dark"] .footer-brand-text span,
-        [data-theme="dark"] .footer-tagline,
-        [data-theme="dark"] .footer-col ul li,
-        [data-theme="dark"] .footer-copy { color: #B8C4B0 !important; }
-        [data-theme="dark"] .footer-col a { color: #8DAE74 !important; }
-        [data-theme="dark"] .footer-col h5 { border-bottom-color: #2E2E2E !important; }
-        [data-theme="dark"] .footer-badge { background: #1A2E14 !important; border-color: #3A6B20 !important; }
-        [data-theme="dark"] .topbar {
-            background: var(--dm-topbar-bg) !important;
-            border-bottom-color: var(--dm-sage) !important;
-        }
-        [data-theme="dark"] .topbar .article-back-link {
-            background: var(--dm-surface) !important;
-            border-color: var(--dm-border) !important;
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] .topbar .article-back-link:hover {
-            background: var(--dm-hover) !important;
-            color: var(--dm-sage) !important;
-        }
-        [data-theme="dark"] .topbar .hamburger-btn {
-            background: var(--light) !important;
-            color: var(--green) !important;
-        }
-        [data-theme="dark"] .topbar .hamburger-btn:hover {
-            background: var(--accent) !important;
-        }
-        [data-theme="dark"] .topbar .logo-img {
-            border-color: var(--light) !important;
-        }
-        [data-theme="dark"] .article-meta img,
-        [data-theme="dark"] .key-takeaway-icon img,
-        [data-theme="dark"] .why-label img,
-        [data-theme="dark"] .related-section h3 img,
-        [data-theme="dark"] .footer-col h5 img,
-        [data-theme="dark"] .footer-col ul li img { filter: brightness(0) invert(1); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         body, #main { background: var(--bg); color: var(--text); }
         .progress-bar, .reading-progress-bar { background: var(--green); }
@@ -916,74 +851,15 @@ $section_count = count($article['sections']);
         }
         .footer-badge { color: var(--green); }
 
-        [data-theme="dark"] .article-header,
-        [data-theme="dark"] .article-footer {
-            background: var(--dm-surface) !important;
-            border-color: var(--dm-border) !important;
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] .article-header { border-bottom-color: var(--light) !important; }
-        [data-theme="dark"] .article-header h1,
-        [data-theme="dark"] .article-header p,
-        [data-theme="dark"] .article-footer,
-        [data-theme="dark"] .key-takeaway p,
-        [data-theme="dark"] .detailed-text,
-        [data-theme="dark"] .article-table td,
-        [data-theme="dark"] .plain-list li,
-        [data-theme="dark"] .steps-list li,
-        [data-theme="dark"] .myth-label,
-        [data-theme="dark"] .truth-label,
-        [data-theme="dark"] .related-card,
-        [data-theme="dark"] .footer-brand-text span,
-        [data-theme="dark"] .footer-tagline,
-        [data-theme="dark"] .footer-col ul li,
-        [data-theme="dark"] .footer-copy { color: var(--dm-text) !important; }
-        [data-theme="dark"] .topbar .hamburger-btn,
-        [data-theme="dark"] .section-card h2,
-        [data-theme="dark"] .article-table th,
-        [data-theme="dark"] .myth-label .badge,
-        [data-theme="dark"] .truth-label .badge {
-            background: var(--light) !important;
-            color: var(--green) !important;
-        }
-        [data-theme="dark"] .cta-card {
-            background: var(--dm-surface2) !important;
-            border-color: var(--light) !important;
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] .cta-btn {
-            background: var(--light) !important;
-            color: var(--green) !important;
-        }
-        [data-theme="dark"] .article-meta,
-        [data-theme="dark"] .key-takeaway,
-        [data-theme="dark"] .detailed-why,
-        [data-theme="dark"] .highlight-box,
-        [data-theme="dark"] .myth-label,
-        [data-theme="dark"] .truth-label,
-        [data-theme="dark"] .related-card,
-        [data-theme="dark"] .related-card-icon,
-        [data-theme="dark"] .footer-badge {
-            background: var(--dm-surface2) !important;
-            border-color: var(--dm-border) !important;
-        }
-        [data-theme="dark"] .article-meta,
-        [data-theme="dark"] .article-meta span,
-        [data-theme="dark"] .key-takeaway h3,
-        [data-theme="dark"] .key-takeaway-icon,
-        [data-theme="dark"] .detailed-why .why-label,
-        [data-theme="dark"] .toc-box h3,
-        [data-theme="dark"] .toc-box li,
-        [data-theme="dark"] .related-section h3,
-        [data-theme="dark"] .related-card-title,
-        [data-theme="dark"] .footer-brand-text h4,
-        [data-theme="dark"] .footer-col h5,
-        [data-theme="dark"] .footer-col ul li i,
-        [data-theme="dark"] .footer-col ul li strong,
-        [data-theme="dark"] .footer-col a,
-        [data-theme="dark"] .footer-badge { color: var(--light) !important; }
-        [data-theme="dark"] .steps-list li::before,
-        [data-theme="dark"] .detailed-bullet { background: var(--light) !important; }
+
+
+
+
+
+
+
+
+
 
     </style>
 </head>

@@ -34,7 +34,11 @@ if (isset($_POST['login'])) {
             }
         }
 
-        if ($loginAlert === null && $pass != $row['password']) {
+        $stored_password = (string) ($row['password'] ?? '');
+        $password_matches = $stored_password !== ''
+            && (password_verify($pass, $stored_password) || hash_equals($stored_password, $pass));
+
+        if ($loginAlert === null && !$password_matches) {
             $loginAlert = ['type' => 'error', 'title' => 'Incorrect password', 'message' => 'The password you entered is incorrect. Please try again.'];
         } elseif ($loginAlert === null && $row['role'] !== 'Super Admin' && strtolower($row['status']) !== 'approved') {
             $loginAlert = ['type' => 'warning', 'title' => 'Account awaiting approval', 'message' => 'Your account is still pending approval. Please try again later.'];
