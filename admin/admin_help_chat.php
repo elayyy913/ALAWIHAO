@@ -1,0 +1,164 @@
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$adminHelpRole = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+if (!in_array($adminHelpRole, ['admin', 'super admin', 'superadmin'], true)) {
+    return;
+}
+
+if (empty($_SESSION['admin_help_chat_csrf'])) {
+    $_SESSION['admin_help_chat_csrf'] = bin2hex(random_bytes(32));
+}
+?>
+<div id="adminHelpChat" class="admin-help-chat" data-csrf="<?= htmlspecialchars($_SESSION['admin_help_chat_csrf'], ENT_QUOTES, 'UTF-8') ?>">
+    <button class="admin-help-launcher" id="adminHelpLauncher" type="button" aria-label="Open admin guide" aria-expanded="false">
+        <span aria-hidden="true">?</span> AI Guide
+    </button>
+    <section class="admin-help-panel" id="adminHelpPanel" aria-label="Admin guide chat" hidden>
+        <header class="admin-help-header">
+            <div>
+                <strong>Admin Guide</strong>
+                <span>Ask about schedules, registrations, and admin tools</span>
+            </div>
+            <button type="button" id="adminHelpClose" aria-label="Close chat">&times;</button>
+        </header>
+        <div class="admin-help-notice">Guide only ito at walang access sa patient records. Huwag maglagay ng pangalan o personal na impormasyon.</div>
+        <div class="admin-help-messages" id="adminHelpMessages" aria-live="polite">
+            <div class="admin-help-message assistant">Hello! Maaari kitang gabayan sa pag-set ng schedule, pag-register ng maternal o child record, at paggamit ng admin tools. Ano ang kailangan mo?</div>
+        </div>
+        <div class="admin-help-prompts" id="adminHelpPrompts">
+            <button type="button" data-question="Paano mag-set ng schedule?">Set schedule</button>
+            <button type="button" data-question="Paano mag-review ng reschedule request?">Reschedule request</button>
+            <button type="button" data-question="Paano mag-approve ng schedule edit?">Schedule edit approval</button>
+            <button type="button" data-question="Paano mag-approve ng registration?">Review approvals</button>
+            <button type="button" data-question="Paano mag-register ng bata o infant?">Register patient</button>
+            <button type="button" data-question="Paano maghanap ng patient record?">Find records</button>
+            <button type="button" data-question="Paano mag-manage ng vaccine stock?">Vaccine stock</button>
+        </div>
+        <form class="admin-help-form" id="adminHelpForm">
+            <label class="admin-help-sr-only" for="adminHelpInput">Ask an admin question</label>
+            <input id="adminHelpInput" type="text" maxlength="500" autocomplete="off" placeholder="I-type ang tanong..." required>
+            <button type="submit" aria-label="Send question">&#10148;</button>
+        </form>
+    </section>
+</div>
+<style>
+    .admin-help-chat, .admin-help-chat * { box-sizing: border-box; }
+    .admin-help-chat { position: fixed; right: 22px; bottom: 22px; z-index: 9999; font-family: "Segoe UI", Arial, sans-serif; color: #263126; }
+    .admin-help-launcher { display: flex; align-items: center; gap: 9px; border: 0; border-radius: 28px; padding: 13px 18px; background: #2d5016; color: #fff; box-shadow: 0 5px 20px #0003; font: 600 14px "Segoe UI", Arial, sans-serif; cursor: pointer; }
+    .admin-help-launcher:hover { background: #5a7c3a; }
+    .admin-help-launcher span { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border: 1px solid #fff; border-radius: 50%; }
+    .admin-help-panel { position: absolute; right: 0; bottom: 62px; display: flex; flex-direction: column; width: min(370px, calc(100vw - 28px)); height: min(540px, calc(100vh - 110px)); background: #fff; border: 1px solid #dfe5da; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 40px #17200f38; }
+    .admin-help-panel[hidden] { display: none; }
+    .admin-help-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 16px; color: #fff; background: #2d5016; }
+    .admin-help-header div { display: flex; flex-direction: column; gap: 3px; }
+    .admin-help-header strong { font-size: 14px; }
+    .admin-help-header span { font-size: 11px; opacity: .88; }
+    .admin-help-header button { border: 0; background: transparent; color: #fff; font-size: 25px; line-height: 1; cursor: pointer; }
+    .admin-help-notice { padding: 9px 13px; background: #f1f5ed; color: #59614f; font-size: 11px; line-height: 1.4; border-bottom: 1px solid #e8ece3; }
+    .admin-help-messages { display: flex; flex: 1; flex-direction: column; gap: 10px; padding: 14px; overflow-y: auto; background: #fbfcf9; }
+    .admin-help-message { max-width: 88%; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .admin-help-message.assistant { align-self: flex-start; background: #eef3e9; }
+    .admin-help-message.user { align-self: flex-end; color: #fff; background: #2d5016; }
+    .admin-help-links { margin-top: 8px; }
+    .admin-help-links a { color: #35572b; font-weight: 600; }
+    .admin-help-prompts { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; background: #fbfcf9; }
+    .admin-help-prompts button { border: 1px solid #ccd7c2; border-radius: 16px; padding: 6px 9px; color: #4c603e; background: #fff; font-size: 11px; cursor: pointer; }
+    .admin-help-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #e8ece3; }
+    .admin-help-form input { flex: 1; min-width: 0; border: 1px solid #d8ded2; border-radius: 20px; padding: 10px 13px; outline: none; font-size: 13px; }
+    .admin-help-form input:focus { border-color: #6b8e55; box-shadow: 0 0 0 2px #6b8e5525; }
+    .admin-help-form button { width: 40px; height: 40px; border: 0; border-radius: 50%; color: #fff; background: #2d5016; cursor: pointer; }
+    .admin-help-form button:disabled { opacity: .6; cursor: wait; }
+    .admin-help-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    [data-theme="dark"] .admin-help-panel { background: #242826; border-color: #3a403a; color: #e8ede5; }
+    [data-theme="dark"] .admin-help-notice, [data-theme="dark"] .admin-help-messages, [data-theme="dark"] .admin-help-prompts { background: #1e211e; color: #cbd4c5; }
+    [data-theme="dark"] .admin-help-message.assistant { background: #30382e; color: #e8ede5; }
+    [data-theme="dark"] .admin-help-prompts button { background: #242826; color: #cfe0c3; border-color: #52614a; }
+    [data-theme="dark"] .admin-help-form { border-color: #3a403a; }
+    [data-theme="dark"] .admin-help-form input { background: #1e211e; color: #e8ede5; border-color: #52614a; }
+    @media (max-width: 480px) { .admin-help-chat { right: 12px; bottom: 12px; } .admin-help-panel { bottom: 60px; height: min(540px, calc(100vh - 90px)); } }
+</style>
+<script>
+(() => {
+    const root = document.getElementById('adminHelpChat');
+    if (!root) return;
+    document.body.appendChild(root);
+
+    const launcher = document.getElementById('adminHelpLauncher');
+    const panel = document.getElementById('adminHelpPanel');
+    const closeButton = document.getElementById('adminHelpClose');
+    const form = document.getElementById('adminHelpForm');
+    const input = document.getElementById('adminHelpInput');
+    const messages = document.getElementById('adminHelpMessages');
+    const submitButton = form.querySelector('button');
+
+    function setOpen(open) {
+        panel.hidden = !open;
+        launcher.setAttribute('aria-expanded', String(open));
+        if (open) input.focus();
+    }
+
+    function addMessage(text, kind, links) {
+        const message = document.createElement('div');
+        message.className = `admin-help-message ${kind}`;
+        message.textContent = text;
+        if (Array.isArray(links) && links.length) {
+            const linkArea = document.createElement('div');
+            linkArea.className = 'admin-help-links';
+            links.forEach((item, index) => {
+                if (index) linkArea.append(' · ');
+                const link = document.createElement('a');
+                link.href = item.url;
+                link.textContent = item.label;
+                linkArea.appendChild(link);
+            });
+            message.appendChild(linkArea);
+        }
+        messages.appendChild(message);
+        messages.scrollTop = messages.scrollHeight;
+        return message;
+    }
+
+    async function sendQuestion(question) {
+        const cleanQuestion = question.trim();
+        if (!cleanQuestion || submitButton.disabled) return;
+        addMessage(cleanQuestion, 'user');
+        input.value = '';
+        submitButton.disabled = true;
+        const pending = addMessage('Sandali, hinahanap ko ang tamang guide...', 'assistant');
+        try {
+            const response = await fetch('admin_help_chat_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': root.dataset.csrf },
+                body: JSON.stringify({ question: cleanQuestion })
+            });
+            const data = await response.json();
+            pending.remove();
+            if (!response.ok || !data.success) {
+                addMessage(data.message || 'Hindi muna ako makasagot ngayon. Pakisubukan ulit mamaya.', 'assistant');
+                return;
+            }
+            addMessage(data.answer + (data.notice ? '\n\n' + data.notice : ''), 'assistant', data.links);
+        } catch (error) {
+            pending.remove();
+            addMessage('Hindi ko maabot ang admin guide ngayon. Pakisubukan ulit mamaya.', 'assistant');
+        } finally {
+            submitButton.disabled = false;
+            input.focus();
+        }
+    }
+
+    launcher.addEventListener('click', () => setOpen(panel.hidden));
+    closeButton.addEventListener('click', () => setOpen(false));
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        sendQuestion(input.value);
+    });
+    document.getElementById('adminHelpPrompts').addEventListener('click', event => {
+        const button = event.target.closest('button[data-question]');
+        if (button) sendQuestion(button.dataset.question);
+    });
+})();
+</script>

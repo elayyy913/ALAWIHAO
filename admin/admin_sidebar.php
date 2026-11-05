@@ -530,3 +530,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 window.addEventListener('resize', syncSidebarToggleSpacing);
 </script>
+<?php include __DIR__ . '/admin_help_chat.php'; ?>
