@@ -1,16 +1,5 @@
 <?php ?>
 <?php if (isset($_SESSION['user_id'])): ?>
-<div style="display:inline-flex;align-items:center;gap:6px;">
-    <?php
-    // Determine correct path for theme_toggle relative to current file's location
-    $notif_path = $notif_path ?? '';
-    ?>
-    <!-- Theme toggle -->
-    <button class="theme-toggle-btn" onclick="cycleTheme()" title="Toggle theme" id="themeToggleBtn">
-        <span id="themeIcon"></span>
-    </button>
-
-    <!-- Notification bell -->
     <div class="notif-wrapper" id="notifWrapper">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel(event)" title="Notifications">
             <i class="fa fa-bell"></i>
@@ -31,5 +20,4 @@
             </div>
         </div>
     </div>
-</div>
 <?php endif; ?>
