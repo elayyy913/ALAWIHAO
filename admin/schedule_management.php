@@ -12,6 +12,39 @@ if (!ensureRescheduleRequestsTable($conn)) {
     die("Unable to prepare reschedule requests: " . mysqli_error($conn));
 }
 
+$scheduleChangeApprovalTable = "CREATE TABLE IF NOT EXISTS schedule_change_approvals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    schedule_id INT NOT NULL,
+    requested_by INT NOT NULL,
+    patient_name VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    schedule_date DATE NOT NULL,
+    schedule_time TIME NOT NULL,
+    service_type VARCHAR(255) NOT NULL,
+    notes TEXT NULL,
+    proposed_status VARCHAR(30) NOT NULL DEFAULT 'Pending',
+    status VARCHAR(30) NOT NULL DEFAULT 'Pending',
+    reviewed_by INT NULL,
+    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_schedule_change_status (status, created_at),
+    INDEX idx_schedule_change_schedule (schedule_id, status)
+)";
+if (!$conn->query($scheduleChangeApprovalTable)) {
+    die("Unable to prepare schedule change approvals: " . $conn->error);
+}
+$proposedStatusColumn = $conn->query("SHOW COLUMNS FROM schedule_change_approvals LIKE 'proposed_status'");
+if (!$proposedStatusColumn) {
+    die("Unable to check schedule change approval schema: " . $conn->error);
+}
+if ($proposedStatusColumn->num_rows === 0 && !$conn->query(
+    "ALTER TABLE schedule_change_approvals ADD COLUMN proposed_status VARCHAR(30) NOT NULL DEFAULT 'Pending' AFTER notes"
+)) {
+    die("Unable to update schedule change approval schema: " . $conn->error);
+}
+
+$scheduleChangeCsrfToken = $_SESSION['schedule_change_csrf'] ??= bin2hex(random_bytes(32));
+
 $legacy_pattern = '/(?:\[Requester ID:\s*(\d+)\]\s*)?Request:\s*(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)\s*\|\s*Reason:\s*(.*?)(?=\s*\|\s*(?:\[Requester ID:\s*\d+\]\s*)?Request:|\s*\|\s*Rescheduled \(Orig:|$)/s';
 $legacy_result = $conn->query("SELECT id, notes FROM schedules WHERE status = 'Reschedule Requested'");
 if (!$legacy_result) {
@@ -96,56 +129,243 @@ while ($legacy_schedule = $legacy_result->fetch_assoc()) {
 $legacy_result->free();
 
 // ── Notification helper ───────────────────────────────────────────────────────
-// Resolves patient_name → user_id, then inserts a notification row.
-function notify_user($conn, $patient_name, $schedule_id, $title, $message, $type = 'new_schedule') {
-    if (empty(trim($patient_name))) return;
-
-    // Try maternal_registration first
-    $uid = null;
-    $s = $conn->prepare("SELECT user_id FROM maternal_registration WHERE LOWER(TRIM(CONCAT(client_fname,' ',client_lname))) = LOWER(TRIM(?)) LIMIT 1");
-    $s->bind_param("s", $patient_name);
-    $s->execute();
-    $r = $s->get_result()->fetch_assoc();
-    $s->close();
-    if ($r) $uid = (int) $r['user_id'];
-
-    // Fall back to children table
-    if (!$uid) {
-        $s2 = $conn->prepare("SELECT user_id FROM children WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?)) LIMIT 1");
-        $s2->bind_param("s", $patient_name);
-        $s2->execute();
-        $r2 = $s2->get_result()->fetch_assoc();
-        $s2->close();
-        if ($r2) $uid = (int) $r2['user_id'];
+function notify_user_id($conn, $user_id, $schedule_id, $title, $message, $type) {
+    $user_id = (int) $user_id;
+    if ($user_id < 1) {
+        return true;
     }
 
-    if (!$uid) return; // patient not linked to any user
-
-    // target_role='User' required so get_notifications.php returns it to the user
-    $ins = $conn->prepare("INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type) VALUES (?, 'User', ?, ?, ?, ?)");
-    $ins->bind_param("iisss", $uid, $schedule_id, $title, $message, $type);
-    $ins->execute();
+    $ins = $conn->prepare("INSERT INTO notifications
+        (user_id, target_role, schedule_id, title, message, type)
+        VALUES (?, 'User', ?, ?, ?, ?)");
+    if (!$ins) {
+        error_log('Unable to prepare schedule notification: ' . $conn->error);
+        return false;
+    }
+    $ins->bind_param("iisss", $user_id, $schedule_id, $title, $message, $type);
+    $saved = $ins->execute();
+    if (!$saved) {
+        error_log('Unable to create schedule notification: ' . $ins->error);
+    }
     $ins->close();
+    return $saved;
 }
 
 function notify_user_by_schedule($conn, $schedule_id, $patient_name, $title, $message, $type) {
     $schedule_id = (int) $schedule_id;
-    $uid = 0;
-    $schedule = $conn->query("SELECT notes FROM schedules WHERE id = $schedule_id LIMIT 1")->fetch_assoc();
+    $stmt = $conn->prepare("SELECT patient_id, category, patient_name, notes FROM schedules WHERE id = ? LIMIT 1");
+    if (!$stmt) {
+        error_log('Unable to load schedule notification recipient: ' . $conn->error);
+        return false;
+    }
+    $stmt->bind_param("i", $schedule_id);
+    if (!$stmt->execute()) {
+        error_log('Unable to load schedule notification recipient: ' . $stmt->error);
+        $stmt->close();
+        return false;
+    }
+    $schedule = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
-    if ($schedule && preg_match('/\[Requester ID:\s*(\d+)\]/', $schedule['notes'] ?? '', $matches)) {
-        $uid = (int) $matches[1];
+    if (!$schedule) {
+        error_log('Unable to find schedule for user notification.');
+        return false;
     }
 
-    if ($uid > 0) {
-        $ins = $conn->prepare("INSERT INTO notifications (user_id, target_role, schedule_id, title, message, type) VALUES (?, 'User', ?, ?, ?, ?)");
-        $ins->bind_param("iisss", $uid, $schedule_id, $title, $message, $type);
-        $ins->execute();
-        $ins->close();
-        return;
+    $user_id = 0;
+    $patient_id = (int) ($schedule['patient_id'] ?? 0);
+    if ($patient_id > 0 && $schedule['category'] === 'Maternal') {
+        $patient_stmt = $conn->prepare("SELECT user_id FROM maternal_registration WHERE id = ? LIMIT 1");
+        if ($patient_stmt) {
+            $patient_stmt->bind_param("i", $patient_id);
+            if ($patient_stmt->execute()) {
+                $patient = $patient_stmt->get_result()->fetch_assoc();
+                $user_id = (int) ($patient['user_id'] ?? 0);
+            } else {
+                error_log('Unable to resolve maternal schedule notification recipient: ' . $patient_stmt->error);
+                $patient_stmt->close();
+                return false;
+            }
+            $patient_stmt->close();
+        } else {
+            error_log('Unable to prepare maternal schedule notification recipient lookup: ' . $conn->error);
+            return false;
+        }
+    } elseif ($patient_id > 0 && $schedule['category'] === 'Child') {
+        $patient_stmt = $conn->prepare("SELECT user_id FROM children WHERE id = ? LIMIT 1");
+        if ($patient_stmt) {
+            $patient_stmt->bind_param("i", $patient_id);
+            if ($patient_stmt->execute()) {
+                $patient = $patient_stmt->get_result()->fetch_assoc();
+                $user_id = (int) ($patient['user_id'] ?? 0);
+            } else {
+                error_log('Unable to resolve child schedule notification recipient: ' . $patient_stmt->error);
+                $patient_stmt->close();
+                return false;
+            }
+            $patient_stmt->close();
+        } else {
+            error_log('Unable to prepare child schedule notification recipient lookup: ' . $conn->error);
+            return false;
+        }
     }
 
-    notify_user($conn, $patient_name, $schedule_id, $title, $message, $type);
+    if ($user_id < 1 && preg_match('/\[Requester ID:\s*(\d+)\]/', $schedule['notes'] ?? '', $matches)) {
+        $user_id = (int) $matches[1];
+    }
+    if ($user_id > 0) {
+        return notify_user_id($conn, $user_id, $schedule_id, $title, $message, $type);
+    }
+
+    if ($patient_id > 0) {
+        return true;
+    }
+
+    $patient_name = $schedule['patient_name'] ?? $patient_name;
+    if ($schedule['category'] === 'Maternal') {
+        $lookup = $conn->prepare("SELECT user_id FROM maternal_registration
+            WHERE LOWER(TRIM(CONCAT_WS(' ', TRIM(client_fname), TRIM(client_lname)))) = LOWER(TRIM(?))
+            LIMIT 2");
+    } elseif ($schedule['category'] === 'Child') {
+        $lookup = $conn->prepare("SELECT user_id FROM children
+            WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?))
+            LIMIT 2");
+    } else {
+        return true;
+    }
+
+    if (!$lookup) {
+        error_log('Unable to prepare schedule notification recipient lookup: ' . $conn->error);
+        return false;
+    }
+    $lookup->bind_param("s", $patient_name);
+    if (!$lookup->execute()) {
+        error_log('Unable to look up schedule notification recipient: ' . $lookup->error);
+        $lookup->close();
+        return false;
+    }
+    $recipients = $lookup->get_result();
+    if ($recipients->num_rows !== 1) {
+        $lookup->close();
+        return true;
+    }
+    $recipient = $recipients->fetch_assoc();
+    $lookup->close();
+    return notify_user_id($conn, (int) ($recipient['user_id'] ?? 0), $schedule_id, $title, $message, $type);
+}
+
+function apply_schedule_change($conn, array $change, array $old_schedule): bool {
+    $category = $change['category'];
+    $patient_name = trim($change['patient_name']);
+    $patient_id = null;
+
+    if ($category === 'Maternal') {
+        $patient_lookup = $conn->prepare("SELECT id FROM maternal_registration
+            WHERE status = 'Approved'
+              AND LOWER(TRIM(CONCAT_WS(' ', TRIM(client_fname), TRIM(client_lname)))) = LOWER(TRIM(?))
+            LIMIT 2");
+    } elseif ($category === 'Child') {
+        $patient_lookup = $conn->prepare("SELECT id FROM children
+            WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?))
+            LIMIT 2");
+    } else {
+        error_log('Unable to resolve schedule patient: unsupported category.');
+        return false;
+    }
+
+    if (!$patient_lookup) {
+        error_log('Unable to prepare schedule patient lookup: ' . $conn->error);
+        return false;
+    }
+
+    $patient_lookup->bind_param("s", $patient_name);
+    if ($patient_lookup->execute()) {
+        $matches = $patient_lookup->get_result();
+        if ($matches->num_rows === 1) {
+            $patient_id = (int) $matches->fetch_assoc()['id'];
+        }
+    } else {
+        error_log('Unable to resolve schedule patient: ' . $patient_lookup->error);
+        $patient_lookup->close();
+        return false;
+    }
+    $patient_lookup->close();
+
+    if ($patient_id === null
+        && $old_schedule['category'] === $category
+        && strcasecmp(trim($old_schedule['patient_name']), $patient_name) === 0
+        && !empty($old_schedule['patient_id'])) {
+        $patient_id = (int) $old_schedule['patient_id'];
+    }
+    if ($patient_id === null
+        && ($old_schedule['category'] !== $category
+            || strcasecmp(trim($old_schedule['patient_name']), $patient_name) !== 0)) {
+        error_log('Schedule update references an unknown or ambiguous patient.');
+        return false;
+    }
+
+    $stmt = $conn->prepare("UPDATE schedules
+        SET patient_id = ?, patient_name = ?, category = ?, schedule_date = ?,
+            schedule_time = ?, service_type = ?, notes = ?, status = ?
+        WHERE id = ?");
+    if (!$stmt) {
+        error_log('Unable to prepare schedule update: ' . $conn->error);
+        return false;
+    }
+    $schedule_id = (int) $change['schedule_id'];
+    $stmt->bind_param(
+        "isssssssi",
+        $patient_id,
+        $patient_name,
+        $category,
+        $change['schedule_date'],
+        $change['schedule_time'],
+        $change['service_type'],
+        $change['notes'],
+        $change['status'],
+        $schedule_id
+    );
+    $updated = $stmt->execute();
+    if (!$updated) {
+        error_log('Unable to update schedule: ' . $stmt->error);
+        $stmt->close();
+        return false;
+    }
+    $stmt->close();
+
+    $changed = $old_schedule['patient_name'] !== $patient_name
+        || $old_schedule['category'] !== $category
+        || $old_schedule['service_type'] !== $change['service_type']
+        || $old_schedule['schedule_date'] !== $change['schedule_date']
+        || substr((string) $old_schedule['schedule_time'], 0, 5) !== substr((string) $change['schedule_time'], 0, 5)
+        || (string) ($old_schedule['notes'] ?? '') !== (string) ($change['notes'] ?? '')
+        || $old_schedule['status'] !== $change['status'];
+    if (!$changed) {
+        return true;
+    }
+
+    $date_fmt = date('F j, Y', strtotime($change['schedule_date']));
+    $time_fmt = date('g:i A', strtotime($change['schedule_time']));
+    $title = $change['status'] === 'Cancelled' ? 'Schedule Cancelled' : 'Schedule Updated';
+    $notification_message = $change['status'] === 'Cancelled'
+        ? "Your {$change['service_type']} schedule on {$date_fmt} at {$time_fmt} has been cancelled by the health center."
+        : "Your schedule has been updated. Service: {$change['service_type']}; date: {$date_fmt}; time: {$time_fmt}; status: {$change['status']}.";
+    if (!notify_user_by_schedule(
+        $conn,
+        $schedule_id,
+        $patient_name,
+        $title,
+        $notification_message,
+        $change['status'] === 'Cancelled' ? 'cancelled_schedule' : 'updated_schedule'
+    )) {
+        return false;
+    }
+
+    logAdminAction(
+        $conn,
+        "Updated schedule ID {$schedule_id} for {$patient_name} ({$change['service_type']}) to {$change['schedule_date']} at {$change['schedule_time']}, status: {$change['status']}."
+    );
+    return true;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -199,10 +419,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
                             );
                             $date_fmt = date('F j, Y', strtotime($schedule_date));
                             $time_fmt = date('g:i A', strtotime($schedule_time));
-                            notify_user(
+                            notify_user_by_schedule(
                                 $conn,
-                                $patient_name,
                                 $new_schedule_id,
+                                $patient_name,
                                 "New Schedule: {$service_type}",
                                 "You have a new schedule for {$patient_name} — {$service_type} on {$date_fmt} at {$time_fmt}.",
                                 'new_schedule'
@@ -220,93 +440,277 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
     }
 }
 
-// Handle Update Schedule / Status
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_schedule'])) {
-    $id = intval($_POST['schedule_id']);
-    $patient_name = mysqli_real_escape_string($conn, $_POST['patient_name']);
-    $category = mysqli_real_escape_string($conn, $_POST['category']);
-    $schedule_date = mysqli_real_escape_string($conn, $_POST['schedule_date']);
-    $schedule_time = mysqli_real_escape_string($conn, $_POST['schedule_time']);
-    $service_type = mysqli_real_escape_string($conn, $_POST['service_type']);
-    $notes = mysqli_real_escape_string($conn, $_POST['notes']);
-    $status = mysqli_real_escape_string($conn, $_POST['status']);
+// Handle Super Admin approval or rejection of an Admin's schedule change.
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['review_schedule_change'])) {
+    $request_id = filter_var($_POST['change_request_id'] ?? null, FILTER_VALIDATE_INT);
+    $action = $_POST['schedule_change_action'] ?? '';
+    $csrf_valid = hash_equals($scheduleChangeCsrfToken, (string) ($_POST['schedule_change_csrf'] ?? ''));
 
-    $patient_id = null;
-    if ($category === 'Maternal') {
-        $patient_lookup = $conn->prepare("SELECT id FROM maternal_registration
-            WHERE status = 'Approved'
-              AND LOWER(TRIM(CONCAT_WS(' ', TRIM(client_fname), TRIM(client_lname)))) = LOWER(TRIM(?))
-            LIMIT 2");
-    } elseif ($category === 'Child') {
-        $patient_lookup = $conn->prepare("SELECT id FROM children
-            WHERE LOWER(TRIM(child_name)) = LOWER(TRIM(?))
-            LIMIT 2");
+    if (($_SESSION['role'] ?? '') !== 'Super Admin') {
+        http_response_code(403);
+        $message = "Only a Super Admin can review schedule changes.";
+    } elseif (!$csrf_valid || !$request_id || !in_array($action, ['approve', 'reject'], true)) {
+        http_response_code($csrf_valid ? 400 : 403);
+        $message = "Invalid schedule change review request.";
     } else {
-        $patient_lookup = false;
-    }
-
-    if ($patient_lookup) {
-        $patient_lookup->bind_param("s", $patient_name);
-        $patient_lookup->execute();
-        $patient_matches = $patient_lookup->get_result();
-        if ($patient_matches->num_rows === 1) {
-            $patient_id = (int) $patient_matches->fetch_assoc()['id'];
-        }
-        $patient_lookup->close();
-    }
-
-    // Fetch old values to detect changes
-    $old_row = null;
-    $old_stmt = $conn->prepare("SELECT patient_id, patient_name, category, service_type, schedule_date, schedule_time, status FROM schedules WHERE id = ?");
-    $old_stmt->bind_param("i", $id);
-    $old_stmt->execute();
-    $old_row = $old_stmt->get_result()->fetch_assoc();
-    $old_stmt->close();
-
-    if ($patient_id === null && $old_row
-        && $old_row['category'] === $category
-        && strcasecmp(trim($old_row['patient_name']), trim($patient_name)) === 0
-        && !empty($old_row['patient_id'])) {
-        $patient_id = (int) $old_row['patient_id'];
-    }
-
-    $sql = "UPDATE schedules SET patient_id=?, patient_name=?, category=?, schedule_date=?, schedule_time=?, service_type=?, notes=?, status=? WHERE id=?";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("isssssssi", $patient_id, $patient_name, $category, $schedule_date, $schedule_time, $service_type, $notes, $status, $id);
-        if ($stmt->execute()) {
-            $message = "Schedule updated successfully!";
-            logAdminAction(
-                $conn,
-                "Updated schedule ID {$id} for {$patient_name} ({$service_type}) to {$schedule_date} at {$schedule_time}, status: {$status}."
-            );
-
-            // ── Notify user of meaningful changes ──
-            $date_fmt = date('F j, Y', strtotime($schedule_date));
-            $time_fmt = date('g:i A', strtotime($schedule_time));
-
-            if ($status === 'Cancelled') {
-                notify_user($conn, $patient_name, $id,
-                    "Schedule Cancelled",
-                    "Your schedule for {$service_type} on {$date_fmt} has been cancelled. Please contact the health center for more information.",
-                    'cancelled_schedule'
-                );
-            } elseif ($old_row && ($old_row['schedule_date'] !== $schedule_date || $old_row['schedule_time'] !== $schedule_time)) {
-                notify_user($conn, $patient_name, $id,
-                    "Schedule Updated",
-                    "Your schedule for {$service_type} has been moved to {$date_fmt} at {$time_fmt}.",
-                    'updated_schedule'
-                );
-            } elseif ($old_row && $old_row['status'] !== $status && $status === 'Pending') {
-                notify_user($conn, $patient_name, $id,
-                    "Schedule Update",
-                    "Your schedule for {$service_type} on {$date_fmt} at {$time_fmt} has been updated.",
-                    'updated_schedule'
-                );
-            }
+        $conn->begin_transaction();
+        $approval_stmt = $conn->prepare("SELECT * FROM schedule_change_approvals
+            WHERE id = ? AND status = 'Pending' FOR UPDATE");
+        if (!$approval_stmt) {
+            $conn->rollback();
+            $message = "Unable to load schedule change request: " . $conn->error;
         } else {
-            $message = "Error updating: " . $conn->error;
+            $approval_stmt->bind_param("i", $request_id);
+            if (!$approval_stmt->execute()) {
+                $approval_error = $approval_stmt->error;
+                $approval_stmt->close();
+                $conn->rollback();
+                $message = "Unable to load schedule change request: " . $approval_error;
+            } else {
+                $approval = $approval_stmt->get_result()->fetch_assoc();
+                $approval_stmt->close();
+                if (!$approval) {
+                    $conn->rollback();
+                    $message = "This schedule change has already been reviewed.";
+                } else {
+                    $schedule_id = (int) $approval['schedule_id'];
+                    $old_stmt = $conn->prepare("SELECT patient_id, patient_name, category, service_type,
+                            schedule_date, schedule_time, notes, status
+                        FROM schedules WHERE id = ? FOR UPDATE");
+                    if (!$old_stmt) {
+                        $conn->rollback();
+                        $message = "Unable to load the scheduled appointment: " . $conn->error;
+                    } else {
+                        $old_stmt->bind_param("i", $schedule_id);
+                        if (!$old_stmt->execute()) {
+                            $old_error = $old_stmt->error;
+                            $old_stmt->close();
+                            $conn->rollback();
+                            $message = "Unable to load the scheduled appointment: " . $old_error;
+                        } else {
+                            $old_schedule = $old_stmt->get_result()->fetch_assoc();
+                            $old_stmt->close();
+                            if (!$old_schedule) {
+                                if ($action === 'reject') {
+                                    $review_stmt = $conn->prepare("UPDATE schedule_change_approvals
+                                        SET status = 'Rejected', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+                                        WHERE id = ? AND status = 'Pending'");
+                                    if (!$review_stmt) {
+                                        $conn->rollback();
+                                        $message = "Unable to reject the stale schedule change: " . $conn->error;
+                                    } else {
+                                        $reviewer_id = (int) $_SESSION['user_id'];
+                                        $review_stmt->bind_param("ii", $reviewer_id, $request_id);
+                                        $review_saved = $review_stmt->execute() && $review_stmt->affected_rows === 1;
+                                        $review_error = $review_stmt->error;
+                                        $review_stmt->close();
+                                        if (!$review_saved) {
+                                            $conn->rollback();
+                                            $message = "Unable to reject the stale schedule change: " . $review_error;
+                                        } else {
+                                            $conn->commit();
+                                            $message = "Schedule change rejected because the original appointment no longer exists.";
+                                        }
+                                    }
+                                } else {
+                                    $conn->rollback();
+                                    $message = "The scheduled appointment no longer exists; this change cannot be approved.";
+                                }
+                            } else {
+                                $updated = true;
+                                if ($action === 'approve') {
+                                    $change = $approval;
+                                    $change['schedule_id'] = $schedule_id;
+                                    $change['status'] = $approval['proposed_status'];
+                                    $updated = apply_schedule_change($conn, $change, $old_schedule);
+                                }
+
+                                if (!$updated) {
+                                    $conn->rollback();
+                                    $message = "Unable to apply the schedule change. No changes were saved.";
+                                } else {
+                                    $new_status = $action === 'approve' ? 'Approved' : 'Rejected';
+                                    $review_stmt = $conn->prepare("UPDATE schedule_change_approvals
+                                        SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+                                        WHERE id = ? AND status = 'Pending'");
+                                    if (!$review_stmt) {
+                                        $conn->rollback();
+                                        $message = "Unable to save the review result: " . $conn->error;
+                                    } else {
+                                        $reviewer_id = (int) $_SESSION['user_id'];
+                                        $review_stmt->bind_param("sii", $new_status, $reviewer_id, $request_id);
+                                        $review_saved = $review_stmt->execute() && $review_stmt->affected_rows === 1;
+                                        $review_error = $review_stmt->error;
+                                        $review_stmt->close();
+                                        if (!$review_saved) {
+                                            $conn->rollback();
+                                            $message = "Unable to save the review result: " . $review_error;
+                                        } else {
+                                            $conn->commit();
+                                            $message = $action === 'approve'
+                                                ? "Schedule change approved and applied. The scheduled account was notified if linked."
+                                                : "Schedule change rejected. The original schedule remains unchanged.";
+                                            logAdminAction(
+                                                $conn,
+                                                "{$new_status} schedule change request ID {$request_id} for schedule ID {$schedule_id}."
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        $stmt->close();
+    }
+}
+
+// Admin edits are queued for Super Admin approval. Super Admin edits apply immediately.
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_schedule'])) {
+    $id = filter_var($_POST['schedule_id'] ?? null, FILTER_VALIDATE_INT);
+    $category = trim((string) ($_POST['category'] ?? ''));
+    $patient_name = trim((string) ($_POST['patient_name'] ?? ''));
+    $schedule_date = trim((string) ($_POST['schedule_date'] ?? ''));
+    $schedule_time = trim((string) ($_POST['schedule_time'] ?? ''));
+    $service_type = trim((string) ($_POST['service_type'] ?? ''));
+    $notes = trim((string) ($_POST['notes'] ?? ''));
+    $status = trim((string) ($_POST['status'] ?? ''));
+    $csrf_valid = hash_equals($scheduleChangeCsrfToken, (string) ($_POST['schedule_change_csrf'] ?? ''));
+    $valid_date = DateTime::createFromFormat('!Y-m-d', $schedule_date);
+    $valid_date = $valid_date && $valid_date->format('Y-m-d') === $schedule_date;
+    $valid_time_minute = DateTime::createFromFormat('!H:i', $schedule_time);
+    $valid_time_second = DateTime::createFromFormat('!H:i:s', $schedule_time);
+    $valid_time = ($valid_time_minute && $valid_time_minute->format('H:i') === $schedule_time)
+        || ($valid_time_second && $valid_time_second->format('H:i:s') === $schedule_time);
+
+    if (!$csrf_valid || !$id || !in_array($category, ['Child', 'Maternal'], true)
+        || $patient_name === '' || $service_type === '' || !$valid_date || !$valid_time
+        || !in_array($status, ['Pending', 'Completed', 'Cancelled', 'Reschedule Requested'], true)) {
+        http_response_code($csrf_valid ? 400 : 403);
+        $message = "Invalid schedule details. Please refresh the page and try again.";
+    } else {
+        $change = [
+            'schedule_id' => (int) $id,
+            'patient_name' => $patient_name,
+            'category' => $category,
+            'schedule_date' => $schedule_date,
+            'schedule_time' => $schedule_time,
+            'service_type' => $service_type,
+            'notes' => $notes,
+            'status' => $status,
+        ];
+        $conn->begin_transaction();
+        $old_stmt = $conn->prepare("SELECT patient_id, patient_name, category, service_type,
+                schedule_date, schedule_time, notes, status
+            FROM schedules WHERE id = ? FOR UPDATE");
+        if (!$old_stmt) {
+            $conn->rollback();
+            $message = "Unable to load the scheduled appointment: " . $conn->error;
+        } else {
+            $old_stmt->bind_param("i", $id);
+            if (!$old_stmt->execute()) {
+                $old_error = $old_stmt->error;
+                $old_stmt->close();
+                $conn->rollback();
+                $message = "Unable to load the scheduled appointment: " . $old_error;
+            } else {
+                $old_schedule = $old_stmt->get_result()->fetch_assoc();
+                $old_stmt->close();
+                if (!$old_schedule) {
+                    $conn->rollback();
+                    $message = "The scheduled appointment no longer exists.";
+                } elseif (($_SESSION['role'] ?? '') === 'Admin') {
+                    $pending_stmt = $conn->prepare("SELECT id FROM schedule_change_approvals
+                        WHERE schedule_id = ? AND status = 'Pending' LIMIT 1");
+                    if (!$pending_stmt) {
+                        $conn->rollback();
+                        $message = "Unable to check pending approvals: " . $conn->error;
+                    } else {
+                        $pending_stmt->bind_param("i", $id);
+                        if (!$pending_stmt->execute()) {
+                            $pending_error = $pending_stmt->error;
+                            $pending_stmt->close();
+                            $conn->rollback();
+                            $message = "Unable to check pending approvals: " . $pending_error;
+                        } elseif ($pending_stmt->get_result()->num_rows > 0) {
+                            $pending_stmt->close();
+                            $conn->rollback();
+                            $message = "This schedule already has a pending Super Admin approval.";
+                        } else {
+                            $pending_stmt->close();
+                            $request_stmt = $conn->prepare("INSERT INTO schedule_change_approvals
+                                (schedule_id, requested_by, patient_name, category, schedule_date,
+                                    schedule_time, service_type, notes, proposed_status)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                            if (!$request_stmt) {
+                                $conn->rollback();
+                                $message = "Unable to submit the schedule change for approval: " . $conn->error;
+                            } else {
+                                $requester_id = (int) $_SESSION['user_id'];
+                                $request_stmt->bind_param(
+                                    "iisssssss",
+                                    $id,
+                                    $requester_id,
+                                    $patient_name,
+                                    $category,
+                                    $schedule_date,
+                                    $schedule_time,
+                                    $service_type,
+                                    $notes,
+                                    $status
+                                );
+                                if ($request_stmt->execute()) {
+                                    $request_id = (int) $conn->insert_id;
+                                    $request_stmt->close();
+                                    $admin_notification = $conn->prepare("INSERT INTO notifications
+                                        (user_id, target_role, schedule_id, title, message, type)
+                                        VALUES (0, 'Super Admin', ?, 'Schedule Change Approval Needed', ?, 'updated_schedule')");
+                                    if (!$admin_notification) {
+                                        $conn->rollback();
+                                        $message = "Unable to notify Super Admin about this change: " . $conn->error;
+                                    } else {
+                                        $admin_notice = "Admin #{$requester_id} submitted a schedule edit for {$patient_name} ({$service_type}) for review.";
+                                        $admin_notification->bind_param("is", $id, $admin_notice);
+                                        if (!$admin_notification->execute()) {
+                                            $notification_error = $admin_notification->error;
+                                            $admin_notification->close();
+                                            $conn->rollback();
+                                            $message = "Unable to notify Super Admin about this change: " . $notification_error;
+                                        } else {
+                                            $admin_notification->close();
+                                            $conn->commit();
+                                            $message = "Schedule change submitted for Super Admin approval. The current schedule remains active until it is approved.";
+                                            logAdminAction(
+                                                $conn,
+                                                "Submitted schedule change request ID {$request_id} for schedule ID {$id} ({$patient_name})."
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    $request_error = $request_stmt->error;
+                                    $request_stmt->close();
+                                    $conn->rollback();
+                                    $message = "Unable to submit the schedule change for approval: " . $request_error;
+                                }
+                            }
+                        }
+                    }
+                } elseif (($_SESSION['role'] ?? '') === 'Super Admin') {
+                    if (apply_schedule_change($conn, $change, $old_schedule)) {
+                        $conn->commit();
+                        $message = "Schedule updated successfully. The scheduled account was notified if linked.";
+                    } else {
+                        $conn->rollback();
+                        $message = "Unable to update the schedule. No changes were saved.";
+                    }
+                } else {
+                    $conn->rollback();
+                    http_response_code(403);
+                    $message = "You are not allowed to edit schedules.";
+                }
+            }
+        }
     }
 }
 
@@ -325,7 +729,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
 
     if ($sched) {
         $date_fmt = date('F j, Y', strtotime($sched['schedule_date']));
-        notify_user($conn, $sched['patient_name'], $id,
+        notify_user_by_schedule($conn, $id, $sched['patient_name'],
             "Schedule Cancelled",
             "Your {$sched['service_type']} schedule on {$date_fmt} was cancelled by the health center.",
             'cancelled_schedule'
@@ -537,6 +941,20 @@ $result_reschedule = $conn->query("SELECT r.id AS request_id, r.requester_id, r.
     WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'
     ORDER BY r.created_at ASC, r.id ASC");
 $result_completed = $conn->query("SELECT * FROM schedules WHERE status = 'Completed' ORDER BY schedule_date DESC, schedule_time DESC");
+$result_schedule_change_approvals = false;
+if (($_SESSION['role'] ?? '') === 'Super Admin') {
+    $result_schedule_change_approvals = $conn->query("SELECT a.*, s.patient_name AS current_patient_name,
+            s.category AS current_category, s.schedule_date AS current_schedule_date,
+            s.schedule_time AS current_schedule_time, s.service_type AS current_service_type,
+            s.status AS current_status
+        FROM schedule_change_approvals a
+        LEFT JOIN schedules s ON s.id = a.schedule_id
+        WHERE a.status = 'Pending'
+        ORDER BY a.created_at ASC, a.id ASC");
+    if (!$result_schedule_change_approvals) {
+        die("Unable to load schedule change approvals: " . $conn->error);
+    }
+}
 
 $result_infants = $conn->query("SELECT id, child_name AS full_name, 'Child' AS category FROM children ORDER BY child_name ASC");
 $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', client_lname) AS full_name, 'Maternal' AS category FROM maternal_registration ORDER BY client_lname ASC");
@@ -871,6 +1289,11 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         <button class="tab" onclick="openTab(event, 'maternalTab')">Maternal Schedule</button>
         <button class="tab" onclick="openTab(event, 'reschedTab')">Reschedule Requests</button>
         <button class="tab" onclick="openTab(event, 'completedTab')">Completed Appointments</button>
+        <?php if (($_SESSION['role'] ?? '') === 'Super Admin'): ?>
+            <button class="tab" onclick="openTab(event, 'scheduleChangeApprovalsTab')">
+                Admin Edit Approvals<?php if ($result_schedule_change_approvals->num_rows > 0): ?> (<?= (int) $result_schedule_change_approvals->num_rows ?>)<?php endif; ?>
+            </button>
+        <?php endif; ?>
     </div>
 
         <!-- Child Schedule Tab Content -->
@@ -1101,6 +1524,74 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             </div>
         </div>
 
+        <?php if (($_SESSION['role'] ?? '') === 'Super Admin'): ?>
+        <div id="scheduleChangeApprovalsTab" class="tab-content">
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Requested By</th>
+                        <th>Patient</th>
+                        <th>Current Schedule</th>
+                        <th>Proposed Schedule</th>
+                        <th>Service / Status</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($result_schedule_change_approvals->num_rows > 0): ?>
+                        <?php while ($change_request = $result_schedule_change_approvals->fetch_assoc()): ?>
+                            <tr>
+                                <td>Admin #<?= (int) $change_request['requested_by'] ?><br><small><?= htmlspecialchars($change_request['created_at'], ENT_QUOTES, 'UTF-8') ?></small></td>
+                                <td>
+                                    <?= htmlspecialchars($change_request['patient_name'], ENT_QUOTES, 'UTF-8') ?>
+                                    <br><small><?= htmlspecialchars($change_request['category'], ENT_QUOTES, 'UTF-8') ?></small>
+                                    <?php if ($change_request['current_patient_name'] !== null && $change_request['current_patient_name'] !== $change_request['patient_name']): ?>
+                                        <br><small>Current: <?= htmlspecialchars($change_request['current_patient_name'], ENT_QUOTES, 'UTF-8') ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($change_request['current_schedule_date'] !== null): ?>
+                                        <?= htmlspecialchars(date('M d, Y', strtotime($change_request['current_schedule_date'])), ENT_QUOTES, 'UTF-8') ?>
+                                        <br><small><?= htmlspecialchars(date('h:i A', strtotime($change_request['current_schedule_time'])), ENT_QUOTES, 'UTF-8') ?>
+                                        · <?= htmlspecialchars($change_request['current_service_type'], ENT_QUOTES, 'UTF-8') ?>
+                                        · <?= htmlspecialchars($change_request['current_status'], ENT_QUOTES, 'UTF-8') ?></small>
+                                    <?php else: ?>
+                                        <span>Appointment no longer exists</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?= htmlspecialchars(date('M d, Y', strtotime($change_request['schedule_date'])), ENT_QUOTES, 'UTF-8') ?>
+                                    <br><small><?= htmlspecialchars(date('h:i A', strtotime($change_request['schedule_time'])), ENT_QUOTES, 'UTF-8') ?></small>
+                                </td>
+                                <td>
+                                    <?= htmlspecialchars($change_request['service_type'], ENT_QUOTES, 'UTF-8') ?>
+                                    <br><small><?= htmlspecialchars($change_request['proposed_status'], ENT_QUOTES, 'UTF-8') ?></small>
+                                </td>
+                                <td><?= nl2br(htmlspecialchars($change_request['notes'] ?? '', ENT_QUOTES, 'UTF-8')) ?></td>
+                                <td>
+                                    <form method="POST" action="?tab=scheduleChangeApprovalsTab" style="display:flex;flex-direction:column;gap:6px;min-width:110px;">
+                                        <input type="hidden" name="schedule_change_csrf" value="<?= htmlspecialchars($scheduleChangeCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="change_request_id" value="<?= (int) $change_request['id'] ?>">
+                                        <?php if ($change_request['current_schedule_date'] !== null): ?>
+                                            <button type="submit" name="schedule_change_action" value="approve" class="btn-add" style="margin:0;">Approve</button>
+                                        <?php endif; ?>
+                                        <button type="submit" name="schedule_change_action" value="reject" class="btn-delete">Reject</button>
+                                        <input type="hidden" name="review_schedule_change" value="1">
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr><td colspan="7" style="text-align:center;">No schedule edits awaiting approval.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
     </div>
 </div>
 
@@ -1172,6 +1663,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         </div>
         
         <form method="POST">
+            <input type="hidden" name="schedule_change_csrf" value="<?= htmlspecialchars($scheduleChangeCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="schedule_id" id="edit_schedule_id">
             <div class="form-group">
                 <label>Patient Name</label>
@@ -1200,6 +1692,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                 <label>Status</label>
                 <select name="status" id="edit_status" required>
                     <option value="Pending">Pending</option>
+                    <option value="Approved">Approved</option>
                     <option value="Completed">Completed</option>
                     <option value="Cancelled">Cancelled</option>
                     <option value="Reschedule Requested">Reschedule Requested</option>

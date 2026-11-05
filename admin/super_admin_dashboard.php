@@ -22,6 +22,7 @@ if ($profileStmt) {
 
 $dashboardMessages = [
     'RescheduleSuccess' => 'Schedule rescheduled successfully. Notifications were sent to the user.',
+    'RescheduleDateRequired' => 'Please select a valid date before rescheduling.',
     'MarkDoneSuccess' => 'Appointment marked as completed. Notifications were sent to the user.',
     'WorkerApprovedAndRecorded' => 'Worker account approved successfully.',
     'ApprovedAndRecorded' => 'Child registration approved successfully.',
@@ -31,7 +32,7 @@ $dashboardMessages = [
     'Removed' => 'The worker account was rejected and removed.'
 ];
 $dashboardNotice = $dashboardMessages[$_GET['msg'] ?? ''] ?? null;
-$dashboardNoticeIsError = ($_GET['msg'] ?? '') === 'ChildApprovalError';
+$dashboardNoticeIsError = in_array($_GET['msg'] ?? '', ['ChildApprovalError', 'RescheduleDateRequired'], true);
 
 function notify_schedule_user($conn, $patient_name, $schedule_id, $title, $message, $type) {
     $user_id = 0;
@@ -66,7 +67,13 @@ function notify_schedule_user($conn, $patient_name, $schedule_id, $title, $messa
 // ── Handle reschedule directly in this file ──────────────────────────────────
 if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['reschedule_maternal']) || isset($_POST['reschedule_infant']))) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
-    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    $new_date = trim($_POST['new_date'] ?? '');
+    $parsed_date = DateTime::createFromFormat('!Y-m-d', $new_date);
+    if (!$parsed_date || $parsed_date->format('Y-m-d') !== $new_date) {
+        header("Location: super_admin_dashboard.php?msg=RescheduleDateRequired");
+        exit();
+    }
+    $new_date = mysqli_real_escape_string($conn, $new_date);
     
     // Get schedule details
     $sched_query = mysqli_query($conn, "SELECT * FROM schedules WHERE id = '$schedule_id'");
@@ -1015,7 +1022,7 @@ if (check_table_exists($conn, 'schedules')) {
                         <form method="POST" action="" class="sched-actions">
                             <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
                             <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
-                            <button type="submit" name="mark_done_maternal" class="btn-mark-done">Mark Done</button>
+                            <button type="submit" name="mark_done_maternal" class="btn-mark-done" formnovalidate>Mark Done</button>
                             <div class="resched-group">
                                 <input type="date" name="new_date" class="date-input" required>
                                 <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
@@ -1048,7 +1055,7 @@ if (check_table_exists($conn, 'schedules')) {
                         <form method="POST" action="" class="sched-actions">
                             <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
                             <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
-                            <button type="submit" name="mark_done_infant" class="btn-mark-done">Mark Done</button>
+                            <button type="submit" name="mark_done_infant" class="btn-mark-done" formnovalidate>Mark Done</button>
                             <div class="resched-group">
                                 <input type="date" name="new_date" class="date-input" required>
                                 <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>

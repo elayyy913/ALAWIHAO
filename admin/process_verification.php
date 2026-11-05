@@ -221,7 +221,13 @@ if (isset($_POST['mark_done_maternal'])) {
 
 if (isset($_POST['reschedule_maternal'])) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
-    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    $new_date = trim($_POST['new_date'] ?? '');
+    $parsed_date = DateTime::createFromFormat('!Y-m-d', $new_date);
+    if (!$parsed_date || $parsed_date->format('Y-m-d') !== $new_date) {
+        header("Location: $redirect_page?msg=RescheduleDateRequired");
+        exit();
+    }
+    $new_date = mysqli_real_escape_string($conn, $new_date);
     if (mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'")
         && mysqli_affected_rows($conn) > 0) {
         logAdminAction($conn, "Rescheduled maternal schedule ID {$schedule_id} to {$new_date}.");
@@ -242,7 +248,13 @@ if (isset($_POST['mark_done_infant'])) {
 
 if (isset($_POST['reschedule_infant'])) {
     $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
-    $new_date = mysqli_real_escape_string($conn, $_POST['new_date']);
+    $new_date = trim($_POST['new_date'] ?? '');
+    $parsed_date = DateTime::createFromFormat('!Y-m-d', $new_date);
+    if (!$parsed_date || $parsed_date->format('Y-m-d') !== $new_date) {
+        header("Location: $redirect_page?msg=RescheduleDateRequired");
+        exit();
+    }
+    $new_date = mysqli_real_escape_string($conn, $new_date);
     if (mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Rescheduled' WHERE id = '$schedule_id'")
         && mysqli_affected_rows($conn) > 0) {
         logAdminAction($conn, "Rescheduled child schedule ID {$schedule_id} to {$new_date}.");
