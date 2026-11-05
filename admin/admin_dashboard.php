@@ -30,6 +30,10 @@ if (!isset($_SESSION['role']) && !isset($_SESSION['user_id'])) {
 }
 
 $message = "";
+if (($_GET['msg'] ?? '') === 'RescheduleDateRequired') {
+    $message = "Please select a valid date before rescheduling.";
+}
+$message_is_error = (($_GET['msg'] ?? '') === 'RescheduleDateRequired');
 
 // HELPER FUNCTION
 if (!function_exists('check_table_exists')) {
@@ -637,6 +641,11 @@ usort($upcoming_schedule, function ($first, $second) {
             font-size: 0.85rem;
             border: 1px solid #DCFCE7;
         }
+        .success-alert.error-alert {
+            background: #FEF2F2;
+            color: #B91C1C;
+            border-color: #FECACA;
+        }
 
         .status-badge {
             font-size: 0.7rem;
@@ -829,7 +838,7 @@ usort($upcoming_schedule, function ($first, $second) {
         </nav>
         
         <?php if (!empty($message)): ?>
-            <div class="success-alert"><?php echo $message; ?></div>
+            <div class="success-alert<?php echo $message_is_error ? ' error-alert' : ''; ?>" role="<?php echo $message_is_error ? 'alert' : 'status'; ?>"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php endif; ?>
 
 <!-- METRICS -->
@@ -950,13 +959,13 @@ usort($upcoming_schedule, function ($first, $second) {
                                 <input type="hidden" name="schedule_id" value="<?php echo (int) $s['id']; ?>">
                                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
                                 <?php if ($is_child_schedule): ?>
-                                    <button type="submit" name="mark_done_infant" class="btn-done">Mark Done</button>
+                                    <button type="submit" name="mark_done_infant" class="btn-done" formnovalidate>Mark Done</button>
                                     <div class="resched-container" style="margin-top:0;">
                                         <input type="date" name="new_date" class="resched-input" required>
                                         <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
                                     </div>
                                 <?php else: ?>
-                                    <button type="submit" name="mark_done_maternal" class="btn-done">Mark Done</button>
+                                    <button type="submit" name="mark_done_maternal" class="btn-done" formnovalidate>Mark Done</button>
                                     <div class="resched-container" style="margin-top:0;">
                                         <input type="date" name="new_date" class="resched-input" required>
                                         <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
