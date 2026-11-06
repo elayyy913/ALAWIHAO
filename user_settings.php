@@ -22,26 +22,37 @@ $user = $result->fetch_assoc();
 
 // 2. Handle Profile Info Update
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
-    $first_name = mysqli_real_escape_string($conn, $_POST['first_name']);
-    $last_name = mysqli_real_escape_string($conn, $_POST['last_name']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $contact = mysqli_real_escape_string($conn, $_POST['contact']);
-    $address = mysqli_real_escape_string($conn, $_POST['address']);
+    $current_password = $_POST['current_password'] ?? '';
+    $stored_password = (string)($user['password'] ?? '');
+    $password_matches = $current_password !== '' && $stored_password !== '' && (
+        password_verify($current_password, $stored_password)
+        || hash_equals($stored_password, $current_password)
+    );
 
-    $update_sql = "UPDATE users SET 
+    if (!$password_matches) {
+        $message = "<div class='alert error'>Incorrect current password. No changes were saved.</div>";
+    } else {
+        $first_name = mysqli_real_escape_string($conn, $_POST['first_name'] ?? '');
+        $last_name = mysqli_real_escape_string($conn, $_POST['last_name'] ?? '');
+        $email = mysqli_real_escape_string($conn, $_POST['email'] ?? '');
+        $contact = mysqli_real_escape_string($conn, $_POST['contact'] ?? '');
+        $address = mysqli_real_escape_string($conn, $_POST['address'] ?? '');
+
+        $update_sql = "UPDATE users SET
                     first_name='$first_name', 
                     last_name='$last_name', 
                     email='$email', 
                     contact_number='$contact', 
                     address='$address' 
                    WHERE id='$user_id'";
-    
-    if ($conn->query($update_sql) === TRUE) {
-        $message = "<div class='alert success'>Profile updated successfully!</div>";
-        $result = $conn->query("SELECT * FROM users WHERE id = '$user_id'");
-        $user = $result->fetch_assoc();
-    } else {
-        $message = "<div class='alert error'>Update failed: " . $conn->error . "</div>";
+
+        if ($conn->query($update_sql) === TRUE) {
+            $message = "<div class='alert success'>Profile updated successfully!</div>";
+            $result = $conn->query("SELECT * FROM users WHERE id = '$user_id'");
+            $user = $result->fetch_assoc();
+        } else {
+            $message = "<div class='alert error'>Update failed: " . $conn->error . "</div>";
+        }
     }
 }
 ?>
@@ -243,6 +254,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(3px); padding: 20px; }
+        .modal-box { background: var(--white); padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,.15); border-top: 5px solid var(--green); }
+        .modal-title { font-size: 1.1rem; font-weight: 700; color: var(--green); margin-bottom: 10px; }
+        .modal-desc { font-size: .9rem; color: #666; margin-bottom: 20px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .modal-cancel { background: #e2e8f0; color: #334155; padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+
     </style>
 </head>
 <body>
@@ -262,6 +280,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
     </div>
 </div>
 
+<div id="securityModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="securityModalTitle">
+    <div class="modal-box">
+        <div class="modal-title" id="securityModalTitle"><i class="fa fa-lock"></i> Security Verification</div>
+        <div class="modal-desc">Enter your current password to edit your profile.</div>
+        <input type="password" id="modalPasswordInput" class="settings-input" placeholder="Enter current password" autocomplete="current-password">
+        <div class="modal-actions">
+            <button type="button" class="modal-cancel" onclick="closeSecurityModal()">Cancel</button>
+            <button type="button" class="btn btn-primary-action" style="width:auto" onclick="continueWithPassword()">Continue</button>
+        </div>
+    </div>
+</div>
+
 <div id="main">
     <div class="settings-container">
         
@@ -277,6 +307,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
             <div class="settings-section-title"><i class="fa fa-camera"></i> Profile Picture</div>
             <form action="admin/update_profile_picture.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($profile_picture_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <div class="form-group">
+                    <label for="picture_current_password">Current Password</label>
+                    <input type="password" id="picture_current_password" name="current_password" class="settings-input" autocomplete="current-password" required>
+                </div>
                 <?php $profile_picture_url = profilePictureUrl($user['profile_picture'] ?? ''); ?>
                 <?php if ($profile_picture_url !== ''): ?>
                     <img src="<?php echo htmlspecialchars($profile_picture_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Current profile picture" class="profile-avatar" style="width: 84px; height: 84px; margin-bottom: 14px;">
@@ -325,8 +359,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
                     <input type="text" name="address" class="edit-input" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
                 </div>
 
+                <input type="hidden" name="current_password" id="profile_current_password">
+
                 <div class="button-group">
-                    <button type="button" id="editBtn" class="btn btn-edit" onclick="toggleEdit(true)"><i class="fa fa-pen-to-square"></i> Edit Profile</button>
+                    <button type="button" id="editBtn" class="btn btn-edit" onclick="openSecurityModal()"><i class="fa fa-pen-to-square"></i> Edit Profile</button>
                     <button type="submit" name="update_profile" id="saveBtn" class="btn btn-save"><i class="fa fa-check"></i> Save Changes</button>
                     <button type="button" id="cancelBtn" class="btn btn-cancel" onclick="toggleEdit(false)"><i class="fa fa-xmark"></i> Cancel</button>
                 </div>
@@ -400,12 +436,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
             saveBtn.style.display = 'flex';
             cancelBtn.style.display = 'flex';
         } else {
+            document.getElementById('profile_current_password').value = '';
             values.forEach(v => v.style.display = 'block');
             inputs.forEach(i => i.style.display = 'none');
             editBtn.style.display = 'flex';
             saveBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
         }
+    }
+
+    function openSecurityModal() {
+        document.getElementById('modalPasswordInput').value = '';
+        document.getElementById('securityModal').style.display = 'flex';
+        document.getElementById('modalPasswordInput').focus();
+    }
+
+    function closeSecurityModal() {
+        document.getElementById('securityModal').style.display = 'none';
+        document.getElementById('modalPasswordInput').value = '';
+    }
+
+    function continueWithPassword() {
+        const passwordInput = document.getElementById('modalPasswordInput');
+        if (passwordInput.value === '') {
+            passwordInput.focus();
+            return;
+        }
+
+        document.getElementById('profile_current_password').value = passwordInput.value;
+        closeSecurityModal();
+        toggleEdit(true);
     }
 </script>
 <?php include 'admin/footer.php'; ?>

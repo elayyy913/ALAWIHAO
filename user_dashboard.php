@@ -22,8 +22,6 @@ if (isset($_SESSION['user_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Health Hub | Alawihao Health Center</title>
-    <script src="theme.js"></script>
-    <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Segoe+UI:wght@400;500;600&display=swap" rel="stylesheet">
