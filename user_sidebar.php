@@ -3,9 +3,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $is_home = ($current_page == 'user_dashboard.php');
 ?>
 
-<script src="theme.js"></script>
-<link rel="stylesheet" href="theme.css">
-
 <!-- HAMBURGER BUTTON -->
 <button id="hamburgerBtn" class="hamburger-btn" onclick="toggleSidebar()">
     &#9776;
@@ -188,9 +185,7 @@ if (in_array($current_page, $chatbot_pages, true)) {
         color: var(--sage); 
     }
 
-    [data-theme="dark"] .sidebar .brand-name {
-        color: #f3f7ed !important;
-    }
+
 
     .sidebar-header p {
         font-size: 0.58rem;
@@ -287,48 +282,16 @@ if (in_array($current_page, $chatbot_pages, true)) {
     }
     .logout-btn:hover { background: #FFF5F5; }
 
-    [data-theme="dark"] .sidebar {
-        background-color: var(--dm-sidebar-bg) !important;
-        color: var(--dm-text) !important;
-        border-color: var(--dm-border) !important;
-    }
-    [data-theme="dark"] .sidebar .brand-name,
-    [data-theme="dark"] .sidebar .dropdown-heading,
-    [data-theme="dark"] .sidebar .nav-link,
-    [data-theme="dark"] .sidebar .dropdown-container a {
-        color: var(--dm-text) !important;
-    }
-    [data-theme="dark"] .sidebar .brand-name span {
-        color: #A8C88E !important;
-    }
-    [data-theme="dark"] .sidebar .sidebar-header p,
-    [data-theme="dark"] .sidebar .nav-label,
-    [data-theme="dark"] .sidebar .close-sidebar-x {
-        color: var(--dm-text2) !important;
-    }
-    [data-theme="dark"] .sidebar .dropdown-container {
-        background-color: var(--dm-surface2) !important;
-    }
-    [data-theme="dark"] .sidebar .nav-link:hover,
-    [data-theme="dark"] .sidebar .dropdown-container a:hover {
-        background-color: var(--dm-hover) !important;
-        color: var(--dm-text) !important;
-    }
-    [data-theme="dark"] .sidebar .nav-link.active,
-    [data-theme="dark"] .sidebar .dropdown-container a.active {
-        background-color: var(--dm-sage) !important;
-        color: #172016 !important;
-    }
-    [data-theme="dark"] .sidebar .logout-btn {
-        color: #FF8A8A !important;
-    }
-    [data-theme="dark"] .sidebar .logout-btn:hover {
-        background-color: rgba(255, 107, 107, 0.12) !important;
-        color: #FFB3B3 !important;
-    }
-    [data-theme="dark"] .hamburger-btn {
-        color: var(--dm-text) !important;
-    }
+
+
+
+
+
+
+
+
+
+
 </style>
 
 <script>

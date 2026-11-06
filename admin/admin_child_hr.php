@@ -8,9 +8,16 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
-$query_role = mysqli_query($conn, "SELECT role FROM users WHERE id = '$user_id'");
+$user_id = (int) $_SESSION['user_id'];
+$role_stmt = $conn->prepare("SELECT role FROM users WHERE id = ?");
+if (!$role_stmt) {
+    die("Hindi ma-verify ang admin role.");
+}
+$role_stmt->bind_param("i", $user_id);
+$role_stmt->execute();
+$query_role = $role_stmt->get_result();
 $user_data = mysqli_fetch_assoc($query_role);
+$role_stmt->close();
 $user_role = $user_data['role']; 
 
 // Choose ng page based on role
@@ -135,9 +142,16 @@ if (isset($_POST['update_health'])) {
     }
 }
 
-// Fetching child data galing sa master list (children table)
-$query = "SELECT * FROM children ORDER BY child_name ASC";
+// Kunin ang approved children at buod ng kanilang mga naitalang health record.
+$query = "SELECT c.*,
+        (SELECT COUNT(*) FROM infant_records ir WHERE ir.child_id = c.id) AS checkup_count,
+        (SELECT MAX(COALESCE(ir.vaccine_date, ir.created_at))
+            FROM infant_records ir WHERE ir.child_id = c.id) AS last_visit
+    FROM children c
+    WHERE c.status = 'Approved'
+    ORDER BY c.child_name ASC";
 $result = mysqli_query($conn, $query);
+$child_load_error = $result ? '' : mysqli_error($conn);
 
 // KUNIN ANG LAHAT NG KASAYSAYAN NG VAKUNA AT CHECK-UP BAWAT BATA MULA SA infant_records
 $history_query = mysqli_query($conn, "SELECT * FROM infant_records ORDER BY vaccine_date DESC, created_at DESC");
@@ -167,6 +181,40 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
         }
     }
 }
+
+$schedulePatientColumn = mysqli_query($conn, "SHOW COLUMNS FROM schedules LIKE 'patient_id'");
+$scheduleCategoryColumn = mysqli_query($conn, "SHOW COLUMNS FROM schedules LIKE 'category'");
+$scheduleLinkSchemaReady = $schedulePatientColumn && mysqli_num_rows($schedulePatientColumn) > 0
+    && $scheduleCategoryColumn && mysqli_num_rows($scheduleCategoryColumn) > 0;
+$scheduleLoadError = null;
+$immunizationAppointments = [];
+$checkupAppointments = [];
+
+if ($scheduleLinkSchemaReady) {
+    $scheduledStmt = $conn->prepare("SELECT s.id AS schedule_id, s.schedule_date, s.schedule_time,
+            s.service_type, s.status, c.id AS child_id, c.child_name
+        FROM schedules s
+        INNER JOIN children c ON c.id = s.patient_id
+        WHERE s.category = 'Child' AND c.status = 'Approved'
+          AND s.status IN ('Pending', 'Approved', 'Rescheduled')
+        ORDER BY s.schedule_date ASC, s.schedule_time ASC");
+    if (!$scheduledStmt) {
+        $scheduleLoadError = $conn->error;
+    } elseif (!$scheduledStmt->execute()) {
+        $scheduleLoadError = $scheduledStmt->error;
+        $scheduledStmt->close();
+    } else {
+        $scheduledResult = $scheduledStmt->get_result();
+        while ($schedule = $scheduledResult->fetch_assoc()) {
+            if (preg_match('/immuniz|vaccin/i', $schedule['service_type'] ?? '')) {
+                $immunizationAppointments[] = $schedule;
+            } else {
+                $checkupAppointments[] = $schedule;
+            }
+        }
+        $scheduledStmt->close();
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -190,32 +238,82 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
             background-color: #F8FAFC;
             margin: 0;
             display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
         #main {
-            flex-grow: 1;
-            padding: 40px;
+            flex: 1 1 0;
+            min-width: 0;
+            padding: clamp(16px, 3vw, 30px);
             transition: var(--transition);
-            margin-left: 0;
+            box-sizing: border-box;
         }
 
-        #main.main-content-active {
-            margin-left: var(--sidebar-width);
+        .header-section {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            margin-bottom: 20px;
+            padding: clamp(16px, 2vw, 20px);
+            background: white;
+            border: 1px solid #edf2f7;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
-
-        .header-section { margin-bottom: 30px; }
-        .header-section h1 { color: var(--dark-sage); margin: 0; }
+        .header-section h1 { color: var(--dark-sage); margin: 0; font-size: 1.25rem; }
         
         .table-container {
+            min-width: 0;
             background: white;
-            padding: 20px;
+            padding: clamp(12px, 2.5vw, 25px);
             border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #edf2f7;
+            overflow-x: auto;
         }
 
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 15px; background: var(--soft-sage); color: var(--dark-sage); font-size: 0.8rem; text-transform: uppercase; }
-        td { padding: 15px; border-bottom: 1px solid #EDF2F7; font-size: 0.9rem; }
+        table { width: 100%; min-width: 620px; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; background: var(--soft-sage); color: var(--dark-sage); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 15px; border-bottom: 1px solid #EDF2F7; font-size: 0.9rem; vertical-align: middle; }
+        .patient-panel h3 { margin: 0 0 16px; color: var(--dark-sage); font-size: 1rem; }
+        .scheduled-panels {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: start;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .scheduled-table { min-width: 470px; }
+        .scheduled-table th, .scheduled-table td { padding: 12px 10px; }
+        .scheduled-date { white-space: nowrap; }
+        .btn-scheduled-record {
+            display: inline-block;
+            padding: 8px 10px;
+            border: 0;
+            border-radius: 7px;
+            background: var(--sage);
+            color: white;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .btn-scheduled-record:hover { background: var(--dark-sage); }
+        .record-notice {
+            margin-bottom: 18px;
+            padding: 12px 16px;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            background: #f0fdf4;
+            color: #166534;
+        }
+        .record-notice.error {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+        }
 
         .btn {
             padding: 8px 15px;
@@ -229,6 +327,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
         }
         .btn-view { background: var(--soft-sage); color: var(--dark-sage); margin-right: 5px; }
         .btn-edit { background: var(--sage); color: white; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; }
 
         .modal {
             display: none;
@@ -285,6 +384,14 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
                 display: none !important;
             }
         }
+
+        @media (max-width: 1100px) {
+            .scheduled-panels { grid-template-columns: minmax(0, 1fr); }
+        }
+        @media (max-width: 520px) {
+            .header-section { margin-bottom: 16px; }
+            .header-section h1 { font-size: 1.05rem; line-height: 1.4; }
+        }
     </style>
 </head>
 <body>
@@ -293,9 +400,7 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
 
 <div id="main">
     <div class="header-section">
-        <button onclick="toggleSidebar()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--dark-sage); margin-bottom:10px;"></button>
-        <h1>Child & Infant Records</h1>
-        <p style="color: #A0AEC0;">Alawihao Health Center Management System</p>
+        <h1>Child Health History & Immunization Records</h1>
     </div>
     <?php if ($record_error !== ''): ?>
         <div style="margin-bottom:15px; padding:12px 16px; border:1px solid #fecaca; border-radius:8px; background:#fef2f2; color:#991b1b;">
@@ -307,36 +412,128 @@ while ($row_hist = mysqli_fetch_assoc($history_query)) {
             Hindi ma-load ang baby vaccine inventory: <?= htmlspecialchars($baby_vaccine_load_error, ENT_QUOTES, 'UTF-8') ?>
         </div>
     <?php endif; ?>
+    <?php if ($child_load_error !== ''): ?>
+        <div class="record-notice error" role="alert">
+            Hindi ma-load ang child records: <?= htmlspecialchars($child_load_error, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
+    <?php if (!$scheduleLinkSchemaReady): ?>
+        <div class="record-notice error" role="alert">
+            Hindi maipakita ang child appointments dahil kulang ang patient-link columns sa schedules table.
+        </div>
+    <?php elseif ($scheduleLoadError !== null): ?>
+        <div class="record-notice error" role="alert">
+            Hindi ma-load ang scheduled child patients: <?= htmlspecialchars($scheduleLoadError, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
 
-    <div class="table-container">
+    <section class="table-container patient-panel" style="margin-bottom:20px;">
+        <h3>All Child Patients</h3>
         <table>
             <thead>
                 <tr>
                     <th>Child Name</th>
-                    <th>Mother's Name</th>
-                    <th>Gender</th>
+                    <th>Age</th>
+                    <th>Last Visit</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
+                <?php if ($result && mysqli_num_rows($result) > 0): ?>
                 <?php while($row = mysqli_fetch_assoc($result)): ?>
                     <?php 
-                        $c_id = $row['id'];
+                        $c_id = (int) $row['id'];
                         $taken_list = isset($child_vaccines_map[$c_id]) ? $child_vaccines_map[$c_id] : [];
                         $history_list = isset($child_history_map[$c_id]) ? $child_history_map[$c_id] : [];
+                        $child_age = 'Not specified';
+                        if (!empty($row['birth_date'])) {
+                            try {
+                                $age_diff = (new DateTimeImmutable($row['birth_date']))->diff(new DateTimeImmutable('today'));
+                                $child_age = $age_diff->y > 0
+                                    ? $age_diff->y . ' year' . ($age_diff->y === 1 ? '' : 's')
+                                    : ($age_diff->m > 0
+                                        ? $age_diff->m . ' month' . ($age_diff->m === 1 ? '' : 's')
+                                        : 'Under 1 month');
+                            } catch (Exception $exception) {
+                                $child_age = 'Not specified';
+                            }
+                        }
                     ?>
                 <tr>
-                    <td><strong><?php echo htmlspecialchars($row['child_name']); ?></strong></td>
-                    <td><?php echo htmlspecialchars($row['mother_name']); ?></td>
-                    <td><?php echo $row['gender']; ?></td>
                     <td>
-                        <button class="btn btn-view" onclick='openHistoryModal(<?php echo json_encode($row); ?>, <?php echo json_encode($history_list); ?>)'>Full History</button>
-                        <button class="btn btn-edit" onclick="openEditModal('<?php echo $c_id; ?>', '<?php echo htmlspecialchars($row['child_name'], ENT_QUOTES); ?>', <?php echo htmlspecialchars(json_encode($taken_list), ENT_QUOTES); ?>)">Update Health</button>
+                        <strong><?php echo htmlspecialchars($row['child_name'], ENT_QUOTES, 'UTF-8'); ?></strong><br>
+                        <small style="color:#A0AEC0;"><?php echo (int) ($row['checkup_count'] ?? 0); ?> total health records</small>
+                    </td>
+                    <td><span style="font-weight:600; color:#2b6cb0;"><?php echo htmlspecialchars($child_age, ENT_QUOTES, 'UTF-8'); ?></span></td>
+                    <td style="color:#4A5568;">
+                        <?php echo !empty($row['last_visit']) ? date('M d, Y', strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-view" onclick='openHistoryModal(<?php echo json_encode($row, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>, <?php echo json_encode($history_list, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>View History</button>
+                            <button type="button" class="btn btn-edit" onclick='openEditModal(<?php echo $c_id; ?>, <?php echo json_encode($row['child_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>, <?php echo json_encode($taken_list, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Add Record</button>
+                        </div>
                     </td>
                 </tr>
                 <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="4" style="text-align:center; color:#A0AEC0; padding:30px;">No approved child records found.</td></tr>
+                <?php endif; ?>
             </tbody>
         </table>
+    </section>
+
+    <div class="scheduled-panels">
+        <?php foreach ([
+            'Immunization Appointments' => $immunizationAppointments,
+            'Check-up Appointments' => $checkupAppointments
+        ] as $appointmentTitle => $appointments): ?>
+            <section class="table-container patient-panel">
+                <h3><?php echo htmlspecialchars($appointmentTitle, ENT_QUOTES, 'UTF-8'); ?> (<?php echo count($appointments); ?>)</h3>
+                <table class="scheduled-table">
+                    <thead>
+                        <tr>
+                            <th>Patient & Appointment</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($scheduleLoadError !== null): ?>
+                            <tr><td colspan="3" style="text-align:center; color:#991b1b; padding:24px;">Could not load scheduled patients.</td></tr>
+                        <?php elseif ($appointments): ?>
+                            <?php foreach ($appointments as $schedule):
+                                $scheduledChildId = (int) $schedule['child_id'];
+                                $takenVaccinesJson = json_encode(
+                                    $child_vaccines_map[$scheduledChildId] ?? [],
+                                    JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
+                                );
+                            ?>
+                                <tr>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($schedule['child_name'], ENT_QUOTES, 'UTF-8'); ?></strong><br>
+                                        <span class="scheduled-date"><?php echo date('M d, Y', strtotime($schedule['schedule_date'])); ?></span>
+                                        <small><?php echo date('g:i A', strtotime($schedule['schedule_time'])); ?></small><br>
+                                        <small><?php echo htmlspecialchars($schedule['service_type'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($schedule['status'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td>
+                                        <button type="button" class="btn-scheduled-record"
+                                            data-child-id="<?php echo $scheduledChildId; ?>"
+                                            data-child-name="<?php echo htmlspecialchars($schedule['child_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-taken-vaccines="<?php echo htmlspecialchars($takenVaccinesJson ?: '[]', ENT_QUOTES, 'UTF-8'); ?>">
+                                            Add Health Record
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr><td colspan="3" style="text-align:center; color:#A0AEC0; padding:24px;">No <?php echo strtolower(htmlspecialchars($appointmentTitle, ENT_QUOTES, 'UTF-8')); ?> found.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </section>
+        <?php endforeach; ?>
     </div>
 </div>
 
@@ -512,10 +709,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const content = document.getElementById('main');
     const state = localStorage.getItem('sidebarVisible');
 
-    if (state === 'true') {
+    if (sidebar && content && state === 'true') {
         sidebar.classList.add('show');
         content.classList.add('main-content-active');
     }
+
+    document.querySelectorAll('.btn-scheduled-record').forEach(button => {
+        button.addEventListener('click', function() {
+            let takenVaccines = [];
+            try {
+                takenVaccines = JSON.parse(this.dataset.takenVaccines || '[]');
+            } catch (error) {
+                console.error('Unable to load previously recorded vaccines.', error);
+            }
+            openEditModal(
+                Number(this.dataset.childId),
+                this.dataset.childName || 'Child',
+                takenVaccines
+            );
+        });
+    });
 });
 
 // --- SUCCESS MODAL FUNCTION ---

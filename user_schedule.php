@@ -219,10 +219,10 @@ if (count($patient_names) > 0) {
 
                 if ($status === 'reschedule requested') {
                     $row['reschedule_state'] = 'Reschedule Requested';
-                } elseif (preg_match('/Reschedule Rejected/i', $notes)) {
-                    $row['reschedule_state'] = 'Reschedule Rejected';
                 } elseif ($is_approved_reschedule) {
                     $row['reschedule_state'] = 'Reschedule Approved';
+                } elseif ($latest_reschedule_status === 'rejected' || preg_match('/Reschedule Rejected/i', $notes)) {
+                    $row['reschedule_state'] = 'Reschedule Rejected';
                 } elseif ($status === 'rescheduled' || preg_match('/Rescheduled \(Orig:/i', $notes)) {
                     $row['reschedule_state'] = 'Rescheduled';
                 } else {
