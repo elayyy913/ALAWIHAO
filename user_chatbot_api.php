@@ -59,6 +59,9 @@ if (count($recentRequests) >= 12) {
 $recentRequests[] = $now;
 $_SESSION['user_chatbot_requests'] = $recentRequests;
 
+require_once __DIR__ . '/registration_form_guide.php';
+$matchedFormGuide = registrationFormGuideMatch($question, 'user');
+
 function chatbotFlattenText($value): string
 {
     if (is_string($value) || is_numeric($value)) {
@@ -214,6 +217,12 @@ if ($isUrgent) {
         $sourceName = (string) ($urgentArticle['source'] ?? 'Alawihao Health Center health article');
         $notice .= ' Kaugnay na artikulo: ' . $sourceTitle . ' (' . $sourceName . ').';
     }
+} elseif ($matchedFormGuide !== null) {
+    $allowGemini = false;
+    $answer = $matchedFormGuide['answer'];
+    $links = $matchedFormGuide['links'];
+    $context = '';
+    $notice = 'Sagot mula sa gabay sa registration form.';
 } elseif ($matchedArticle !== null && $matchedArticle['score'] >= $articleThreshold) {
     $article = $matchedArticle['article'];
     $sourceTitle = (string) ($article['title'] ?? 'Health article');

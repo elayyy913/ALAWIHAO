@@ -15,18 +15,20 @@ if (empty($_SESSION['user_chatbot_csrf'])) {
         <header class="user-chatbot-header">
             <div>
                 <strong>Alawihao Health Assistant</strong>
-                <span>Gabay mula sa health articles at FAQs</span>
+                <span>Gabay sa health topics at registration forms</span>
             </div>
             <button type="button" id="userChatbotClose" aria-label="Isara ang chat">&times;</button>
         </header>
         <div class="user-chatbot-notice">Pangkalahatang impormasyon lang ito. Huwag magpadala ng pangalan, contact details, o personal na health information.</div>
         <div class="user-chatbot-messages" id="userChatbotMessages" aria-live="polite">
-            <div class="user-chatbot-message assistant">Kumusta! Makakatulong ako sa health articles, bakuna, at pag-navigate sa portal. Ano ang gusto mong malaman?</div>
+            <div class="user-chatbot-message assistant">Kumusta! Makakatulong ako sa health topics, registration form fields, at pag-navigate sa portal. Ano ang gusto mong malaman?</div>
         </div>
         <div class="user-chatbot-prompts" id="userChatbotPrompts">
             <button type="button" data-question="Paano ako magche-check ng schedule?">Schedule</button>
             <button type="button" data-question="Saan ako makakabasa tungkol sa bakuna?">Bakuna</button>
             <button type="button" data-question="Saan ko makikita ang health articles?">Health articles</button>
+            <button type="button" data-question="Ano ang PHIC CAT sa registration form?">PHIC CAT</button>
+            <button type="button" data-question="Ano ang LMP?">LMP</button>
         </div>
         <form class="user-chatbot-form" id="userChatbotForm">
             <label class="sr-only" for="userChatbotInput">I-type ang tanong</label>
@@ -62,12 +64,12 @@ if (empty($_SESSION['user_chatbot_csrf'])) {
     .user-chatbot-form button { width: 40px; height: 40px; border: 0; border-radius: 50%; color: #fff; background: #5A6B47; cursor: pointer; }
     .user-chatbot-form button:disabled { opacity: .6; cursor: wait; }
     .user-chatbot .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-    [data-theme="dark"] .user-chatbot-panel { background: #242826; border-color: #3a403a; color: #e8ede5; }
-    [data-theme="dark"] .user-chatbot-notice, [data-theme="dark"] .user-chatbot-messages, [data-theme="dark"] .user-chatbot-prompts { background: #1e211e; color: #cbd4c5; }
-    [data-theme="dark"] .user-chatbot-message.assistant { background: #30382e; color: #e8ede5; }
-    [data-theme="dark"] .user-chatbot-prompts button { background: #242826; color: #cfe0c3; border-color: #52614a; }
-    [data-theme="dark"] .user-chatbot-form { border-color: #3a403a; }
-    [data-theme="dark"] .user-chatbot-form input { background: #1e211e; color: #e8ede5; border-color: #52614a; }
+
+
+
+
+
+
     @media (max-width: 480px) { .user-chatbot { right: 12px; bottom: 12px; } .user-chatbot-panel { bottom: 60px; height: min(540px, calc(100vh - 90px)); } }
 </style>
 <script>
