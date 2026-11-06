@@ -19,7 +19,19 @@ if (isset($_POST['reset_request'])) {
     $result = mysqli_query($conn, $query);
 
     if (mysqli_num_rows($result) > 0) {
-        $otp = rand(100000, 999999);
+        $smtp_host = getenv('ALAWIHAO_SMTP_HOST') ?: 'smtp.gmail.com';
+        $smtp_port = (int)(getenv('ALAWIHAO_SMTP_PORT') ?: 587);
+        $smtp_username = getenv('ALAWIHAO_SMTP_USERNAME') ?: '';
+        $smtp_password = getenv('ALAWIHAO_SMTP_PASSWORD') ?: '';
+        $smtp_from_email = getenv('ALAWIHAO_SMTP_FROM_EMAIL') ?: $smtp_username;
+        $smtp_from_name = getenv('ALAWIHAO_SMTP_FROM_NAME') ?: 'Alawihao db';
+        if ($smtp_username === '' || $smtp_password === '' || !filter_var($smtp_from_email, FILTER_VALIDATE_EMAIL) || $smtp_port < 1 || $smtp_port > 65535) {
+            error_log('Password reset email is unavailable because SMTP environment settings are incomplete.');
+            http_response_code(503);
+            exit('Email verification is not configured. Please contact the system administrator.');
+        }
+
+        $otp = random_int(100000, 999999);
         
         // Dito natin sinisiguro na ang expiry ay 15 mins base sa Manila time
         $expiry = date("Y-m-d H:i:s", strtotime("+15 minutes"));
@@ -30,25 +42,15 @@ if (isset($_POST['reset_request'])) {
         $mail = new PHPMailer(true);
 
         try {
-            // Localhost SSL Fix
-            $mail->SMTPOptions = array(
-                'ssl' => array(
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed' => true
-                )
-            );
-
             $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';
+            $mail->Host       = $smtp_host;
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'alawihaohealth@gmail.com'; 
-            $mail->Password   = 'hjabqddphcwdxrrx'; 
+            $mail->Username   = $smtp_username;
+            $mail->Password   = $smtp_password;
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = 587;
+            $mail->Port       = $smtp_port;
 
-            // Inayos ko ang setFrom para tumugma sa Username mo
-            $mail->setFrom('alawihaohealth@gmail.com', 'Alawihao Health Center');
+            $mail->setFrom($smtp_from_email, $smtp_from_name);
             $mail->addAddress($email);
 
             $mail->isHTML(true);
@@ -68,7 +70,9 @@ if (isset($_POST['reset_request'])) {
             exit();
 
         } catch (Exception $e) {
-            echo "Email could not be sent. Mailer Error: {$mail->ErrorInfo}";
+            error_log('Password reset email failed: ' . $mail->ErrorInfo);
+            http_response_code(502);
+            exit('The verification email could not be sent. Please try again later.');
         }
     } else {
         echo "<script>alert('Email not found!'); window.location.href='forgot_password.php';</script>";

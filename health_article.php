@@ -32,15 +32,16 @@ $section_count = count($article['sections']);
     <?php $notif_path = ''; include 'notif_assets.php'; ?>
     <style>
         :root {
-            --green:   #3d6426;
-            --accent:  #6b9148;
-            --light:   #a2ce6f;
-            --bg:      #F9F9F4;
+            --green:   #5f7f49;
+            --accent:  #5a7c3a;
+            --light:   #8fbf5a;
+            --soft-sage: #F5F8F2;
+            --bg:      #fbfdf8;
             --white:   #ffffff;
-            --text:    #2D2D2D;
+            --text:    #333333;
             --muted:   #666666;
             --card-bg: #ffffff;
-            --border:  #E1E1D7;
+            --border:  #edf2ed;
             --sidebar-width: 260px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -730,81 +731,6 @@ $section_count = count($article['sections']);
             .detailed-why { display: block !important; }
         }
 
-        /* Match the super-admin dashboard's sage palette across the article. */
-        body, #main { background: #F9F9F4; color: #2D2D2D; }
-        .progress-bar, .reading-progress-bar { background: #5A6B47; }
-        .topbar { border-bottom-color: #5A6B47; }
-        .topbar .hamburger-btn { background: #5A6B47; }
-        .topbar .hamburger-btn:hover { background: #8DAE74; }
-        .sidebar-container > #hamburgerBtn { display: none !important; }
-        .topbar .article-back-link { color: #5A6B47; }
-        .topbar .article-back-link:hover { background: #F0F5EC; color: #5A6B47; }
-        .topbar .logo-img { border-color: #5A6B47; }
-        .topbar .page-label, .article-search-toggle { color: #5A6B47; }
-        .article-search-toggle:hover { background: #F0F5EC; border-color: #E1E1D7; }
-        .article-header { background: #5A6B47; color: #FFFFFF; border-bottom-color: #8DAE74; }
-        .article-header h1 { color: #FFFFFF; }
-        .article-meta { background: #F4F4ED; color: #5A6B47; }
-        .toc-box { border-top-color: #5A6B47; }
-        .toc-box h3, .toc-box ol li::before, .toc-box ol li:hover { color: #5A6B47; }
-        .key-takeaway { background: #F4F7F0; border-color: #E1E1D7; border-left-color: #5A6B47; }
-        .key-takeaway-icon, .key-takeaway h3 { color: #5A6B47; }
-        .key-takeaway p { color: #2D2D2D; }
-        .section-card h2, .article-table th, .steps-list li::before { background: #5A6B47; }
-        .section-card h2 { border-bottom-color: #8DAE74; }
-        .detailed-bullet { background: #5A6B47; }
-        .detailed-label:hover, .detailed-why, .article-table tr:nth-child(even) td,
-        .article-table tr:hover td, .highlight-box, .truth-label { background: #F4F7F0; }
-        .detailed-why, .article-table td, .highlight-box, .myth-box,
-        .detailed-item, .plain-list li, .steps-list li { border-color: #E1E1D7; }
-        .detailed-why .why-label, .plain-list li::before { color: #5A6B47; }
-        .detailed-why .why-label, .highlight-box { border-left-color: #5A6B47; }
-        .myth-label { background: #F4F7F0; color: #2D2D2D; border-color: #E1E1D7; }
-        .truth-label { color: #2D2D2D; }
-        .myth-label .badge, .truth-label .badge { background: #5A6B47; color: #FFFFFF; }
-        .steps-list li::before { background: #5A6B47; }
-        .cta-card { background: #5A6B47; border-left-color: #8DAE74; }
-        .cta-btn { color: #5A6B47; }
-        .related-section h3 { color: #5A6B47; border-bottom-color: #5A6B47; }
-        .related-card, .related-card-icon { border-color: #E1E1D7; }
-        .related-card { border-top-color: #5A6B47; }
-        .related-card-icon { background: #F4F7F0; color: #5A6B47; }
-        .related-card-title { color: #5A6B47; }
-        .article-footer { border-top-color: #5A6B47; }
-        .footer-brand img { border-color: #5A6B47; }
-        .footer-brand-text h4, .footer-col h5, .footer-col ul li i,
-        .footer-col ul li strong, .footer-badge { color: #5A6B47; }
-        .footer-col a { color: #5A6B47; }
-        .footer-col h5 { border-bottom-color: #E1E1D7; }
-        .footer-badge { background: #F0F5EC; border-color: #E1E1D7; }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         body, #main { background: var(--bg); color: var(--text); }
         .progress-bar, .reading-progress-bar { background: var(--green); }
         .topbar { background: var(--white); border-bottom-color: var(--green); }
@@ -815,7 +741,7 @@ $section_count = count($article['sections']);
             border-color: var(--border);
             color: var(--green);
         }
-        .topbar .article-back-link:hover { background: #F0F5EC; }
+        .topbar .article-back-link:hover { background: var(--soft-sage); }
         .topbar .logo-img { border-color: var(--green); }
         .topbar .page-label, .article-search-toggle,
         .toc-box h3, .toc-box ol li::before, .toc-box ol li:hover,
@@ -832,10 +758,19 @@ $section_count = count($article['sections']);
         .article-header { color: #FFFFFF; }
         .article-header h1, .article-header p, .cta-card { color: #FFFFFF; }
         .article-meta, .key-takeaway, .detailed-why, .highlight-box,
-        .myth-label, .truth-label, .related-card-icon, .footer-badge {
-            background-color: #F4F7F0;
+        .myth-label, .truth-label, .related-card-icon, .footer-badge,
+        .detailed-label:hover, .article-table tr:nth-child(even) td,
+        .article-table tr:hover td, .article-search-toggle:hover,
+        .topbar .article-back-link:hover {
+            background-color: var(--soft-sage);
+        }
+        .article-meta, .key-takeaway, .detailed-why, .highlight-box,
+        .myth-label, .truth-label, .related-card-icon, .footer-badge,
+        .article-search-toggle:hover, .article-search-panel,
+        .article-search-input {
             border-color: var(--border);
         }
+        .article-meta { color: var(--green); }
         .key-takeaway { border-left-color: var(--green); }
         .section-card h2, .article-table th, .steps-list li::before,
         .detailed-bullet, .myth-label .badge, .truth-label .badge {
@@ -843,7 +778,23 @@ $section_count = count($article['sections']);
         }
         .section-card h2, .article-table th,
         .myth-label .badge, .truth-label .badge { color: #FFFFFF; }
+        .section-card h2 { border-bottom-color: var(--light); }
+        .article-table td, .detailed-item, .plain-list li, .steps-list li,
+        .article-meta span, .toc-box, .related-card, .section-card,
+        .article-search-panel, .article-search-input {
+            border-color: var(--border);
+        }
+        .toc-box ol li { border-bottom-color: var(--border); }
+        .detailed-why .why-label, .highlight-box { border-left-color: var(--green); }
+        .detailed-why .why-label { border-bottom-color: var(--border); }
+        .detailed-why p, .truth-label { color: var(--text); }
+        .article-meta span { border-right-color: var(--border); }
         .related-card { border-top-color: var(--green); }
+        .related-card, .article-search-panel, .toc-box, .section-card {
+            background-color: var(--white);
+        }
+        .toc-box { border-top-color: var(--green); }
+        .footer-col h5 { border-bottom-color: var(--border); }
         .article-footer {
             background: var(--white);
             border-top-color: var(--green);
@@ -1003,7 +954,7 @@ $section_count = count($article['sections']);
             <div class="highlight-box"><?= htmlspecialchars($sec['content']) ?></div>
 
         <?php elseif ($sec['type'] === 'text'): ?>
-            <p style="line-height:1.85;color:var(--text);font-size:0.95rem;background:#F4F7F0;padding:16px 18px;border-radius:10px;border-left:3px solid #E1E1D7;"><?= htmlspecialchars($sec['content']) ?></p>
+            <p style="line-height:1.85;color:var(--text);font-size:0.95rem;background:var(--soft-sage);padding:16px 18px;border-radius:10px;border-left:3px solid var(--border);"><?= htmlspecialchars($sec['content']) ?></p>
 
         <?php elseif ($sec['type'] === 'myth'): ?>
             <div class="myth-box">
