@@ -749,6 +749,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_schedule'])) {
             } else {
                 logAdminAction($conn, "Deleted schedule ID {$id}.");
             }
+            $return_tab = preg_replace('/[^a-zA-Z]/', '', $_POST['return_tab'] ?? 'childTab');
+            header("Location: schedule_management.php?tab=" . urlencode($return_tab) . "&msg=deleted");
+            exit();
         } else {
             $message = "Error deleting schedule: " . $conn->error;
         }
@@ -801,22 +804,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
                         $message = "Unable to process reschedule request: " . $update_error;
                     } else {
                         $schedule_id = (int) $request['schedule_id'];
-                        $pending_stmt = $conn->prepare("SELECT
-                            SUM(status = 'Pending') AS pending_count,
-                            SUM(status = 'Approved') AS approved_count
-                            FROM schedule_reschedule_requests WHERE schedule_id = ?");
-                        $pending_stmt->bind_param("i", $schedule_id);
-                        $pending_stmt->execute();
-                        $counts = $pending_stmt->get_result()->fetch_assoc();
-                        $pending_stmt->close();
-                        $schedule_status = (int) ($counts['pending_count'] ?? 0) > 0
-                            ? 'Reschedule Requested'
-                            : ((int) ($counts['approved_count'] ?? 0) > 0 ? 'Approved' : 'Pending');
+
+                        // On approve: always set to Approved.
+                        // On reject: check if any other pending requests remain; if not, revert to Pending.
+                        if ($action === 'approve') {
+                            $schedule_status = 'Approved';
+                            // Also close out any other stale pending requests for this schedule
+                            $conn->query("UPDATE schedule_reschedule_requests
+                                SET status = 'Superseded'
+                                WHERE schedule_id = $schedule_id
+                                  AND id != $request_id
+                                  AND LOWER(status) = 'pending'");
+                        } else {
+                            $remaining = $conn->query("SELECT COUNT(*) AS c
+                                FROM schedule_reschedule_requests
+                                WHERE schedule_id = $schedule_id AND LOWER(status) = 'pending'");
+                            $rem_count = $remaining ? (int)$remaining->fetch_assoc()['c'] : 0;
+                            $schedule_status = $rem_count > 0 ? 'Reschedule Requested' : 'Pending';
+                        }
 
                         $old_date = $request['schedule_date'];
                         $notes = $request['notes'] ?? '';
-                        if ($action === 'approve' && strpos($notes, 'Rescheduled (Orig:') === false) {
+
+                        // Worker may override the requested date/time from the modal
+                        $override_date = trim($_POST['override_date'] ?? '');
+                        $override_time = trim($_POST['override_time'] ?? '');
+                        $worker_note   = trim($_POST['worker_note']   ?? '');
+
+                        $final_date = ($action === 'approve' && !empty($override_date))
+                            ? $override_date
+                            : $request['requested_date'];
+                        $final_time = ($action === 'approve' && !empty($override_time))
+                            ? $override_time
+                            : $request['requested_time'];
+
+                        if ($action === 'approve') {
                             $notes = trim($notes . ' | Rescheduled (Orig: ' . $old_date . ')');
+                            if (!empty($override_date) && $override_date !== $request['requested_date']) {
+                                $notes = trim($notes . ' | Worker adjusted to: ' . $override_date);
+                            }
+                        }
+                        if (!empty($worker_note)) {
+                            $notes = trim($notes . ' | Worker note: ' . $worker_note);
                         }
 
                         if ($action === 'approve') {
@@ -824,15 +853,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
                                 SET schedule_date = ?, schedule_time = ?, status = ?, notes = ? WHERE id = ?");
                             $update_schedule->bind_param(
                                 "ssssi",
-                                $request['requested_date'],
-                                $request['requested_time'],
+                                $final_date,
+                                $final_time,
                                 $schedule_status,
                                 $notes,
                                 $schedule_id
                             );
                         } else {
-                            $update_schedule = $conn->prepare("UPDATE schedules SET status = ? WHERE id = ?");
-                            $update_schedule->bind_param("si", $schedule_status, $schedule_id);
+                            // On reject, still save the worker note to the schedule notes if provided
+                            if (!empty($worker_note)) {
+                                $update_schedule = $conn->prepare("UPDATE schedules SET status = ?, notes = ? WHERE id = ?");
+                                $update_schedule->bind_param("ssi", $schedule_status, $notes, $schedule_id);
+                            } else {
+                                $update_schedule = $conn->prepare("UPDATE schedules SET status = ? WHERE id = ?");
+                                $update_schedule->bind_param("si", $schedule_status, $schedule_id);
+                            }
                         }
 
                         if (!$update_schedule->execute()) {
@@ -857,8 +892,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['handle_reschedule'])) 
 
                             $requester_id = (int) $request['requester_id'];
                             if ($requester_id > 0) {
-                                $date = $action === 'approve' ? $request['requested_date'] : $request['schedule_date'];
-                                $time = $action === 'approve' ? $request['requested_time'] : $request['schedule_time'];
+                                $date = $action === 'approve' ? $final_date : $request['schedule_date'];
+                                $time = $action === 'approve' ? $final_time : $request['schedule_time'];
                                 $date_fmt = date('F j, Y', strtotime($date));
                                 $time_fmt = date('g:i A', strtotime($time));
                                 $title = $action === 'approve'
@@ -930,16 +965,66 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
         $stmt->close();
     }
 }
-// SECURED QUERIES 
-$result_child = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'child' AND (status = 'Pending' OR status = 'Approved') ORDER BY schedule_date ASC, schedule_time ASC");
-$result_maternal = $conn->query("SELECT * FROM schedules WHERE LOWER(category) = 'maternal' AND (status = 'Pending' OR status = 'Approved') ORDER BY schedule_date ASC, schedule_time ASC");
-$result_reschedule = $conn->query("SELECT r.id AS request_id, r.requester_id, r.requested_date,
-        r.requested_time, r.reason, r.created_at, s.id, s.patient_name, s.service_type,
+// SECURED QUERIES
+// Deduplicate: for each patient+service combination, prefer the latest Approved row
+// over any older Pending row. We pick the row with the highest id per patient+service.
+$result_child = $conn->query("
+    SELECT s.*
+    FROM schedules s
+    WHERE LOWER(s.category) = 'child'
+      AND s.status IN ('Pending', 'Approved')
+      AND s.id = (
+          SELECT s2.id FROM schedules s2
+          WHERE LOWER(s2.category) = 'child'
+            AND s2.status IN ('Pending', 'Approved')
+            AND LOWER(TRIM(s2.patient_name)) = LOWER(TRIM(s.patient_name))
+            AND LOWER(TRIM(s2.service_type))  = LOWER(TRIM(s.service_type))
+          ORDER BY
+              CASE WHEN LOWER(s2.status) = 'approved' THEN 0 ELSE 1 END ASC,
+              s2.id DESC
+          LIMIT 1
+      )
+    ORDER BY s.schedule_date ASC, s.schedule_time ASC");
+$result_maternal = $conn->query("
+    SELECT s.*
+    FROM schedules s
+    WHERE LOWER(s.category) = 'maternal'
+      AND s.status IN ('Pending', 'Approved')
+      AND s.id = (
+          SELECT s2.id FROM schedules s2
+          WHERE LOWER(s2.category) = 'maternal'
+            AND s2.status IN ('Pending', 'Approved')
+            AND LOWER(TRIM(s2.patient_name)) = LOWER(TRIM(s.patient_name))
+            AND LOWER(TRIM(s2.service_type))  = LOWER(TRIM(s.service_type))
+          ORDER BY
+              CASE WHEN LOWER(s2.status) = 'approved' THEN 0 ELSE 1 END ASC,
+              s2.id DESC
+          LIMIT 1
+      )
+    ORDER BY s.schedule_date ASC, s.schedule_time ASC");
+$resched_base_sql = "SELECT r.id AS request_id, r.requester_id, r.requested_date,
+        r.requested_time, r.reason, r.created_at, s.id AS schedule_id, s.patient_name, s.service_type,
         s.schedule_date, s.schedule_time, s.category
     FROM schedule_reschedule_requests r
     JOIN schedules s ON s.id = r.schedule_id
     WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'
-    ORDER BY r.created_at ASC, r.id ASC");
+      AND NOT EXISTS (
+          SELECT 1
+          FROM schedule_reschedule_requests approved
+          WHERE approved.schedule_id = r.schedule_id
+            AND LOWER(approved.status) = 'approved'
+            AND approved.requested_date = r.requested_date
+            AND approved.requested_time = r.requested_time
+            AND approved.requested_date = s.schedule_date
+            AND approved.requested_time = s.schedule_time
+      )";
+$result_reschedule_child    = $conn->query($resched_base_sql . " AND LOWER(s.category) = 'child'    ORDER BY r.created_at ASC, r.id ASC");
+$result_reschedule_maternal = $conn->query($resched_base_sql . " AND LOWER(s.category) = 'maternal' ORDER BY r.created_at ASC, r.id ASC");
+// keep combined for backwards-compat (badge count on tab)
+$result_reschedule_count = $conn->query("SELECT COUNT(*) AS c FROM schedule_reschedule_requests r
+    JOIN schedules s ON s.id = r.schedule_id
+    WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'");
+$resched_total = $result_reschedule_count ? (int)$result_reschedule_count->fetch_assoc()['c'] : 0;
 $result_completed = $conn->query("SELECT * FROM schedules WHERE status = 'Completed' ORDER BY schedule_date DESC, schedule_time DESC");
 $result_schedule_change_approvals = false;
 if (($_SESSION['role'] ?? '') === 'Super Admin') {
@@ -958,6 +1043,103 @@ if (($_SESSION['role'] ?? '') === 'Super Admin') {
 
 $result_infants = $conn->query("SELECT id, child_name AS full_name, 'Child' AS category FROM children ORDER BY child_name ASC");
 $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', client_lname) AS full_name, 'Maternal' AS category FROM maternal_registration ORDER BY client_lname ASC");
+
+function isImmunizationService($service_type) {
+    return preg_match(
+        '/\b(immuni[sz]ation|vaccin(?:e|ation)|bakuna|bcg|opv|ipv|pcv|mmr|pentavalent|penta|hepa?\s*b|hepatitis\s*b|hib|dpt|tdap|rotavirus|influenza|tetanus|pneumococcal|oral polio|inactivated polio)\b/i',
+        (string) $service_type
+    ) === 1;
+}
+
+function renderScheduleSection($title, $category, $schedules) {
+    ?>
+    <section class="schedule-section">
+        <h3><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?> Appointments (<?= count($schedules) ?>)</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient Name (<?= htmlspecialchars($category, ENT_QUOTES, 'UTF-8') ?>)</th>
+                        <th>Service / Check-up</th>
+                        <th>Date &amp; Time</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($schedules): ?>
+                        <?php foreach ($schedules as $row):
+                            $total_req = (int) ($row['total_resched_count'] ?? 0);
+                            $orig_date = '';
+                            if (preg_match('/Rescheduled \(Orig: ([^)]+)\)/', $row['notes'] ?? '', $match)) {
+                                $orig_date = date('M d, Y', strtotime($match[1]));
+                            }
+                        ?>
+                            <tr>
+                                <td><strong><?= htmlspecialchars($row['patient_name'] ?? '', ENT_QUOTES, 'UTF-8') ?></strong></td>
+                                <td><?= htmlspecialchars($row['service_type'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td>
+                                    <?= date('M d, Y', strtotime($row['schedule_date'])) ?><br>
+                                    <small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small><br>
+                                    <?php if ($orig_date): ?>
+                                        <small style="color:#888;font-size:11px;">Orig: <?= htmlspecialchars($orig_date, ENT_QUOTES, 'UTF-8') ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td><span class="badge badge-active"><?= htmlspecialchars($row['status'] ?? '', ENT_QUOTES, 'UTF-8') ?></span></td>
+                                <td>
+                                    <?php if ($orig_date): ?>
+                                        <small style="color:#6b7280;">Rescheduled from <?= htmlspecialchars($orig_date, ENT_QUOTES, 'UTF-8') ?></small>
+                                    <?php else: ?>
+                                        <small style="color:#aaa;">—</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:5px;align-items:center;">
+                                        <a href="#" style="color:var(--sage-green);font-weight:bold;text-decoration:none;"
+                                           onclick="openEditModal(
+                                               '<?= (int) $row['id'] ?>',
+                                               '<?= htmlspecialchars($row['patient_name'] ?? '', ENT_QUOTES) ?>',
+                                               '<?= htmlspecialchars($row['category'] ?? '', ENT_QUOTES) ?>',
+                                               '<?= htmlspecialchars($row['service_type'] ?? '', ENT_QUOTES) ?>',
+                                               '<?= htmlspecialchars($row['schedule_date'] ?? '', ENT_QUOTES) ?>',
+                                               '<?= htmlspecialchars($row['schedule_time'] ?? '', ENT_QUOTES) ?>',
+                                               '<?= htmlspecialchars($row['status'] ?? '', ENT_QUOTES) ?>',
+                                               '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
+                                           )">Edit</a>
+                                        <span>|</span>
+                                        <form method="POST" data-delete-form style="margin:0;">
+                                            <input type="hidden" name="schedule_id" value="<?= (int) $row['id'] ?>">
+                                            <button type="button" class="btn-delete" onclick="openDeleteModal(this.closest('form'))">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6" class="empty-schedule">No <?= strtolower(htmlspecialchars($title, ENT_QUOTES, 'UTF-8')) ?> appointments found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <?php
+}
+
+$childSchedules = $result_child ? $result_child->fetch_all(MYSQLI_ASSOC) : [];
+$maternalSchedules = $result_maternal ? $result_maternal->fetch_all(MYSQLI_ASSOC) : [];
+$childImmunizationSchedules = array_values(array_filter($childSchedules, function ($schedule) {
+    return isImmunizationService($schedule['service_type'] ?? '');
+}));
+$childCheckupSchedules = array_values(array_filter($childSchedules, function ($schedule) {
+    return !isImmunizationService($schedule['service_type'] ?? '');
+}));
+$maternalImmunizationSchedules = array_values(array_filter($maternalSchedules, function ($schedule) {
+    return isImmunizationService($schedule['service_type'] ?? '');
+}));
+$maternalCheckupSchedules = array_values(array_filter($maternalSchedules, function ($schedule) {
+    return !isImmunizationService($schedule['service_type'] ?? '');
+}));
 ?>
 
 <!DOCTYPE html>
@@ -1095,6 +1277,31 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         .table-scroll {
             width: 100%;
             overflow-x: auto;
+        }
+
+        .schedule-section {
+            margin-bottom: 18px;
+            padding: 16px 18px;
+            background: #fff;
+            border: 1px solid #edf0eb;
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(31, 41, 55, 0.08);
+        }
+
+        .schedule-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .schedule-section h3 {
+            margin: 0 0 12px;
+            color: var(--sage-green);
+            font-size: 1rem;
+        }
+
+        .empty-schedule {
+            padding: 24px 12px;
+            color: #94a3b8;
+            text-align: center;
         }
 
         .reschedule-requests-table {
@@ -1254,9 +1461,102 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
         }
     </style>
 
+    <!-- ── Delete Confirmation Modal ── -->
+    <style>
+        .delete-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .delete-modal-overlay.is-open { display: flex; }
+        .delete-modal {
+            background: #fff;
+            border-radius: 14px;
+            padding: 32px 28px 24px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+            text-align: center;
+            animation: deleteModalIn 0.18s ease;
+        }
+        @keyframes deleteModalIn {
+            from { transform: scale(0.92); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
+        }
+        .delete-modal-icon {
+            width: 56px; height: 56px;
+            background: #fee2e2;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 1.5rem;
+            color: #991b1b;
+        }
+        .delete-modal h3 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        .delete-modal p {
+            margin: 0 0 24px;
+            font-size: 0.85rem;
+            color: #6b7280;
+            line-height: 1.55;
+        }
+        .delete-modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .delete-modal-cancel {
+            flex: 1;
+            padding: 10px 18px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #fff;
+            color: #374151;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .delete-modal-cancel:hover { background: #f3f4f6; }
+        .delete-modal-confirm {
+            flex: 1;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: #991b1b;
+            color: #fff;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .delete-modal-confirm:hover { background: #7f1d1d; }
+    </style>
+
 <?php $notif_path='../'; include '../notif_assets.php'; ?>
 </head>
 <body>
+
+<!-- ── Delete Confirmation Modal ── -->
+<div class="delete-modal-overlay" id="deleteModalOverlay" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="delete-modal">
+        <div class="delete-modal-icon"><i class="fa fa-trash-can"></i></div>
+        <h3 id="deleteModalTitle">Delete Schedule</h3>
+        <p>Sigurado ka bang gusto mong idelete ang schedule na ito?<br>Hindi na ito mababawi.</p>
+        <div class="delete-modal-actions">
+            <button class="delete-modal-cancel" onclick="closeDeleteModal()">Cancel</button>
+            <button class="delete-modal-confirm" id="deleteModalConfirm">Delete</button>
+        </div>
+    </div>
+</div>
 
 <?php 
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'Super Admin') {
@@ -1287,7 +1587,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
     <div class="tabs">
         <button class="tab active" onclick="openTab(event, 'childTab')">Child Schedule</button>
         <button class="tab" onclick="openTab(event, 'maternalTab')">Maternal Schedule</button>
-        <button class="tab" onclick="openTab(event, 'reschedTab')">Reschedule Requests</button>
+        <button class="tab" onclick="openTab(event, 'reschedTab')">Reschedule Requests<?php if ($resched_total > 0): ?> (<?= $resched_total ?>)<?php endif; ?></button>
         <button class="tab" onclick="openTab(event, 'completedTab')">Completed Appointments</button>
         <?php if (($_SESSION['role'] ?? '') === 'Super Admin'): ?>
             <button class="tab" onclick="openTab(event, 'scheduleChangeApprovalsTab')">
@@ -1298,175 +1598,73 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 
         <!-- Child Schedule Tab Content -->
         <div id="childTab" class="tab-content active">
-            <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Patient Name (Child)</th>
-                        <th>Service / Check-up</th>
-                        <th>Date & Time</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if ($result_child && $result_child->num_rows > 0): ?>
-                        <?php while($row = $result_child->fetch_assoc()): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($row['patient_name']) ?></strong></td>
-                                <td><?= htmlspecialchars($row['service_type']) ?></td>
-                                <td>
-                                    <?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small><br>
-                                    <small style="color: gray; font-size: 11px;">
-                                        <?php 
-                                            if (preg_match('/Rescheduled \(Orig: ([^)]+)\)/', $row['notes'], $matches)) {
-                                                echo 'Orig: ' . date('M d, Y', strtotime($matches[1]));
-                                            }
-                                        ?>
-                                    </small>
-                                </td>
-                                <td><span class="badge badge-active"><?= htmlspecialchars($row['status']) ?></span></td>
-                                <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
-                                <td>
-                                    <div style="display: flex; gap: 5px; align-items: center;">
-                                        <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
-                                           onclick="openEditModal(
-                                               '<?= $row['id'] ?>', 
-                                               '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                               '<?= $row['category'] ?>', 
-                                               '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
-                                               '<?= $row['schedule_date'] ?>', 
-                                               '<?= $row['schedule_time'] ?>', 
-                                               '<?= $row['status'] ?>',
-                                               '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
-                                           )">Edit</a>
-                                        <span>|</span>
-                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
-                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
-                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <tr><td colspan="6" style="text-align:center;">No pending child schedules found.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            </div>
+            <?php renderScheduleSection('Immunization', 'Child', $childImmunizationSchedules); ?>
+            <?php renderScheduleSection('Check-up', 'Child', $childCheckupSchedules); ?>
         </div>
 
         <!-- Maternal Schedule Tab Content -->
         <div id="maternalTab" class="tab-content">
-            <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Patient Name (Maternal)</th>
-                        <th>Service / Check-up</th>
-                        <th>Date & Time</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if ($result_maternal && $result_maternal->num_rows > 0): ?>
-                        <?php while($row = $result_maternal->fetch_assoc()): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($row['patient_name']) ?></strong></td>
-                                <td><?= htmlspecialchars($row['service_type']) ?></td>
-                                <td>
-                                    <?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small><br>
-                                    <small style="color: gray; font-size: 11px;">
-                                        <?php 
-                                            if (preg_match('/Rescheduled \(Orig: ([^)]+)\)/', $row['notes'], $matches)) {
-                                                echo 'Orig: ' . date('M d, Y', strtotime($matches[1]));
-                                            }
-                                        ?>
-                                    </small>
-                                </td>
-                                <td><span class="badge badge-active"><?= htmlspecialchars($row['status']) ?></span></td>
-                                <td><small><?= htmlspecialchars($row['notes'] ?? 'None') ?></small></td>
-                                <td>
-                                    <div style="display: flex; gap: 5px; align-items: center;">
-                                        <?php if (!empty($row['patient_id'])): ?>
-                                            <a class="btn-record-link" href="admin_maternal_hr.php?patient_id=<?= (int) $row['patient_id'] ?>&amp;schedule_id=<?= (int) $row['id'] ?>">Add Health Record</a>
-                                            <span>|</span>
-                                        <?php endif; ?>
-                                        <a href="#" style="color: var(--sage-green); font-weight: bold; text-decoration: none;" 
-                                           onclick="openEditModal(
-                                               '<?= $row['id'] ?>', 
-                                               '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>', 
-                                               '<?= $row['category'] ?>', 
-                                               '<?= htmlspecialchars($row['service_type'], ENT_QUOTES) ?>', 
-                                               '<?= $row['schedule_date'] ?>', 
-                                               '<?= $row['schedule_time'] ?>', 
-                                               '<?= $row['status'] ?>',
-                                               '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
-                                           )">Edit</a>
-                                        <span>|</span>
-                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
-                                            <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
-                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <tr><td colspan="6" style="text-align:center;">No pending maternal schedules found.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            </div>
+            <?php renderScheduleSection('Immunization', 'Maternal', $maternalImmunizationSchedules); ?>
+            <?php renderScheduleSection('Check-up', 'Maternal', $maternalCheckupSchedules); ?>
         </div>
 
         <!-- Reschedule Requests Tab Content -->
         <div id="reschedTab" class="tab-content">
-            <div class="table-scroll">
-            <table class="reschedule-requests-table">
-                <thead>
-                    <tr>
-                        <th>Patient Name</th>
-                        <th>Service / Check-up</th>
-                        <th>Current Schedule</th>
-                        <th>Requested Date &amp; Time</th>
-                        <th>Reason</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if ($result_reschedule && $result_reschedule->num_rows > 0): ?>
-                        <?php while($row = $result_reschedule->fetch_assoc()): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($row['patient_name'] ?? '') ?></strong><br><small>Request #<?= (int) $row['request_id'] ?></small></td>
-                                <td><?= htmlspecialchars($row['service_type'] ?? '') ?></td>
-                                <td><?= date('M d, Y', strtotime($row['schedule_date'])) ?> <br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small></td>
-                                <td><?= date('M d, Y', strtotime($row['requested_date'])) ?><br><small><?= date('h:i A', strtotime($row['requested_time'])) ?></small></td>
-                                <td><?= nl2br(htmlspecialchars($row['reason'] ?? 'No reason provided')) ?></td>
-                                <td><span class="badge badge-resched">Resched Requested</span></td>
-                                <td>
-                                    <button class="btn-add" style="padding: 4px 8px; font-size: 0.75rem;"
-                                        onclick='openReschedModal(
-                                            <?= (int) $row["request_id"] ?>,
-                                            <?= json_encode($row["patient_name"] ?? "", JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
-                                            <?= json_encode($row["requested_date"], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
-                                            <?= json_encode(substr($row["requested_time"], 0, 5), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
-                                            <?= json_encode($row["reason"] ?? "", JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>
-                                        )'>Review</button>
-                                </td>
-                            </tr>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <tr><td colspan="7" style="text-align:center;">No pending reschedule requests.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            </div>
+
+            <?php
+            // Helper to render one reschedule requests table
+            function renderReschedTable($result, $label) { ?>
+            <section class="schedule-section">
+                <h3><?= htmlspecialchars($label) ?> Reschedule Requests
+                    (<?= $result ? $result->num_rows : 0 ?>)
+                </h3>
+                <div class="table-scroll">
+                <table class="reschedule-requests-table">
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>Service / Check-up</th>
+                            <th>Current Schedule</th>
+                            <th>Requested Date &amp; Time</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($result && $result->num_rows > 0): ?>
+                            <?php while($row = $result->fetch_assoc()): ?>
+                                <tr>
+                                    <td><strong><?= htmlspecialchars($row['patient_name'] ?? '') ?></strong><br><small>Request #<?= (int) $row['request_id'] ?></small></td>
+                                    <td><?= htmlspecialchars($row['service_type'] ?? '') ?></td>
+                                    <td><?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small></td>
+                                    <td><?= date('M d, Y', strtotime($row['requested_date'])) ?><br><small><?= date('h:i A', strtotime($row['requested_time'])) ?></small></td>
+                                    <td><?= nl2br(htmlspecialchars($row['reason'] ?? 'No reason provided')) ?></td>
+                                    <td><span class="badge badge-resched">Resched Requested</span></td>
+                                    <td>
+                                        <button class="btn-add" style="padding: 4px 8px; font-size: 0.75rem;"
+                                            onclick='openReschedModal(
+                                                <?= (int) $row["request_id"] ?>,
+                                                <?= json_encode($row["patient_name"] ?? "", JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
+                                                <?= json_encode($row["requested_date"], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
+                                                <?= json_encode(substr($row["requested_time"], 0, 5), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
+                                                <?= json_encode($row["reason"] ?? "", JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>
+                                            )'>Review</button>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="7" style="text-align:center;">No pending <?= strtolower(htmlspecialchars($label)) ?> reschedule requests.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+                </div>
+            </section>
+            <?php } ?>
+
+            <?php renderReschedTable($result_reschedule_maternal, 'Maternal'); ?>
+            <?php renderReschedTable($result_reschedule_child,    'Child'); ?>
+
         </div>
 
         <!-- Completed Appointments Tab Content -->
@@ -1508,9 +1706,9 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
                                                '<?= htmlspecialchars($row['notes'] ?? '', ENT_QUOTES) ?>'
                                            )">Edit</a>
                                         <span>|</span>
-                                        <form method="POST" onsubmit="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');" style="margin:0;">
+                                        <form method="POST" data-delete-form style="margin:0;">
                                             <input type="hidden" name="schedule_id" value="<?= $row['id'] ?>">
-                                            <button type="submit" name="delete_schedule" class="btn-delete">Delete</button>
+                                            <button type="button" class="btn-delete" onclick="openDeleteModal(this.closest('form'))">Delete</button>
                                         </form>
                                     </div>
                                 </td>
@@ -1704,7 +1902,7 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
             </div>
             <div style="display: flex; gap: 10px; margin-top: 10px;">
                 <button type="submit" name="update_schedule" class="btn-submit" style="margin-top: 0; flex: 2;">Update Schedule</button>
-                <button type="submit" name="delete_schedule" class="btn-delete" style="flex: 1; padding: 10px; font-size: 0.8rem;" onclick="return confirm('Sigurado ka bang gusto mong idelete ang schedule na ito?');">Delete</button>
+                <button type="button" class="btn-delete" style="flex: 1; padding: 10px; font-size: 0.8rem;" onclick="openDeleteModal(this.closest('form'))">Delete</button>
             </div>
         </form>
     </div>
@@ -1712,37 +1910,68 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
 
 <!-- Reschedule Review Modal -->
 <div id="reschedModal" class="modal">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; text-transform: uppercase; font-size: 1rem;">Review Reschedule Request</h3>
-            <span style="cursor: pointer; font-weight: bold;" onclick="document.getElementById('reschedModal').style.display='none'">&times;</span>
+    <div class="modal-content" style="max-width:500px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;text-transform:uppercase;font-size:1rem;">Review Reschedule Request</h3>
+            <span style="cursor:pointer;font-weight:bold;font-size:1.3rem;" onclick="document.getElementById('reschedModal').style.display='none'">&times;</span>
         </div>
-        
+
         <form method="POST">
             <input type="hidden" name="reschedule_request_id" id="resched_request_id">
+
+            <!-- Read-only info -->
             <div class="form-group">
                 <label>Patient Name</label>
-                <input type="text" id="resched_patient_name" readonly style="background: #f3f4f6;">
+                <input type="text" id="resched_patient_name" readonly style="background:#f3f4f6;">
             </div>
+
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;margin-bottom:14px;">
+                <p style="margin:0 0 8px;font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;">Patient's Requested Schedule</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.72rem;">Date</label>
+                        <input type="date" id="resched_proposed_date" readonly style="background:#fff;">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.72rem;">Time</label>
+                        <input type="time" id="resched_proposed_time" readonly style="background:#fff;">
+                    </div>
+                </div>
+            </div>
+
             <div class="form-group">
-                <label>Requested Date</label>
-                <input type="date" id="resched_proposed_date" readonly style="background: #f3f4f6;">
+                <label>Reason from Patient</label>
+                <textarea id="resched_reason" rows="2" readonly style="background:#f3f4f6;resize:none;"></textarea>
             </div>
+
+            <!-- Worker override section -->
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:14px 16px;margin-bottom:14px;">
+                <p style="margin:0 0 8px;font-size:0.75rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.04em;">Worker Override <span style="font-weight:400;text-transform:none;color:#b45309;">(optional — fill if you want a different date)</span></p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.72rem;">Override Date</label>
+                        <input type="date" name="override_date" id="resched_override_date">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.72rem;">Override Time</label>
+                        <input type="time" name="override_time" id="resched_override_time">
+                    </div>
+                </div>
+            </div>
+
             <div class="form-group">
-                <label>Requested Time</label>
-                <input type="time" id="resched_proposed_time" readonly style="background: #f3f4f6;">
+                <label>Worker Note <span style="font-weight:400;color:#6b7280;">(optional)</span></label>
+                <textarea name="worker_note" rows="2" placeholder="Add a note for the patient (e.g. please bring your health card)..." style="resize:vertical;"></textarea>
             </div>
-            <div class="form-group">
-                <label>Reason</label>
-                <textarea id="resched_reason" rows="3" readonly style="background: #f3f4f6;"></textarea>
-            </div>
+
             <div class="form-group">
                 <label>Action</label>
-                <select name="reschedule_action" required>
+                <select name="reschedule_action" id="resched_action" required onchange="toggleOverride(this.value)">
                     <option value="approve">Approve Reschedule</option>
                     <option value="reject">Reject Reschedule</option>
                 </select>
             </div>
+
             <button type="submit" name="handle_reschedule" class="btn-submit">Process Request</button>
         </form>
     </div>
@@ -1825,16 +2054,81 @@ $result_maternal_patients = $conn->query("SELECT id, CONCAT(client_fname, ' ', c
     }
 
     function openReschedModal(requestId, patientName, scheduleDate, scheduleTime, reason) {
-        document.getElementById('resched_request_id').value = requestId;
+        document.getElementById('resched_request_id').value   = requestId;
         document.getElementById('resched_patient_name').value = patientName;
         document.getElementById('resched_proposed_date').value = scheduleDate;
         document.getElementById('resched_proposed_time').value = scheduleTime;
-        document.getElementById('resched_reason').value = reason;
+        document.getElementById('resched_reason').value       = reason;
+        // Clear override fields and worker note each time modal opens
+        document.getElementById('resched_override_date').value = '';
+        document.getElementById('resched_override_time').value = scheduleTime; // default to same time
+        document.querySelector('[name="worker_note"]').value    = '';
+        document.getElementById('resched_action').value        = 'approve';
+        toggleOverride('approve');
         document.getElementById('reschedModal').style.display = 'block';
+    }
+
+    function toggleOverride(action) {
+        // Hide the override / worker-note section when rejecting (still present but less prominent)
+        const overrideBox = document.getElementById('resched_override_date')
+            ?.closest('[style*="background:#fffbeb"]');
+        if (overrideBox) {
+            overrideBox.style.opacity = action === 'reject' ? '0.4' : '1';
+            overrideBox.style.pointerEvents = action === 'reject' ? 'none' : '';
+        }
     }
 </script>
 
 <?php include 'footer.php'; ?>
 <?php $notif_path='../'; include '../notif_js.php'; ?>
+
+<script>
+(function () {
+    let _pendingForm = null;
+
+    window.openDeleteModal = function (form) {
+        _pendingForm = form;
+        document.getElementById('deleteModalOverlay').classList.add('is-open');
+        document.getElementById('deleteModalConfirm').focus();
+    };
+
+    window.closeDeleteModal = function () {
+        _pendingForm = null;
+        document.getElementById('deleteModalOverlay').classList.remove('is-open');
+    };
+
+    document.getElementById('deleteModalConfirm').addEventListener('click', function () {
+        if (!_pendingForm) return;
+
+        // Ensure delete_schedule hidden input exists
+        if (!_pendingForm.querySelector('[name="delete_schedule"]')) {
+            const h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'delete_schedule'; h.value = '1';
+            _pendingForm.appendChild(h);
+        }
+
+        // Detect which tab this form lives in and send it back as return_tab
+        if (!_pendingForm.querySelector('[name="return_tab"]')) {
+            const tabContent = _pendingForm.closest('.tab-content');
+            const tabId = tabContent ? tabContent.id : 'childTab';
+            const rt = document.createElement('input');
+            rt.type = 'hidden'; rt.name = 'return_tab'; rt.value = tabId;
+            _pendingForm.appendChild(rt);
+        }
+
+        _pendingForm.submit();
+    });
+
+    // Close on overlay click
+    document.getElementById('deleteModalOverlay').addEventListener('click', function (e) {
+        if (e.target === this) closeDeleteModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDeleteModal();
+    });
+})();
+</script>
 </body>
 </html>
