@@ -26,7 +26,7 @@ if (empty($_SESSION['admin_help_chat_csrf'])) {
         </header>
         <div class="admin-help-notice">Guide only ito at walang access sa patient records. Huwag maglagay ng pangalan o personal na impormasyon.</div>
         <div class="admin-help-messages" id="adminHelpMessages" aria-live="polite">
-            <div class="admin-help-message assistant">Hello! Maaari kitang gabayan sa pag-set ng schedule, pag-register ng maternal o child record, at paggamit ng admin tools. Ano ang kailangan mo?</div>
+            <div class="admin-help-message assistant">Hello! Maaari kitang gabayan sa admin tools at magpaliwanag ng fields sa maternal o child registration forms. Ano ang kailangan mo?</div>
         </div>
         <div class="admin-help-prompts" id="adminHelpPrompts">
             <button type="button" data-question="Paano mag-set ng schedule?">Set schedule</button>
@@ -36,6 +36,8 @@ if (empty($_SESSION['admin_help_chat_csrf'])) {
             <button type="button" data-question="Paano mag-register ng bata o infant?">Register patient</button>
             <button type="button" data-question="Paano maghanap ng patient record?">Find records</button>
             <button type="button" data-question="Paano mag-manage ng vaccine stock?">Vaccine stock</button>
+            <button type="button" data-question="Ano ang PHIC CAT sa registration form?">PHIC CAT</button>
+            <button type="button" data-question="Ano ang LMP?">LMP</button>
         </div>
         <form class="admin-help-form" id="adminHelpForm">
             <label class="admin-help-sr-only" for="adminHelpInput">Ask an admin question</label>
@@ -72,12 +74,12 @@ if (empty($_SESSION['admin_help_chat_csrf'])) {
     .admin-help-form button { width: 40px; height: 40px; border: 0; border-radius: 50%; color: #fff; background: #2d5016; cursor: pointer; }
     .admin-help-form button:disabled { opacity: .6; cursor: wait; }
     .admin-help-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-    [data-theme="dark"] .admin-help-panel { background: #242826; border-color: #3a403a; color: #e8ede5; }
-    [data-theme="dark"] .admin-help-notice, [data-theme="dark"] .admin-help-messages, [data-theme="dark"] .admin-help-prompts { background: #1e211e; color: #cbd4c5; }
-    [data-theme="dark"] .admin-help-message.assistant { background: #30382e; color: #e8ede5; }
-    [data-theme="dark"] .admin-help-prompts button { background: #242826; color: #cfe0c3; border-color: #52614a; }
-    [data-theme="dark"] .admin-help-form { border-color: #3a403a; }
-    [data-theme="dark"] .admin-help-form input { background: #1e211e; color: #e8ede5; border-color: #52614a; }
+
+
+
+
+
+
     @media (max-width: 480px) { .admin-help-chat { right: 12px; bottom: 12px; } .admin-help-panel { bottom: 60px; height: min(540px, calc(100vh - 90px)); } }
 </style>
 <script>

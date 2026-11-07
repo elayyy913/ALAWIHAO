@@ -56,6 +56,17 @@ if (count($recentRequests) >= 12) {
 $recentRequests[] = $now;
 $_SESSION['admin_help_chat_requests'] = $recentRequests;
 
+require_once __DIR__ . '/../registration_form_guide.php';
+$matchedFormGuide = registrationFormGuideMatch($question, 'admin');
+if ($matchedFormGuide !== null) {
+    adminHelpRespond(200, [
+        'success' => true,
+        'answer' => $matchedFormGuide['answer'],
+        'links' => $matchedFormGuide['links'],
+        'notice' => 'Sagot mula sa gabay sa registration form.',
+    ]);
+}
+
 $guides = [
     [
         'keywords' => ['schedule change', 'schedule edit', 'edit schedule', 'schedule approval', 'admin edit'],
