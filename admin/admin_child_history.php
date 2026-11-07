@@ -39,6 +39,15 @@ $history_records = [];
 while ($row = mysqli_fetch_assoc($history_query)) {
     $history_records[] = $row;
 }
+
+$report_logo_path = __DIR__ . '/../images/logo.jpg';
+$report_logo_contents = is_readable($report_logo_path) ? file_get_contents($report_logo_path) : false;
+if ($report_logo_contents === false) {
+    http_response_code(500);
+    die('Could not load the Alawihao logo for the child health report.');
+}
+$report_logo_data = 'data:image/jpeg;base64,' . base64_encode($report_logo_contents);
+$report_date = date('F j, Y g:i A');
 ?>
 
 <!DOCTYPE html>
@@ -268,6 +277,23 @@ while ($row = mysqli_fetch_assoc($history_query)) {
         .doc-header h4 { margin: 0; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; color: #4A5568; }
         .doc-header h2 { margin: 4px 0; font-size: 1.25rem; font-weight: 800; color: #000; }
         .doc-header p { margin: 0; font-size: 0.8rem; color: #4A5568; }
+        .report-header { width: 100%; border-bottom: 2px solid #43533a; margin-bottom: 20px; padding-bottom: 12px; }
+        .report-header td { border: 0; padding: 0; vertical-align: middle; }
+        .report-logo-cell { width: 88px; }
+        .report-logo { display: block; width: 76px; height: 76px; object-fit: contain; }
+        .report-identity { text-align: center; }
+        .report-identity p { margin: 0 0 4px; font-size: 0.72rem; color: #4A5568; }
+        .report-identity h1 { margin: 0 0 4px; color: #26351f; font-size: 1.1rem; letter-spacing: .4px; }
+        .report-identity h2 { margin: 0; color: #43533a; font-size: 0.85rem; }
+        .report-title-date { margin: 0 0 18px; text-align: center; }
+        .report-title-date h3 { margin: 0 0 5px; font-size: 1rem; }
+        .report-title-date p { margin: 0; color: #555; font-size: 0.72rem; }
+        .patient-info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .patient-info-table td { width: 50%; padding: 5px 8px; border: 1px solid #cbd5e0; font-size: 0.78rem; }
+        .midwife-signature { width: 280px; margin: 34px 0 0 auto; text-align: center; }
+        .midwife-signature-label { margin: 0 0 7px; text-align: left; font-size: 0.75rem; font-weight: bold; }
+        .midwife-signature-line { height: 48px; border-bottom: 1px solid #333; }
+        .midwife-signature-caption { margin: 4px 0 0; font-size: 0.7rem; }
         .doc-divider { border: none; border-top: 2px solid #000; margin: 12px 0 18px 0; }
         .doc-title { text-align: center; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; margin-bottom: 20px; text-decoration: underline; }
         .section-title { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #000; padding-bottom: 3px; }
@@ -410,64 +436,52 @@ while ($row = mysqli_fetch_assoc($history_query)) {
                 <button class="btn-close-modal" onclick="closePrintModal()">✕ Close Window</button>
             </div>
             <div class="toolbar-right">
+                <button class="btn-tool" onclick="downloadWordDocument()">&#9998; Download Word</button>
                 <button class="btn-tool print-btn" onclick="window.print()">🖨️ Print Document</button>
             </div>
         </div>
 
         <div class="modal-paper-sheet">
-            <div class="doc-header">
-                <h4>MUNICIPALITY OF DAET • PROVINCE OF CAMARINES NORTE</h4>
-                <h2>ALAWIHAO HEALTH CENTER</h2>
-                <p>Brgy. Alawihao, Daet, Camarines Norte</p>
+            <table class="report-header">
+                <tr>
+                    <td class="report-logo-cell"><img class="report-logo" src="<?php echo $report_logo_data; ?>" alt="Barangay Alawihao seal"></td>
+                    <td class="report-identity">
+                        <p>Municipality of Daet &bull; Province of Camarines Norte</p>
+                        <h1>ALAWIHAO HEALTH CENTER</h1>
+                        <h2>Brgy. Alawihao, Daet, Camarines Norte</h2>
+                    </td>
+                    <td class="report-logo-cell"></td>
+                </tr>
+            </table>
+
+            <div class="report-title-date">
+                <h3>Child Health Record Report</h3>
+                <p>Generated <?php echo htmlspecialchars($report_date, ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
 
-            <hr class="doc-divider">
+            <table class="patient-info-table">
+                <tr>
+                    <td><strong>Child Name:</strong> <?php echo htmlspecialchars($child['child_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><strong>Gender:</strong> <?php echo htmlspecialchars($child['gender'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                </tr>
+                <tr>
+                    <td><strong>Mother's Name:</strong> <?php echo htmlspecialchars($child['mother_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><strong>Birthdate:</strong> <?php echo !empty($child['birth_date']) ? htmlspecialchars(date('Y-m-d', strtotime($child['birth_date'])), ENT_QUOTES, 'UTF-8') : 'N/A'; ?></td>
+                </tr>
+                <tr>
+                    <td><strong>Father's Name:</strong> <?php echo htmlspecialchars($child['father_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><strong>Blood Type:</strong> <?php echo htmlspecialchars($child['blood_type'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                </tr>
+                <tr>
+                    <td><strong>Place of Birth:</strong> <?php echo htmlspecialchars($child['place_of_birth'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><strong>Health Center:</strong> Alawihao Health Center</td>
+                </tr>
+                <tr>
+                    <td colspan="2"><strong>Address:</strong> <?php echo htmlspecialchars(trim(($child['address'] ?? '') . (!empty($child['barangay']) ? ', ' . $child['barangay'] : '')) ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                </tr>
+            </table>
 
-            <div class="doc-title">
-                CHILD & INFANT HEALTH RECORD — CHECK-UP HISTORY
-            </div>
-
-            <div class="section-title">I. PERSONAL INFORMATION & REGISTRATION DETAILS</div>
-            <div class="info-grid-modal">
-                <div class="info-group-modal">
-                    <label>Pangalan ng Bata</label>
-                    <span><?php echo htmlspecialchars($child['child_name']); ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Pangalan ng Ina</label>
-                    <span><?php echo htmlspecialchars($child['mother_name'] ?? 'N/A'); ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Pangalan ng Ama</label>
-                    <span><?php echo htmlspecialchars($child['father_name'] ?? 'N/A'); ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Kasarian (Gender)</label>
-                    <span><?php echo htmlspecialchars($child['gender'] ?? 'N/A'); ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Kaarawan (DOB)</label>
-                    <span><?php echo !empty($child['birth_date']) ? date("Y-m-d", strtotime($child['birth_date'])) : 'N/A'; ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Blood Type</label>
-                    <span><?php echo htmlspecialchars($child['blood_type'] ?? 'N/A'); ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Lugar ng Kapanganakan</label>
-                    <span><?php echo htmlspecialchars($child['place_of_birth'] ?? 'N/A'); ?></span>
-                </div>
-                <div class="info-group-modal">
-                    <label>Health Center</label>
-                    <span>Alawihao Health Center</span>
-                </div>
-                <div class="info-group-modal" style="grid-column: span 3;">
-                    <label>Tirahan</label>
-                    <span><?php echo htmlspecialchars($child['address'] ?? 'N/A'); ?><?php echo !empty($child['barangay']) ? ', ' . htmlspecialchars($child['barangay']) : ''; ?></span>
-                </div>
-            </div>
-
-            <div class="section-title">II. CHECK-UP & IMMUNIZATION RECORD DETAILS</div>
+            <div class="section-title">Check-up & Immunization Record Details</div>
             
             <table class="doc-table-modal">
                 <thead>
@@ -505,18 +519,10 @@ while ($row = mysqli_fetch_assoc($history_query)) {
                 </tbody>
             </table>
 
-            <div class="signatures-container">
-                <div class="sig-box">
-                    <div class="sig-line"></div>
-                    <div class="sig-title">NAG-HANDLE NA MIDWIFE / NURSE</div>
-                    <div class="sig-subtitle">Signature Over Printed Name</div>
-                </div>
-
-                <div class="sig-box">
-                    <div class="sig-line"></div>
-                    <div class="sig-title">MUNICIPAL HEALTH OFFICER / OIC</div>
-                    <div class="sig-subtitle">Alawihao Health Center</div>
-                </div>
+            <div class="midwife-signature">
+                <p class="midwife-signature-label">Prepared by:</p>
+                <div class="midwife-signature-line"></div>
+                <p class="midwife-signature-caption">Signature over Printed Name of Midwife</p>
             </div>
         </div>
 
@@ -530,6 +536,79 @@ while ($row = mysqli_fetch_assoc($history_query)) {
 
     function closePrintModal() {
         document.getElementById('printModal').style.display = 'none';
+    }
+
+    function downloadWordDocument() {
+        const report = document.querySelector('.modal-paper-sheet');
+        if (!report) {
+            return;
+        }
+
+        const childName = <?php echo json_encode($child['child_name'] ?? 'Child_Record', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+        const fileName = String(childName)
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+            .trim()
+            .replace(/\s+/g, '_') || 'Child_Record';
+        const documentHtml = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                  xmlns:w="urn:schemas-microsoft-com:office:word"
+                  xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <title>Child Health Record</title>
+                <style>
+                    @page { size: A4 portrait; margin: 20mm; }
+                    body { font-family: Arial, sans-serif; color: #000; font-size: 10pt; }
+                    .modal-paper-sheet { width: 100%; }
+                    .report-header { width: 100%; border-bottom: 2px solid #43533a; margin-bottom: 20px; padding-bottom: 12px; }
+                    .report-header td { border: 0; padding: 0; vertical-align: middle; }
+                    .report-logo-cell { width: 88px; }
+                    .report-logo { display: block; width: 76px; height: 76px; }
+                    .report-identity { text-align: center; }
+                    .report-identity p { margin: 0 0 4px; font-size: 9pt; }
+                    .report-identity h1 { margin: 0 0 4px; color: #26351f; font-size: 15pt; }
+                    .report-identity h2 { margin: 0; color: #43533a; font-size: 11pt; }
+                    .report-title-date { margin: 0 0 18px; text-align: center; }
+                    .report-title-date h3 { margin: 0 0 5px; font-size: 12pt; }
+                    .report-title-date p { margin: 0; color: #555; font-size: 9pt; }
+                    .patient-info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    .patient-info-table td { width: 50%; padding: 5px 8px; border: 1px solid #cbd5e0; font-size: 9pt; }
+                    .doc-header { text-align: center; margin-bottom: 15px; }
+                    .doc-header h4 { margin: 0; font-size: 9pt; letter-spacing: 1px; text-transform: uppercase; }
+                    .doc-header h2 { margin: 4px 0; font-size: 15pt; font-weight: bold; }
+                    .doc-header p { margin: 0; font-size: 9pt; }
+                    .doc-divider { border: 0; border-top: 2px solid #000; margin: 12px 0 18px; }
+                    .doc-title { text-align: center; font-weight: bold; font-size: 11pt; text-transform: uppercase; margin-bottom: 20px; text-decoration: underline; }
+                    .section-title { font-weight: bold; font-size: 10pt; text-transform: uppercase; margin: 15px 0 12px; border-bottom: 1px solid #000; padding-bottom: 3px; }
+                    .info-grid-modal { width: 100%; margin-bottom: 25px; }
+                    .info-group-modal { display: inline-block; vertical-align: top; width: 31%; margin: 0 1% 10px 0; }
+                    .info-group-modal label { display: block; font-size: 8pt; font-weight: bold; text-transform: uppercase; }
+                    .info-group-modal span { font-size: 9pt; font-weight: bold; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 35px; }
+                    th, td { border: 1px solid #000; padding: 6px; font-size: 9pt; text-align: left; vertical-align: top; }
+                    th { background: #e8edf2; font-weight: bold; text-transform: uppercase; }
+                    .midwife-signature { width: 280px; margin: 34px 0 0 auto; text-align: center; }
+                    .midwife-signature-label { margin: 0 0 7px; text-align: left; font-size: 9pt; font-weight: bold; }
+                    .midwife-signature-line { height: 48px; border-bottom: 1px solid #333; }
+                    .midwife-signature-caption { margin: 4px 0 0; font-size: 8pt; }
+                    .signatures-container { width: 100%; margin-top: 60px; }
+                    .sig-box { display: inline-block; vertical-align: top; width: 48%; text-align: center; }
+                    .sig-line { border-top: 1px solid #000; margin-bottom: 5px; }
+                    .sig-title { font-weight: bold; font-size: 9pt; text-transform: uppercase; }
+                    .sig-subtitle { font-size: 8pt; }
+                </style>
+            </head>
+            <body>${report.innerHTML}</body>
+            </html>`;
+        const blob = new Blob(['\ufeff', documentHtml], { type: 'application/msword' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName + '_Health_Record.doc';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(downloadUrl);
     }
 </script>
 

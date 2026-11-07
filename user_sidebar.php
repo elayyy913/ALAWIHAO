@@ -1,6 +1,12 @@
 <?php 
 $current_page = basename($_SERVER['PHP_SELF']); 
 $is_home = ($current_page == 'user_dashboard.php');
+$show_community_link = false;
+if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'])) {
+    require_once __DIR__ . '/community_chat_helpers.php';
+    $community_sidebar_member = communityChatCurrentMember($conn);
+    $show_community_link = $community_sidebar_member !== null && $community_sidebar_member['role'] === 'User';
+}
 ?>
 
 <!-- HAMBURGER BUTTON -->
@@ -41,6 +47,12 @@ $is_home = ($current_page == 'user_dashboard.php');
 
         <span class="nav-label">(others)</span>
         <a href="user_schedule.php" class="nav-link" id="link-schedule">Schedule</a>
+        <?php if ($show_community_link): ?>
+        <a href="community.php" class="nav-link <?php echo $current_page === 'community.php' ? 'active' : ''; ?>" id="link-community" data-user-id="<?php echo (int) $_SESSION['user_id']; ?>">
+            Community <span class="community-unread-dot" data-community-unread-dot aria-label="May bagong mensahe" hidden></span>
+        </a>
+        <script src="/FINAL_CAPSTONE/community_chat_notifications.js" defer></script>
+        <?php endif; ?>
         <a href="user_settings.php" class="nav-link" id="link-settings">Settings</a>
     </div>
 
@@ -237,6 +249,17 @@ if (in_array($current_page, $chatbot_pages, true)) {
         cursor: pointer;
         text-align: left;
     }
+    .community-unread-dot {
+        width: 9px;
+        height: 9px;
+        flex: 0 0 9px;
+        margin-left: auto;
+        margin-right: 4px;
+        border-radius: 50%;
+        background: #2f9e44;
+        box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.15);
+    }
+    .community-unread-dot[hidden] { display: none; }
     .dropdown-heading {
         cursor: default;
         margin-top: 2px;
