@@ -33,8 +33,6 @@ $is_sms_active      = ($current_page === 'sms_management.php');
 $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admin_setting.php']);
 ?>
 
-<script src="/FINAL_CAPSTONE/theme.js"></script>
-<link rel="stylesheet" href="/FINAL_CAPSTONE/theme.css">
 <script>
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {
@@ -145,7 +143,7 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         line-height: 1.2 !important;
     }
     .brand-name span { color: var(--sage) !important; }
-    [data-theme="dark"] .sidebar .brand-name { color: #f3f7ed !important; }
+
     .sidebar-header p {
         font-size: 0.65rem !important;
         color: var(--text-muted) !important;
@@ -262,52 +260,17 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
     }
     .logout-btn:hover { background: #FFF5F5 !important; }
 
-    [data-theme="dark"] .sidebar {
-        color: var(--dm-text) !important;
-    }
-    [data-theme="dark"] .sidebar .brand-name,
-    [data-theme="dark"] .sidebar .management-heading,
-    [data-theme="dark"] .sidebar .nav-link,
-    [data-theme="dark"] .sidebar .dropdown-btn,
-    [data-theme="dark"] .sidebar .dropdown-container a {
-        color: var(--dm-text) !important;
-    }
-    [data-theme="dark"] .sidebar .brand-name span {
-        color: #A8C88E !important;
-    }
-    [data-theme="dark"] .sidebar .sidebar-header p,
-    [data-theme="dark"] .sidebar .nav-label,
-    [data-theme="dark"] .sidebar .close-sidebar-x {
-        color: var(--dm-text2) !important;
-    }
-    [data-theme="dark"] .sidebar .dropdown-container {
-        background-color: var(--dm-surface2) !important;
-    }
-    [data-theme="dark"] .sidebar .nav-link:hover,
-    [data-theme="dark"] .sidebar .dropdown-btn:hover,
-    [data-theme="dark"] .sidebar .dropdown-container a:hover {
-        background-color: var(--dm-hover) !important;
-        color: var(--dm-text) !important;
-    }
-    [data-theme="dark"] .sidebar .nav-link.active,
-    [data-theme="dark"] .sidebar .dropdown-btn.active-parent {
-        background-color: var(--dm-sage) !important;
-        color: #172016 !important;
-    }
-    [data-theme="dark"] .sidebar .dropdown-container a.active {
-        background-color: var(--dm-hover) !important;
-        color: var(--dm-text) !important;
-    }
-    [data-theme="dark"] .sidebar .logout-btn {
-        color: #FF8A8A !important;
-    }
-    [data-theme="dark"] .sidebar .logout-btn:hover {
-        background-color: rgba(255, 107, 107, 0.12) !important;
-        color: #FFB3B3 !important;
-    }
-    [data-theme="dark"] .open-sidebar-btn {
-        color: #172016 !important;
-    }
+
+
+
+
+
+
+
+
+
+
+
 
     /* DYNAMIC ADJUSTMENT FOR MAIN CONTENT */
     .main-content, #main, #main-wrapper {

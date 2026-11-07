@@ -40,8 +40,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_profile'])) {
     $email = trim($_POST['email'] ?? '');
     $contact = trim($_POST['contact'] ?? '');
     $address = trim($_POST['address'] ?? '');
+    $current_profile_password = $_POST['profile_password'] ?? '';
+    $stored_password = (string)($admin['password'] ?? '');
+    $profile_password_matches = $current_profile_password !== '' && $stored_password !== '' && (
+        password_verify($current_profile_password, $stored_password)
+        || hash_equals($stored_password, $current_profile_password)
+    );
 
-    if ($first_name === '' || $last_name === '' || $email === '') {
+    if (!$profile_password_matches) {
+        $message = "<div class='alert error'>Incorrect current password. No changes were saved.</div>";
+    } elseif ($first_name === '' || $last_name === '' || $email === '') {
         $message = "<div class='alert error'>Please complete all required profile information.</div>";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $message = "<div class='alert error'>Please enter a valid email address.</div>";
@@ -440,6 +448,58 @@ label {
     background: #cbd5e1;
 }
 
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(3px);
+    padding: 20px;
+}
+
+.modal-box {
+    background: var(--white);
+    padding: 30px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border-top: 5px solid var(--green);
+}
+
+.modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--green);
+    margin-bottom: 10px;
+}
+
+.modal-desc {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-cancel {
+    background: #e2e8f0;
+    color: #334155;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .btn-primary-action {
     background: var(--green);
     color: white;
@@ -591,6 +651,18 @@ label {
     <span class="page-label">Account Settings & Profile</span>
 </div>
 
+<div id="securityModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="securityModalTitle">
+    <div class="modal-box">
+        <div class="modal-title" id="securityModalTitle"><i class="fa fa-lock"></i> Security Verification</div>
+        <div class="modal-desc">Enter your current password to edit your profile.</div>
+        <input type="password" id="modalPasswordInput" class="settings-input" placeholder="Enter current password" autocomplete="current-password">
+        <div class="modal-actions">
+            <button type="button" class="modal-cancel" onclick="closeSecurityModal()">Cancel</button>
+            <button type="button" class="btn btn-primary-action" style="width:auto" onclick="continueWithPassword()">Continue</button>
+        </div>
+    </div>
+</div>
+
 <div id="main">
     <div class="settings-container">
 
@@ -611,6 +683,10 @@ label {
             <div class="settings-section-title"><i class="fa fa-camera"></i> Profile Picture</div>
             <form action="update_profile_picture.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($profile_picture_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <div class="form-group">
+                    <label for="picture_current_password">Current Password</label>
+                    <input type="password" id="picture_current_password" name="current_password" class="settings-input" autocomplete="current-password" required>
+                </div>
                 <?php $profile_picture_url = profilePictureUrl($admin['profile_picture'] ?? ''); ?>
                 <?php if ($profile_picture_url !== ''): ?>
                     <img src="<?php echo htmlspecialchars($profile_picture_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Current profile picture" class="profile-avatar" style="width: 84px; height: 84px; margin-bottom: 14px;">
@@ -675,8 +751,10 @@ label {
                     <input type="text" name="address" class="edit-input" value="<?php echo htmlspecialchars($admin['address'] ?? ''); ?>">
                 </div>
 
+                <input type="hidden" name="profile_password" id="profile_password">
+
                 <div class="button-group">
-                    <button type="button" id="editBtn" class="btn btn-edit" onclick="toggleEdit(true)">
+                    <button type="button" id="editBtn" class="btn btn-edit" onclick="openSecurityModal()">
                         <i class="fa fa-pen-to-square"></i> Edit Profile
                     </button>
 
@@ -865,12 +943,36 @@ function toggleEdit(isEditing) {
         saveBtn.style.display = 'flex';
         cancelBtn.style.display = 'flex';
     } else {
+        document.getElementById('profile_password').value = '';
         values.forEach(v => v.style.display = 'block');
         inputs.forEach(i => i.style.display = 'none');
         editBtn.style.display = 'flex';
         saveBtn.style.display = 'none';
         cancelBtn.style.display = 'none';
     }
+}
+
+function openSecurityModal() {
+    document.getElementById('modalPasswordInput').value = '';
+    document.getElementById('securityModal').style.display = 'flex';
+    document.getElementById('modalPasswordInput').focus();
+}
+
+function closeSecurityModal() {
+    document.getElementById('securityModal').style.display = 'none';
+    document.getElementById('modalPasswordInput').value = '';
+}
+
+function continueWithPassword() {
+    const passwordInput = document.getElementById('modalPasswordInput');
+    if (passwordInput.value === '') {
+        passwordInput.focus();
+        return;
+    }
+
+    document.getElementById('profile_password').value = passwordInput.value;
+    closeSecurityModal();
+    toggleEdit(true);
 }
 
 // Proteksyon laban sa copy, paste, cut, at right-click sa password fields
