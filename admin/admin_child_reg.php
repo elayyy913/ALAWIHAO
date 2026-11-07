@@ -28,6 +28,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     $mother = mysqli_real_escape_string($conn, $_POST['mother_name']);
     $father = mysqli_real_escape_string($conn, $_POST['father_name']); 
+    $contact = mysqli_real_escape_string($conn, $_POST['contact'] ?? '');
     
     // Nakuha ang administered_by mula sa input field
     $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']);
@@ -48,10 +49,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $vaccines = !empty($vaccines_arr) ? implode(", ", $vaccines_arr) : "None";
 
-    $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, contact, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("issssdsssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines, $administered_by);
+        $stmt->bind_param("issssdssssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $contact, $status, $vaccines, $administered_by);
         if ($stmt->execute()) {
             $child_id = $conn->insert_id;
             logAdminAction($conn, "Registered child record (Child ID: {$child_id}).");
@@ -336,6 +337,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         @media (max-width: 768px) {
             .form-grid { grid-template-columns: 1fr; }
         }
+
+        .phone-row {
+            display: grid;
+            grid-template-columns: 160px minmax(0, 1fr);
+            gap: 10px;
+            align-items: end;
+        }
+        .phone-code-group, .phone-number-group { display: flex; flex-direction: column; gap: 4px; }
+        .phone-country-select {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #d1d5db; border-radius: 4px;
+            background: #fff; font-size: 0.88rem; font-family: inherit; cursor: pointer;
+        }
+        .phone-country-select:hover, .phone-country-select:focus,
+        .phone-input:hover, .phone-input:focus {
+            outline: none;
+            border-color: var(--sage-green);
+            box-shadow: 0 0 0 3px rgba(113, 131, 85, 0.12);
+        }
+        .phone-input {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #d1d5db; border-radius: 4px;
+            font-size: 0.88rem; font-family: inherit; box-sizing: border-box;
+        }
+        .field-hint { font-size: 0.75rem; color: #6b7280; margin-top: 4px; display: block; }
     </style>
 </head>
 <body>
@@ -461,6 +487,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
+            <div class="form-grid" style="margin-top: 12px;">
+                <div class="form-group" style="grid-column: span 2;">
+                    <div class="phone-row">
+                        <div class="phone-code-group">
+                            <label>Country code</label>
+                            <select id="countrySelect" class="phone-country-select" name="contact_country" aria-label="Choose country">
+                                <option value="PH" selected>🇵🇭 +63</option>
+                                <option value="US">🇺🇸 +1</option>
+                                <option value="UK">🇬🇧 +44</option>
+                                <option value="AU">🇦🇺 +61</option>
+                            </select>
+                        </div>
+                        <div class="phone-number-group">
+                            <label>Phone number</label>
+                            <input id="contactInput" class="phone-input" type="tel" name="contact" inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number" required>
+                        </div>
+                    </div>
+                    <small class="field-hint" id="contactHint">Philippine format: 09XXXXXXXXX</small>
+                </div>
+            </div>
+
             <div class="form-section-title">Immunization Records</div>
             <div class="form-group" style="margin-bottom: 10px;">
                 <label>Select Vaccines Taken & Date Administered</label>
@@ -579,6 +626,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (sidebar) {
             mainContent.classList.add('main-content-active');
         }
+
+        // ── Phone number country-aware validation ──
+        const countrySelect = document.getElementById('countrySelect');
+        const contactInput  = document.getElementById('contactInput');
+        const contactHint   = document.getElementById('contactHint');
+
+        const countryRules = {
+            PH: { maxLength: 11, pattern: /^09\d{9}$/, hint: 'Philippine format: 09XXXXXXXXX', placeholder: '09123456789' },
+            US: { maxLength: 10, pattern: /^\d{10}$/, hint: 'US format: 10-digit number', placeholder: '5551234567' },
+            UK: { maxLength: 11, pattern: /^\d{10,11}$/, hint: 'UK format: 10-11 digit number', placeholder: '07911123456' },
+            AU: { maxLength: 9,  pattern: /^\d{9}$/,  hint: 'AU format: 9-digit number', placeholder: '412345678' },
+        };
+
+        function applyCountryRules() {
+            const rule = countryRules[countrySelect.value] || countryRules.PH;
+            contactInput.maxLength   = rule.maxLength;
+            contactInput.placeholder = rule.placeholder;
+            contactInput.setAttribute('pattern', rule.pattern.source);
+            contactInput.setAttribute('title', 'Enter a valid phone number.');
+            contactHint.textContent  = rule.hint;
+            contactInput.value = contactInput.value.replace(/\D/g, '').slice(0, rule.maxLength);
+        }
+
+        countrySelect.addEventListener('change', applyCountryRules);
+        contactInput.addEventListener('input', function () {
+            const rule = countryRules[countrySelect.value] || countryRules.PH;
+            this.value = this.value.replace(/\D/g, '').slice(0, rule.maxLength);
+        });
+        contactInput.addEventListener('blur', function () {
+            const rule = countryRules[countrySelect.value] || countryRules.PH;
+            if (this.value && !rule.pattern.test(this.value)) {
+                this.setCustomValidity('Please enter a valid phone number.');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+        applyCountryRules();
 
         const toast = document.getElementById('registrationToast');
         if (toast) {

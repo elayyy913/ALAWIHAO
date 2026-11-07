@@ -145,50 +145,25 @@ $totalStaffCount = count($personnel);
         
         .close-x { position: absolute; top: 25px; right: 25px; cursor: pointer; color: #CBD5E0; font-size: 1.2rem; }
 
-        [data-theme="dark"] .btn-add,
-        [data-theme="dark"] .btn-action-main,
-        [data-theme="dark"] .btn-action-danger {
-            color: #fff !important;
-        }
-        [data-theme="dark"] .btn-view {
-            color: var(--dm-sage) !important;
-        }
-        [data-theme="dark"] .btn-delete {
-            color: #ff8585 !important;
-        }
-        [data-theme="dark"] .btn-action-secondary {
-            background: var(--dm-surface2) !important;
-            border-color: var(--dm-border) !important;
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] .modal-pad {
-            background: var(--dm-surface) !important;
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] .modal-pad h3,
-        [data-theme="dark"] .modal-pad p {
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] .modal-footer {
-            background: var(--dm-surface2) !important;
-            border-color: var(--dm-border) !important;
-        }
-        [data-theme="dark"] .summary-card { background: var(--dm-surface2) !important; border-color: var(--dm-border) !important; }
-        [data-theme="dark"] .summary-label,
-        [data-theme="dark"] .worker-email,
-        [data-theme="dark"] .directory-result-count { color: var(--dm-text2) !important; }
-        [data-theme="dark"] .summary-value,
-        [data-theme="dark"] .worker-name { color: var(--dm-text) !important; }
-        [data-theme="dark"] .directory-search input,
-        [data-theme="dark"] .directory-toolbar select { background: var(--dm-surface2) !important; border-color: var(--dm-border) !important; color: var(--dm-text) !important; }
-        [data-theme="dark"] .directory-search i { color: var(--dm-text2); }
-        [data-theme="dark"] .directory-table-wrap { border-color: var(--dm-border); }
-        [data-theme="dark"] tbody tr:hover { background: var(--dm-surface2); }
-        [data-theme="dark"] td { border-color: var(--dm-border); }
-        [data-theme="dark"] .role-badge { background: #343b35 !important; color: var(--dm-text) !important; }
-        [data-theme="dark"] .worker-status.online { background: #24412d !important; color: #a7d8ae !important; }
-        [data-theme="dark"] .worker-status.offline { background: #343b35 !important; color: var(--dm-text2) !important; }
-        [data-theme="dark"] .empty-row { color: var(--dm-text2); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         @media (max-width: 760px) {
             .main-content { padding: 78px 20px 24px; }
