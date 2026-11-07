@@ -53,7 +53,7 @@ if ($imageInfo === false || !isset($extensions[$mime]) || $imageInfo['mime'] !==
 
 include '../db_connect.php';
 $userId = (int)$_SESSION['user_id'];
-$accountStmt = $conn->prepare("SELECT role, profile_picture FROM users WHERE id = ?");
+$accountStmt = $conn->prepare("SELECT role, profile_picture, password FROM users WHERE id = ?");
 if (!$accountStmt) {
     error_log("Profile picture account lookup preparation failed: " . $conn->error);
     $redirectWithMessage("Unable to load your account. Please try again.", 'error');
@@ -68,6 +68,19 @@ $account = $accountStmt->get_result()->fetch_assoc();
 $accountStmt->close();
 if (!$account || $account['role'] !== $role) {
     $redirectWithMessage("Your account could not be verified. Please sign in again.", 'error');
+}
+
+$currentPassword = $_POST['current_password'] ?? '';
+$storedPassword = (string)($account['password'] ?? '');
+$passwordMatches = is_string($currentPassword)
+    && $currentPassword !== ''
+    && $storedPassword !== ''
+    && (
+        password_verify($currentPassword, $storedPassword)
+        || hash_equals($storedPassword, $currentPassword)
+    );
+if (!$passwordMatches) {
+    $redirectWithMessage("Incorrect current password. Your profile picture was not changed.", 'error');
 }
 
 $uploadDirectory = __DIR__ . '/uploads/profile';

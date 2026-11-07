@@ -919,45 +919,31 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         .action-edit { color: var(--sage-green); }
         .action-delete { color: var(--danger-red); }
 
-        [data-theme="dark"] .page-header { border-color: var(--dm-border); }
-        [data-theme="dark"] .page-header h2,
-        [data-theme="dark"] .chart-empty-state h3 { color: var(--dm-text) !important; }
-        [data-theme="dark"] .page-subtitle,
-        [data-theme="dark"] .card h3,
-        [data-theme="dark"] .inventory-state,
-        [data-theme="dark"] .chart-empty-state p,
-        [data-theme="dark"] .history-result-count,
-        [data-theme="dark"] .vaccine-description,
-        [data-theme="dark"] .table-muted,
-        [data-theme="dark"] .table-empty,
-        [data-theme="dark"] .history-empty { color: var(--dm-text2) !important; }
-        [data-theme="dark"] .card,
-        [data-theme="dark"] .chart-container,
-        [data-theme="dark"] .tab-content { background: var(--dm-surface) !important; border-color: var(--dm-border) !important; }
-        [data-theme="dark"] .btn-report { background: var(--dm-surface); border-color: var(--dm-border); color: var(--dm-text); }
-        [data-theme="dark"] .btn-report:hover { background: var(--dm-surface2); }
-        [data-theme="dark"] .low-stock-name { color: var(--dm-text); }
-        [data-theme="dark"] .low-stock-category { color: var(--dm-text2); }
-        [data-theme="dark"] .low-stock-quantity { background: #51411f; color: #f4d58c; }
-        [data-theme="dark"] .low-stock-quantity.is-out { background: #512b2a; color: #f3aaaa; }
-        [data-theme="dark"] .low-stock-heading i { color: #f3aaaa; }
-        [data-theme="dark"] .low-stock-list li { border-color: var(--dm-border); }
-        [data-theme="dark"] .chart-empty-icon { background: var(--dm-surface2); color: var(--dm-sage); }
-        [data-theme="dark"] .history-toolbar input,
-        [data-theme="dark"] .history-toolbar select { background: var(--dm-surface2); border-color: var(--dm-border); color: var(--dm-text); }
-        [data-theme="dark"] .vaccine-search-toolbar input { background: var(--dm-surface2); border-color: var(--dm-border); color: var(--dm-text); }
-        [data-theme="dark"] .vaccine-search-count { color: var(--dm-text2); }
-        [data-theme="dark"] .table-scroll { border-color: var(--dm-border); }
-        [data-theme="dark"] .inventory-table th { background: var(--dm-surface2); color: var(--dm-text); }
-        [data-theme="dark"] .inventory-table td { border-color: var(--dm-border); color: var(--dm-text); }
-        [data-theme="dark"] .inventory-table tbody tr:hover { background: var(--dm-surface2); }
-        [data-theme="dark"] .stock-badge-in,
-        [data-theme="dark"] .movement-badge-in { background: #24412d; color: #a7d8ae; }
-        [data-theme="dark"] .stock-badge-low { background: #51411f; color: #f4d58c; }
-        [data-theme="dark"] .stock-badge-out,
-        [data-theme="dark"] .movement-badge-out { background: #512b2a; color: #f3aaaa; }
-        [data-theme="dark"] .success-msg { background: #24412d; color: #a7d8ae; border-color: #5f9b63; }
-        [data-theme="dark"] .error-msg { background: #512b2a; color: #f3aaaa; border-color: #dc6262; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         @media (max-width: 900px) {
             #main { padding-top: 78px; }

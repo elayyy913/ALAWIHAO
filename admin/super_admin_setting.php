@@ -18,7 +18,7 @@ $profile_picture_message_type = $_SESSION['profile_picture_message_type'] ?? 'su
 unset($_SESSION['profile_picture_message'], $_SESSION['profile_picture_message_type']);
 
 $user_id = (int) $_SESSION['user_id'];
-$account_stmt = $conn->prepare("SELECT email, profile_picture, first_name FROM users WHERE id = ?");
+$account_stmt = $conn->prepare("SELECT email, profile_picture, first_name, last_name, password FROM users WHERE id = ? AND role = 'Super Admin'");
 if (!$account_stmt) {
     die("Unable to load the Super Admin account.");
 }
@@ -40,49 +40,127 @@ unset($_SESSION['error_message'], $_SESSION['success_message']);
 
 // 1. HANDLE SYSTEM INFO UPDATE
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_system_info'])) {
-    $sys_name = mysqli_real_escape_string($conn, $_POST['sys_name']);
-    $sys_contact = mysqli_real_escape_string($conn, $_POST['sys_contact']);
-    $sys_address = mysqli_real_escape_string($conn, $_POST['sys_address']);
+    $reauth_password = $_POST['reauth_password'] ?? '';
+    $stored_password = (string)($account['password'] ?? '');
+    $password_matches = $reauth_password !== '' && $stored_password !== '' && (
+        password_verify($reauth_password, $stored_password)
+        || hash_equals($stored_password, $reauth_password)
+    );
 
-    $check_table = mysqli_query($conn, "SHOW TABLES LIKE 'system_settings'");
-    if (mysqli_num_rows($check_table) == 0) {
-        mysqli_query($conn, "CREATE TABLE system_settings (id INT PRIMARY KEY, sys_name VARCHAR(255), sys_contact VARCHAR(50), sys_address TEXT)");
-        mysqli_query($conn, "INSERT INTO system_settings (id, sys_name, sys_contact, sys_address) VALUES (1, '$sys_name', '$sys_contact', '$sys_address')");
+    if (!$password_matches) {
+        $message = "Incorrect current password. No system settings were changed.";
+        $message_type = "error";
     } else {
-        $query = "UPDATE system_settings SET sys_name = '$sys_name', sys_contact = '$sys_contact', sys_address = '$sys_address' WHERE id = 1";
-        mysqli_query($conn, $query);
+        $sys_name = mysqli_real_escape_string($conn, $_POST['sys_name'] ?? '');
+        $sys_contact = mysqli_real_escape_string($conn, $_POST['sys_contact'] ?? '');
+        $sys_address = mysqli_real_escape_string($conn, $_POST['sys_address'] ?? '');
+
+        $check_table = mysqli_query($conn, "SHOW TABLES LIKE 'system_settings'");
+        if (mysqli_num_rows($check_table) == 0) {
+            mysqli_query($conn, "CREATE TABLE system_settings (id INT PRIMARY KEY, sys_name VARCHAR(255), sys_contact VARCHAR(50), sys_address TEXT)");
+            mysqli_query($conn, "INSERT INTO system_settings (id, sys_name, sys_contact, sys_address) VALUES (1, '$sys_name', '$sys_contact', '$sys_address')");
+        } else {
+            $query = "UPDATE system_settings SET sys_name = '$sys_name', sys_contact = '$sys_contact', sys_address = '$sys_address' WHERE id = 1";
+            mysqli_query($conn, $query);
+        }
+
+        logAdminAction($conn, "Updated health center system information.");
+        $message = "System settings updated successfully!";
+        $message_type = "success";
     }
-
-    // RECORD TO ACTIVITY LOG
-    logAdminAction($conn, "Updated health center system information.");
-
-    $message = "System settings updated successfully!";
-    $message_type = "success";
 }
 
 // 2. HANDLE ADMIN PROFILE & PASSWORD UPDATE
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile'])) {
-    $admin_name = mysqli_real_escape_string($conn, $_POST['admin_name']);
-    $admin_email = mysqli_real_escape_string($conn, $_POST['admin_email']);
-    $current_pwd = $_POST['current_pwd'];
-    $new_pwd = $_POST['new_pwd'];
+    $admin_first_name = trim($_POST['admin_first_name'] ?? '');
+    $admin_last_name = trim($_POST['admin_last_name'] ?? '');
+    $admin_email = trim($_POST['admin_email'] ?? '');
+    $reauth_password = $_POST['reauth_password'] ?? '';
+    $current_pwd = $_POST['current_pwd'] ?? '';
+    $new_pwd = $_POST['new_pwd'] ?? '';
+    $stored_password = (string)($account['password'] ?? '');
+    $reauth_password_matches = $reauth_password !== '' && $stored_password !== '' && (
+        password_verify($reauth_password, $stored_password)
+        || hash_equals($stored_password, $reauth_password)
+    );
 
-    $update_info = "UPDATE admin_users SET full_name = '$admin_name', email = '$admin_email' WHERE id = 1";
-    @mysqli_query($conn, $update_info);
+    if (!$reauth_password_matches) {
+        $message = "Incorrect current password. No profile changes were saved.";
+        $message_type = "error";
+    } elseif ($admin_first_name === '' || $admin_last_name === '' || !filter_var($admin_email, FILTER_VALIDATE_EMAIL)) {
+        $message = "Enter a first name, last name, and valid email address.";
+        $message_type = "error";
+    } elseif ($new_pwd !== '' && $current_pwd === '') {
+        $message = "Enter your current password before setting a new password.";
+        $message_type = "error";
+    } elseif ($new_pwd !== '' && strlen($new_pwd) < 8) {
+        $message = "The new password must be at least 8 characters long.";
+        $message_type = "error";
+    } else {
+        $email_check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1");
+        if (!$email_check) {
+            error_log("Super Admin email check preparation failed: " . $conn->error);
+            $message = "Unable to update your profile right now. Please try again.";
+            $message_type = "error";
+        } else {
+            $email_check->bind_param("si", $admin_email, $user_id);
+            $email_check->execute();
+            $email_in_use = $email_check->get_result()->num_rows > 0;
+            $email_check->close();
 
-    if (!empty($new_pwd)) {
-        if (!empty($current_pwd)) {
-            $hashed_password = password_hash($new_pwd, PASSWORD_DEFAULT);
-            $update_pwd = "UPDATE admin_users SET password = '$hashed_password' WHERE id = 1";
-            @mysqli_query($conn, $update_pwd);
+            if ($email_in_use) {
+                $message = "That email address is already being used by another account.";
+                $message_type = "error";
+            } else {
+                $password_matches = $current_pwd !== ''
+                    && (
+                        password_verify($current_pwd, (string) $account['password'])
+                        || hash_equals((string) $account['password'], $current_pwd)
+                    );
+
+                if ($new_pwd !== '' && !$password_matches) {
+                    $message = "Your current password is incorrect. No changes were saved.";
+                    $message_type = "error";
+                } else {
+                    if ($new_pwd !== '') {
+                        $password_hash = password_hash($new_pwd, PASSWORD_DEFAULT);
+                        $update_stmt = $conn->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ?, password = ? WHERE id = ? AND role = 'Super Admin'");
+                        if ($update_stmt) {
+                            $update_stmt->bind_param("ssssi", $admin_first_name, $admin_last_name, $admin_email, $password_hash, $user_id);
+                        }
+                    } else {
+                        $update_stmt = $conn->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ? WHERE id = ? AND role = 'Super Admin'");
+                        if ($update_stmt) {
+                            $update_stmt->bind_param("sssi", $admin_first_name, $admin_last_name, $admin_email, $user_id);
+                        }
+                    }
+
+                    if (!$update_stmt) {
+                        error_log("Super Admin profile update preparation failed: " . $conn->error);
+                        $message = "Unable to update your profile right now. Please try again.";
+                        $message_type = "error";
+                    } elseif (!$update_stmt->execute()) {
+                        error_log("Super Admin profile update failed: " . $update_stmt->error);
+                        $message = "Unable to update your profile right now. Please try again.";
+                        $message_type = "error";
+                        $update_stmt->close();
+                    } else {
+                        $update_stmt->close();
+                        $account['first_name'] = $admin_first_name;
+                        $account['last_name'] = $admin_last_name;
+                        $account['email'] = $admin_email;
+                        if ($new_pwd !== '') {
+                            $account['password'] = $password_hash;
+                        }
+                        $_SESSION['name'] = $admin_first_name;
+                        logAdminAction($conn, "Updated super admin profile & security credentials.");
+                        $message = "Admin profile & security credentials updated successfully!";
+                        $message_type = "success";
+                    }
+                }
+            }
         }
     }
-
-    // RECORD TO ACTIVITY LOG
-    logAdminAction($conn, "Updated super admin profile & security credentials.");
-
-    $message = "Admin profile & security credentials updated successfully!";
-    $message_type = "success";
 }
 ?>
 <!DOCTYPE html>
@@ -325,11 +403,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
 <div id="securityModal" class="modal-overlay">
     <div class="modal-box">
         <div class="modal-title"><i class="fa-solid fa-lock"></i> Security Verification</div>
-        <div class="modal-desc">Enter your Security PIN or Password to unlock and modify these settings.</div>
-        <input type="password" id="modalPinInput" class="settings-input" placeholder="Enter PIN/Password" style="margin-bottom: 0;">
+        <div class="modal-desc">Enter your current account password to continue. It will be verified before changes are saved.</div>
+        <input type="password" id="modalPasswordInput" class="settings-input" placeholder="Enter current password" autocomplete="current-password" style="margin-bottom: 0;">
         <div class="modal-actions">
             <button type="button" class="btn-cancel" onclick="closeSecurityModal()">Cancel</button>
-            <button type="button" class="btn btn-primary" onclick="verifySecurityPin()">Verify</button>
+            <button type="button" class="btn btn-primary" onclick="continueWithPassword()">Continue</button>
         </div>
     </div>
 </div>
@@ -361,6 +439,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
                 <button type="button" class="btn-edit" onclick="openSecurityModal('systemForm', this)"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
             </div>
             <form id="systemForm" method="POST">
+                <input type="hidden" name="reauth_password" value="">
                 <div class="form-row">
                     <div class="form-group">
                         <label>System Name</label>
@@ -388,6 +467,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
             <form action="update_profile_picture.php" method="POST" enctype="multipart/form-data" style="margin-bottom: 24px;">
                 <div style="font-weight: 600; color: var(--green); margin-bottom: 14px;"><i class="fa-solid fa-camera"></i> Profile Picture</div>
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($profile_picture_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="picture_current_password">Current Password</label>
+                    <input type="password" id="picture_current_password" name="current_password" class="settings-input" autocomplete="current-password" required>
+                </div>
                 <?php $profile_picture_url = profilePictureUrl($account['profile_picture'] ?? ''); ?>
                 <?php if ($profile_picture_url !== ''): ?>
                     <img src="<?php echo htmlspecialchars($profile_picture_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Current profile picture" class="profile-avatar" style="width: 84px; height: 84px; margin-bottom: 14px;">
@@ -401,14 +484,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload"></i> Upload Picture</button>
             </form>
             <form id="adminForm" method="POST">
+                <input type="hidden" name="reauth_password" value="">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Full Name</label>
-                        <input type="text" name="admin_name" class="settings-input" value="Super Admin" disabled required>
+                        <label>First Name</label>
+                        <input type="text" name="admin_first_name" class="settings-input" value="<?php echo htmlspecialchars($account['first_name'], ENT_QUOTES, 'UTF-8'); ?>" disabled required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="admin_last_name" class="settings-input" value="<?php echo htmlspecialchars($account['last_name'], ENT_QUOTES, 'UTF-8'); ?>" disabled required>
                     </div>
                     <div class="form-group">
                         <label>Email Address</label>
-                        <input type="email" name="admin_email" class="settings-input" value="admin@alawihaocenter.com" disabled required>
+                        <input type="email" name="admin_email" class="settings-input" value="<?php echo htmlspecialchars($account['email'], ENT_QUOTES, 'UTF-8'); ?>" disabled required>
                     </div>
                 </div>
                 
@@ -481,9 +569,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Database Export / Backup</label>
                 <p style="font-size: 0.85rem; color: #666; margin-top: 0; margin-bottom: 15px;">
-                    Download a secure SQL backup copy of all health center records, schedules, and user accounts.
+                    Verify a one-time code sent to alawihaohealth@gmail.com before downloading a SQL backup of health center records, schedules, and user accounts.
                 </p>
-                <a href="backup_db.php" class="btn-backup"><i class="fa-solid fa-download"></i> Download SQL Backup</a>
+                <?php if (!$recovery_email_configured): ?>
+                    <p class="recovery-info" style="margin-bottom: 15px;">
+                        Email delivery is not configured on the server. Set the ALAWAIHAO_SMTP_USERNAME and ALAWAIHAO_SMTP_PASSWORD environment variables before requesting a backup.
+                    </p>
+                <?php endif; ?>
+                <a href="backup_db.php" class="btn-backup"><i class="fa-solid fa-shield-halved"></i> Verify &amp; Download SQL Backup</a>
             </div>
         </div>
 
@@ -504,41 +597,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_admin_profile']
     function openSecurityModal(formId, editBtn) {
         currentTargetFormId = formId;
         currentEditBtn = editBtn;
-        document.getElementById('modalPinInput').value = '';
+        document.getElementById('modalPasswordInput').value = '';
         document.getElementById('securityModal').style.display = 'flex';
-        document.getElementById('modalPinInput').focus();
+        document.getElementById('modalPasswordInput').focus();
     }
 
     function closeSecurityModal() {
         document.getElementById('securityModal').style.display = 'none';
+        document.getElementById('modalPasswordInput').value = '';
     }
 
-    function verifySecurityPin() {
-        let pin = document.getElementById('modalPinInput').value;
-        
-        if (pin === "1234" || pin === "admin123") {
-            closeSecurityModal();
-            const form = document.getElementById(currentTargetFormId);
-            const inputs = form.querySelectorAll('input');
-            const submitBtn = form.querySelector('button[type="submit"]');
-
-            inputs.forEach(input => {
-                input.removeAttribute('disabled');
-            });
-            
-            if(submitBtn) {
-                submitBtn.removeAttribute('disabled');
-            }
-
-            currentEditBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Unlocked';
-            currentEditBtn.style.background = '#dcfce7';
-            currentEditBtn.style.color = '#166534';
-            currentEditBtn.style.borderColor = '#bbf7d0';
-        } else {
-            alert("Incorrect Security PIN or Password!");
-            document.getElementById('modalPinInput').value = '';
-            document.getElementById('modalPinInput').focus();
+    function continueWithPassword() {
+        const passwordInput = document.getElementById('modalPasswordInput');
+        const password = passwordInput.value;
+        if (password === '') {
+            passwordInput.focus();
+            return;
         }
+
+        const form = document.getElementById(currentTargetFormId);
+        form.querySelector('[name="reauth_password"]').value = password;
+        const currentPasswordInput = form.querySelector('[name="current_pwd"]');
+        if (currentPasswordInput) currentPasswordInput.value = password;
+        closeSecurityModal();
+        form.querySelectorAll('input').forEach(input => input.removeAttribute('disabled'));
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.removeAttribute('disabled');
+
+        currentEditBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Ready to Save';
+        currentEditBtn.style.background = '#dcfce7';
+        currentEditBtn.style.color = '#166534';
+        currentEditBtn.style.borderColor = '#bbf7d0';
     }
 </script>
 
