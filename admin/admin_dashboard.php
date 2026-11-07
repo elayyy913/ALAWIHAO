@@ -734,76 +734,30 @@ usort($upcoming_schedule, function ($first, $second) {
             .sched-actions { flex-wrap: wrap; }
         }
     </style>
-    <script src="../theme.js"></script>
-    <link rel="stylesheet" href="../theme.css">
     <link rel="stylesheet" href="../profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        [data-theme="dark"] #main,
-        [data-theme="dark"] .modal-content {
-            --light-bg: var(--dm-bg);
-            --card-bg: var(--dm-surface);
-            --text-main: var(--dm-text);
-            --text-muted: var(--dm-text2);
-            --dark-sage: var(--dm-sage);
-            --border-color: var(--dm-border);
-        }
 
-        [data-theme="dark"] #main .metric-title { color: var(--dm-text2) !important; }
-        [data-theme="dark"] #main .metric-value,
-        [data-theme="dark"] #main strong,
-        [data-theme="dark"] .modal-content strong { color: var(--dm-text) !important; }
 
-        [data-theme="dark"] #main .sched-item,
-        [data-theme="dark"] #main .patient-info-box,
-        [data-theme="dark"] .modal-content .patient-info-box,
-        [data-theme="dark"] #main .checkbox-group,
-        [data-theme="dark"] .modal-content .checkbox-group,
-        [data-theme="dark"] #main .section-tag,
-        [data-theme="dark"] .modal-content .section-tag {
-            background-color: var(--dm-surface2) !important;
-            border-color: var(--dm-border) !important;
-        }
 
-        [data-theme="dark"] #main .status-badge {
-            background-color: var(--dm-surface2) !important;
-            color: var(--dm-text2) !important;
-        }
 
-        [data-theme="dark"] #main .notif-title { color: var(--dm-text) !important; }
-        [data-theme="dark"] #main .notif-msg,
-        [data-theme="dark"] #main .notif-time,
-        [data-theme="dark"] #main .notif-empty,
-        [data-theme="dark"] #main .notif-mark-all { color: var(--dm-text2) !important; }
 
-        [data-theme="dark"] #main .page-header {
-            border-color: var(--dm-border) !important;
-        }
-        [data-theme="dark"] #main .page-header h1 { color: var(--dm-sage) !important; }
-        [data-theme="dark"] #main .page-header p { color: var(--dm-text2) !important; }
-        [data-theme="dark"] #main .dashboard-date { color: var(--dm-text2) !important; }
-        [data-theme="dark"] #main .schedule-count {
-            background: var(--dm-surface2);
-            color: var(--dm-sage);
-        }
-        [data-theme="dark"] #main .register-menu a:hover {
-            background: var(--dm-surface2);
-            color: var(--dm-sage);
-        }
-        [data-theme="dark"] #main .quick-action i,
-        [data-theme="dark"] #main .quick-action-menu a i {
-            color: currentColor !important;
-        }
-        [data-theme="dark"] #main .dashboard-date i,
-        [data-theme="dark"] #main .dashboard-sync i,
-        [data-theme="dark"] #main .notif-dropdown-header i {
-            color: var(--dm-sage) !important;
-        }
-        [data-theme="dark"] #main .notif-bell-btn i,
-        [data-theme="dark"] #main .notif-mark-all i,
-        [data-theme="dark"] #main .notif-empty i {
-            color: var(--dm-text2) !important;
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     </style>
 </head>
 <body>

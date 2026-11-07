@@ -24,7 +24,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     $requester_marker = '[Requester ID: ' . (int) $user_id . ']';
 
     $conn->begin_transaction();
-    $schedule_stmt = $conn->prepare("SELECT s.status FROM schedules s
+    $schedule_stmt = $conn->prepare("SELECT s.status, s.schedule_date, s.schedule_time,
+            EXISTS (
+                SELECT 1
+                FROM schedule_reschedule_requests pending_request
+                WHERE pending_request.schedule_id = s.id
+                  AND LOWER(pending_request.status) = 'pending'
+                  AND NOT (
+                      pending_request.requested_date = s.schedule_date
+                      AND pending_request.requested_time = s.schedule_time
+                      AND EXISTS (
+                          SELECT 1
+                          FROM schedule_reschedule_requests approved_request
+                          WHERE approved_request.schedule_id = s.id
+                            AND LOWER(approved_request.status) = 'approved'
+                            AND approved_request.requested_date = s.schedule_date
+                            AND approved_request.requested_time = s.schedule_time
+                      )
+                  )
+            ) AS has_pending_reschedule
+        FROM schedules s
         WHERE s.id = ?
           AND (
               (s.category = 'Maternal' AND EXISTS (
@@ -52,12 +71,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
         } else {
             $schedule = $schedule_stmt->get_result()->fetch_assoc();
             $schedule_stmt->close();
+            if ($schedule && $new_time === '') {
+                $new_time = substr((string) $schedule['schedule_time'], 0, 5);
+            }
             if (!$schedule) {
                 $conn->rollback();
                 $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi mahanap ang appointment sa iyong account.</div>";
-            } elseif (strtolower($schedule['status']) === 'reschedule requested') {
+            } elseif ((int) $schedule['has_pending_reschedule'] === 1) {
                 $conn->rollback();
                 $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> May nakabinbin ka pang reschedule request para sa appointment na ito.</div>";
+            } elseif ($new_date === $schedule['schedule_date']
+                && $new_time === substr((string) $schedule['schedule_time'], 0, 5)) {
+                $conn->rollback();
+                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Pareho ang napiling petsa at oras sa kasalukuyang appointment. Pumili ng bagong iskedyul.</div>";
             } else {
                 $update_query = "UPDATE schedules
                     SET status = 'Reschedule Requested',
@@ -164,18 +190,33 @@ if (count($patient_names) > 0) {
     $has_reschedule_requests = $request_table_result && mysqli_num_rows($request_table_result) > 0;
     $latest_request_join = $has_reschedule_requests
         ? " LEFT JOIN (
-                SELECT request_rows.schedule_id, request_rows.status
-                FROM schedule_reschedule_requests request_rows
-                INNER JOIN (
-                    SELECT schedule_id, MAX(id) AS latest_id
+                SELECT schedule_id, MAX(id) AS latest_id,
+                        MAX(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) AS has_pending_reschedule,
+                        MAX(CASE WHEN LOWER(status) = 'pending' THEN id ELSE NULL END) AS latest_pending_id
                     FROM schedule_reschedule_requests
                     GROUP BY schedule_id
-                ) latest ON latest.latest_id = request_rows.id
-            ) latest_request ON latest_request.schedule_id = s.id"
+                ) request_summary ON request_summary.schedule_id = s.id
+                LEFT JOIN schedule_reschedule_requests latest_request
+                    ON latest_request.id = request_summary.latest_id
+                LEFT JOIN schedule_reschedule_requests latest_pending_request
+                    ON latest_pending_request.id = request_summary.latest_pending_id"
         : "";
-    $latest_request_select = $has_reschedule_requests
-        ? ", latest_request.status AS latest_reschedule_status"
-        : ", NULL AS latest_reschedule_status";
+        $latest_request_select = $has_reschedule_requests
+            ? ", latest_request.status AS latest_reschedule_status,
+                COALESCE(request_summary.has_pending_reschedule, 0) AS has_pending_reschedule,
+                latest_pending_request.requested_date AS latest_pending_reschedule_date,
+                latest_pending_request.requested_time AS latest_pending_reschedule_time,
+                EXISTS (
+                    SELECT 1
+                    FROM schedule_reschedule_requests approved_request
+                    WHERE approved_request.schedule_id = s.id
+                      AND LOWER(approved_request.status) = 'approved'
+                      AND approved_request.requested_date = s.schedule_date
+                      AND approved_request.requested_time = s.schedule_time
+                ) AS has_approved_current_reschedule"
+            : ", NULL AS latest_reschedule_status, 0 AS has_pending_reschedule,
+                NULL AS latest_pending_reschedule_date, NULL AS latest_pending_reschedule_time,
+                0 AS has_approved_current_reschedule";
     $sched_query = "SELECT s.*{$latest_request_select}
         FROM schedules s{$latest_request_join}
         WHERE s.patient_name IN ($placeholders)
@@ -192,17 +233,30 @@ if (count($patient_names) > 0) {
         while ($row = $result->fetch_assoc()) {
             $status = strtolower($row['status'] ?? '');
             $latest_reschedule_status = strtolower($row['latest_reschedule_status'] ?? '');
+            $has_approved_current_reschedule = (int) ($row['has_approved_current_reschedule'] ?? 0) === 1;
+            $pending_matches_approved_schedule = $has_approved_current_reschedule
+                && ($row['latest_pending_reschedule_date'] ?? null) === $row['schedule_date']
+                && substr((string) ($row['latest_pending_reschedule_time'] ?? ''), 0, 5)
+                    === substr((string) ($row['schedule_time'] ?? ''), 0, 5);
+            $has_pending_reschedule = (int) ($row['has_pending_reschedule'] ?? 0) === 1
+                && !$pending_matches_approved_schedule;
+            $row['has_pending_reschedule'] = $has_pending_reschedule ? 1 : 0;
             $notes = (string) ($row['notes'] ?? '');
             $has_reschedule_marker = preg_match('/Request:/i', $notes)
                 || preg_match('/Rescheduled \(Orig:/i', $notes);
-            $is_approved_reschedule = $status !== 'reschedule requested'
-                && ($latest_reschedule_status === 'approved'
+            $is_approved_reschedule = !$has_pending_reschedule
+                && ($has_approved_current_reschedule
+                    || $latest_reschedule_status === 'approved'
                     || (!$has_reschedule_requests
                         && in_array($status, ['approved', 'rescheduled'], true)
                         && $has_reschedule_marker));
-            $row['display_status'] = $is_approved_reschedule
-                ? 'Reschedule Approved'
-                : ($row['status'] ?? 'Pending');
+            if ($has_pending_reschedule) {
+                $row['display_status'] = 'Reschedule Requested';
+            } elseif ($is_approved_reschedule) {
+                $row['display_status'] = 'Reschedule Approved';
+            } else {
+                $row['display_status'] = $row['status'] ?? 'Pending';
+            }
             $row['display_status_class'] = strtolower(str_replace(' ', '-', $row['display_status']));
             if ($status == 'completed' || $row['schedule_date'] < $today) {
                 $history_schedules[] = $row;
@@ -213,16 +267,23 @@ if (count($patient_names) > 0) {
             if (preg_match('/Request:/i', $notes)
                 || preg_match('/Rescheduled \(Orig:/i', $notes)
                 || preg_match('/Reschedule Rejected/i', $notes)
-                || in_array($status, ['reschedule requested', 'rescheduled'], true)) {
+                || in_array($status, ['reschedule requested', 'rescheduled'], true)
+                || in_array($latest_reschedule_status, ['pending', 'approved', 'rejected'], true)) {
                 preg_match_all('/Request:\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?/i', $notes, $requested_matches, PREG_SET_ORDER);
                 preg_match_all('/Rescheduled \(Orig:\s*(\d{4}-\d{2}-\d{2})\)/i', $notes, $original_matches, PREG_SET_ORDER);
 
-                if ($status === 'reschedule requested') {
+                if ($has_pending_reschedule) {
                     $row['reschedule_state'] = 'Reschedule Requested';
+                } elseif ($has_approved_current_reschedule) {
+                    $row['reschedule_state'] = 'Reschedule Approved';
+                } elseif ($latest_reschedule_status === 'approved') {
+                    $row['reschedule_state'] = 'Reschedule Approved';
+                } elseif ($latest_reschedule_status === 'rejected') {
+                    $row['reschedule_state'] = 'Reschedule Rejected';
+                } elseif (preg_match('/Reschedule Rejected/i', $notes)) {
+                    $row['reschedule_state'] = 'Reschedule Rejected';
                 } elseif ($is_approved_reschedule) {
                     $row['reschedule_state'] = 'Reschedule Approved';
-                } elseif ($latest_reschedule_status === 'rejected' || preg_match('/Reschedule Rejected/i', $notes)) {
-                    $row['reschedule_state'] = 'Reschedule Rejected';
                 } elseif ($status === 'rescheduled' || preg_match('/Rescheduled \(Orig:/i', $notes)) {
                     $row['reschedule_state'] = 'Rescheduled';
                 } else {
@@ -246,7 +307,74 @@ if (count($patient_names) > 0) {
                 $reschedule_history[] = $row;
             }
         }
+
+        $all_schedules = array_merge($upcoming_schedules, $history_schedules);
+        $approved_reschedule_origins = [];
+        foreach ($all_schedules as $schedule) {
+            if ((int) ($schedule['has_approved_current_reschedule'] ?? 0) !== 1
+                || !preg_match_all('/Rescheduled \(Orig:\s*(\d{4}-\d{2}-\d{2})\)/i', (string) ($schedule['notes'] ?? ''), $original_matches)) {
+                continue;
+            }
+
+            foreach ($original_matches[1] as $original_date) {
+                $approved_reschedule_origins[] = [
+                    'schedule_id' => (int) $schedule['id'],
+                    'patient_name' => strtolower(trim((string) $schedule['patient_name'])),
+                    'category' => strtolower(trim((string) $schedule['category'])),
+                    'service_type' => strtolower(trim((string) $schedule['service_type'])),
+                    'original_date' => $original_date
+                ];
+            }
+        }
+
+        $superseded_schedule_ids = [];
+        foreach ($all_schedules as $schedule) {
+            foreach ($approved_reschedule_origins as $origin) {
+                if ((int) $schedule['id'] !== $origin['schedule_id']
+                    && strtolower(trim((string) $schedule['patient_name'])) === $origin['patient_name']
+                    && strtolower(trim((string) $schedule['category'])) === $origin['category']
+                    && strtolower(trim((string) $schedule['service_type'])) === $origin['service_type']
+                    && $schedule['schedule_date'] === $origin['original_date']
+                    && strtolower((string) $schedule['status']) !== 'reschedule requested') {
+                    $superseded_schedule_ids[(int) $schedule['id']] = true;
+                }
+            }
+        }
+
+        if ($superseded_schedule_ids) {
+            $is_not_superseded = function ($schedule) use ($superseded_schedule_ids) {
+                return !isset($superseded_schedule_ids[(int) $schedule['id']]);
+            };
+            $upcoming_schedules = array_values(array_filter($upcoming_schedules, $is_not_superseded));
+            $history_schedules = array_values(array_filter($history_schedules, $is_not_superseded));
+            $reschedule_history = array_values(array_filter($reschedule_history, $is_not_superseded));
+        }
         $stmt->close();
+    }
+}
+
+$schedule_categories = [
+    'Maternal' => "Mother's Schedule",
+    'Child' => "Child's Schedule"
+];
+$upcoming_schedules_by_category = ['Maternal' => [], 'Child' => []];
+$history_schedules_by_category = ['Maternal' => [], 'Child' => []];
+$reschedule_history_by_category = ['Maternal' => [], 'Child' => []];
+foreach ($schedule_categories as $category => $label) {
+    foreach ($upcoming_schedules as $schedule) {
+        if (strcasecmp((string) ($schedule['category'] ?? ''), $category) === 0) {
+            $upcoming_schedules_by_category[$category][] = $schedule;
+        }
+    }
+    foreach ($history_schedules as $schedule) {
+        if (strcasecmp((string) ($schedule['category'] ?? ''), $category) === 0) {
+            $history_schedules_by_category[$category][] = $schedule;
+        }
+    }
+    foreach ($reschedule_history as $schedule) {
+        if (strcasecmp((string) ($schedule['category'] ?? ''), $category) === 0) {
+            $reschedule_history_by_category[$category][] = $schedule;
+        }
     }
 }
 ?>
@@ -350,14 +478,45 @@ if (count($patient_names) > 0) {
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
+        .schedule-group {
+            background: #fff;
+            border: 1px solid #eef2ee;
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.035);
+            margin-bottom: 18px;
+            padding: 18px;
+        }
+        .schedule-group:last-child { margin-bottom: 0; }
+        .schedule-group h3 {
+            color: var(--sage);
+            font-size: 1rem;
+            margin: 0 0 14px;
+        }
+
         .sched-card { 
             background: var(--white); padding: 20px; border-radius: 15px; margin-bottom: 15px; 
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; flex-direction: column; gap: 0;
             box-shadow: 0 4px 10px rgba(0,0,0,0.04); border-left: 6px solid var(--sage);
-            border: 1px solid #eef2ee; gap: 15px;
+            border: 1px solid #eef2ee;
         }
+        .sched-card-main { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         .sched-left { display: flex; align-items: center; gap: 20px; }
         .sched-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+        .worker-note-strip {
+            margin-top: 14px;
+            padding: 10px 14px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .worker-note-strip i { flex-shrink: 0; margin-top: 2px; color: #b45309; }
         .date-badge { background: #f1f4ea; padding: 10px; border-radius: 10px; text-align: center; min-width: 75px; border: 1px solid #e2e8f0; }
 
         .status-pill { padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
@@ -410,9 +569,20 @@ if (count($patient_names) > 0) {
 
         <!-- UPCOMING TAB -->
         <div id="upcoming-tab" class="tab-content active">
-            <?php if(count($upcoming_schedules) > 0): ?>
-                <?php foreach($upcoming_schedules as $row): ?>
+            <?php foreach ($schedule_categories as $category => $category_label): ?>
+                <?php $category_schedules = $upcoming_schedules_by_category[$category]; ?>
+                <section class="schedule-group">
+                    <h3><?= htmlspecialchars($category_label, ENT_QUOTES, 'UTF-8') ?> (<?= count($category_schedules) ?>)</h3>
+                    <?php if ($category_schedules): ?>
+                        <?php foreach($category_schedules as $row): ?>
+                        <?php
+                            $worker_note_text = '';
+                            if (preg_match('/\|\s*Worker note:\s*(.+?)(?=\s*\||$)/i', $row['notes'] ?? '', $wn_match)) {
+                                $worker_note_text = trim($wn_match[1]);
+                            }
+                        ?>
                     <div class="sched-card">
+                        <div class="sched-card-main">
                         <div class="sched-left">
                             <div class="date-badge">
                                 <span style="font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 600;"><?= date('M', strtotime($row['schedule_date'])) ?></span><br>
@@ -431,30 +601,53 @@ if (count($patient_names) > 0) {
                             <?php 
                                 $display_status = strtoupper($row['display_status'] ?? $row['status'] ?? 'Pending');
                                 $status_class = $row['display_status_class'] ?? str_replace(' ', '-', strtolower(trim($row['status'] ?? 'pending')));
-                                $request_pending = strtolower($row['status'] ?? '') === 'reschedule requested';
+                                $request_pending = (int) ($row['has_pending_reschedule'] ?? 0) === 1;
+                                $reschedule_approved = $row['display_status'] === 'Reschedule Approved';
                             ?>
                             <div class="status-pill <?= $status_class ?>"><?= $display_status ?></div>
                             <button class="btn-resched" <?= $request_pending ? 'disabled' : '' ?>
                                 <?php if (!$request_pending): ?>
-                                    onclick="openReschedModal('<?= (int) $row['id'] ?>', '<?= htmlspecialchars($row['schedule_date'], ENT_QUOTES) ?>', '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>')"
+                                    onclick="openReschedModal(
+                                        '<?= (int) $row['id'] ?>',
+                                        '<?= htmlspecialchars($row['schedule_date'], ENT_QUOTES) ?>',
+                                        '<?= htmlspecialchars(substr((string) $row['schedule_time'], 0, 5), ENT_QUOTES) ?>',
+                                        '<?= htmlspecialchars($row['patient_name'], ENT_QUOTES) ?>',
+                                        <?= $reschedule_approved ? 'true' : 'false' ?>
+                                    )"
                                 <?php endif; ?>>
                                 <i class="fa fa-calendar-days"></i>
-                                <?= $request_pending ? 'Awaiting review' : 'Request Resched' ?>
+                                <?= $request_pending ? 'Awaiting review' : ($reschedule_approved ? 'Request Another Resched' : 'Request Resched') ?>
                             </button>
                         </div>
+                        </div>
+                        <?php if (!empty($worker_note_text)): ?>
+                        <div class="worker-note-strip">
+                            <i class="fa fa-comment-medical"></i>
+                            <span><strong>Note from health center:</strong> <?= htmlspecialchars($worker_note_text) ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div class="no-schedule">
-                    <p>Wala pang kasalukuyang appointment o schedule para sa inyo o sa inyong mga nakarehistrong anak.</p>
-                </div>
-            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="no-schedule" style="padding:24px;">
+                            <p>Walang naka-schedule na appointment para sa <?= strtolower(htmlspecialchars($category_label, ENT_QUOTES, 'UTF-8')) ?>.</p>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            <?php endforeach; ?>
         </div>
 
         <!-- HISTORY TAB -->
         <div id="history-tab" class="tab-content">
-            <?php if(count($history_schedules) > 0 || count($reschedule_history) > 0): ?>
-                <?php foreach($history_schedules as $row): ?>
+            <?php foreach ($schedule_categories as $category => $category_label): ?>
+                <?php
+                    $category_history = $history_schedules_by_category[$category];
+                    $category_reschedule_history = $reschedule_history_by_category[$category];
+                ?>
+                <section class="schedule-group">
+                    <h3><?= htmlspecialchars($category_label, ENT_QUOTES, 'UTF-8') ?> History (<?= count($category_history) + count($category_reschedule_history) ?>)</h3>
+                    <?php if ($category_history || $category_reschedule_history): ?>
+                        <?php foreach($category_history as $row): ?>
                     <div class="sched-card" style="border-left-color: #cbd5e1;">
                         <div class="sched-left">
                             <div class="date-badge" style="background: #f8fafc;">
@@ -475,8 +668,8 @@ if (count($patient_names) > 0) {
                             <div class="status-pill <?= $status_class_h ?>"><?= strtoupper($row['status']) ?></div>
                         </div>
                     </div>
-                <?php endforeach; ?>
-                <?php foreach($reschedule_history as $row): ?>
+                        <?php endforeach; ?>
+                        <?php foreach($category_reschedule_history as $row): ?>
                     <div class="sched-card" style="border-left-color: #d97706;">
                         <div class="sched-left">
                             <div class="date-badge" style="background: #fff7ed;">
@@ -500,12 +693,14 @@ if (count($patient_names) > 0) {
                             <div class="status-pill <?= htmlspecialchars($reschedule_status_class) ?>"><?= htmlspecialchars(strtoupper($row['reschedule_state'])) ?></div>
                         </div>
                     </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div class="no-schedule">
-                    <p>Wala pang nakatalang history ng appointment o reschedule.</p>
-                </div>
-            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="no-schedule" style="padding:24px;">
+                            <p>Wala pang history para sa <?= strtolower(htmlspecialchars($category_label, ENT_QUOTES, 'UTF-8')) ?>.</p>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            <?php endforeach; ?>
         </div>
     </div>
 </div>
@@ -514,7 +709,7 @@ if (count($patient_names) > 0) {
 <div id="reschedModal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeReschedModal()">&times;</span>
-        <h3 style="color: var(--green); margin-bottom: 5px;"><i class="fa fa-calendar-plus"></i> Request Reschedule</h3>
+        <h3 style="color: var(--green); margin-bottom: 5px;"><i class="fa fa-calendar-plus"></i> <span id="reschedModalTitle">Request Reschedule</span></h3>
         <p id="modalChildInfo" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;"></p>
         
         <form method="POST">
@@ -525,7 +720,7 @@ if (count($patient_names) > 0) {
             </div>
             <div class="form-group">
                 <label>Oras (Opsyonal)</label>
-                <input type="time" name="new_time">
+                <input type="time" name="new_time" id="modalNewTime">
             </div>
             <div class="form-group">
                 <label>Dahilan ng pagpapalit ng iskedyul:</label>
@@ -554,9 +749,13 @@ if (count($patient_names) > 0) {
         document.getElementById(tabName + '-tab').classList.add('active');
         event.currentTarget.classList.add('active');
     }
-    function openReschedModal(id, currentDate, childName) {
+    function openReschedModal(id, currentDate, currentTime, childName, isAnotherRequest) {
         document.getElementById('modalScheduleId').value = id;
+        document.getElementById('modalNewTime').value = currentTime;
         document.getElementById('modalChildInfo').innerText = "Pasyente: " + childName + " (Kasalukuyang Petsa: " + currentDate + ")";
+        document.getElementById('reschedModalTitle').innerText = isAnotherRequest
+            ? 'Request Another Reschedule'
+            : 'Request Reschedule';
         document.getElementById('reschedModal').style.display = 'flex';
     }
     function closeReschedModal() { document.getElementById('reschedModal').style.display = 'none'; }
