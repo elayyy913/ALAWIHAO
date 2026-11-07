@@ -2,18 +2,19 @@
 session_start();
 include 'db_connect.php';
 require_once 'profile_picture_helpers.php';
-// if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
 $name = htmlspecialchars($_SESSION['name'] ?? 'Nanay');
 $profileAccount = [];
-if (isset($_SESSION['user_id'])) {
-    $profileStmt = $conn->prepare("SELECT first_name, profile_picture FROM users WHERE id = ?");
-    if ($profileStmt) {
-        $profileStmt->bind_param("i", $_SESSION['user_id']);
-        if ($profileStmt->execute()) {
-            $profileAccount = $profileStmt->get_result()->fetch_assoc() ?: [];
-        }
-        $profileStmt->close();
+$profileStmt = $conn->prepare("SELECT first_name, profile_picture FROM users WHERE id = ?");
+if ($profileStmt) {
+    $profileStmt->bind_param("i", $_SESSION['user_id']);
+    if ($profileStmt->execute()) {
+        $profileAccount = $profileStmt->get_result()->fetch_assoc() ?: [];
     }
+    $profileStmt->close();
 }
 ?>
 <!DOCTYPE html>

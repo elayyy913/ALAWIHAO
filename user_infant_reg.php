@@ -27,6 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     $mother = mysqli_real_escape_string($conn, $_POST['mother_name']);
     $father = mysqli_real_escape_string($conn, $_POST['father_name']); 
+    $contact = mysqli_real_escape_string($conn, $_POST['contact'] ?? '');
     
     $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']);
     $status = "Pending";
@@ -44,10 +45,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $vaccines = !empty($vaccines_arr) ? implode(", ", $vaccines_arr) : "None";
 
-    $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, contact, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("issssdsssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $status, $vaccines, $administered_by);
+        $stmt->bind_param("issssdssssssssssss", $user_id, $baby_name, $gender, $blood_type, $dob, $weight, $height, $pob, $family_no, $address, $barangay, $health_center, $mother, $father, $contact, $status, $vaccines, $administered_by);
             if ($stmt->execute()) {
                 echo "<script>
                     alert('Baby enrolled successfully! Pending for admin review.');

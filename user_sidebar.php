@@ -68,6 +68,14 @@ if (in_array($current_page, $chatbot_pages, true)) {
 }
 ?>
 
+<script>
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+</script>
+
 <style>
     :root {
         --sage: #8DAE74;
