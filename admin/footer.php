@@ -81,26 +81,18 @@ body.sidebar-closed .site-footer-wrap {
     color: #2d5016; text-transform: uppercase; letter-spacing: 0.3px;
 }
 /* Dark mode */
-body.dark-mode .site-footer-wrap {
-    background: #1e1e1e !important;
-    border-top-color: #3a6b20 !important;
-}
-body.dark-mode .site-footer-inner { border-bottom-color: #2e2e2e !important; }
-body.dark-mode .sf-brand-text h4 { color: #8fbf5a !important; }
-body.dark-mode .sf-brand-text span,
-body.dark-mode .sf-tagline { color: #888 !important; }
-body.dark-mode .sf-brand img { border-color: #3a6b20 !important; }
-body.dark-mode .sf-col h5 { color: #8fbf5a !important; border-bottom-color: #2e2e2e !important; }
-body.dark-mode .sf-col ul li { color: #aaa !important; }
-body.dark-mode .sf-col ul li i { color: #5aab38 !important; }
-body.dark-mode .sf-col ul li strong { color: #8fbf5a !important; }
-body.dark-mode .sf-col a { color: #8fbf5a !important; }
-body.dark-mode .sf-copy { color: #666 !important; }
-body.dark-mode .sf-badge {
-    background: #1a2e14 !important;
-    border-color: #3a6b20 !important;
-    color: #8fbf5a !important;
-}
+
+
+
+
+
+
+
+
+
+
+
+
 </style>
 
 <?php $_img = (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) ? '../images/' : 'images/'; ?>
