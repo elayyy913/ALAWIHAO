@@ -23,6 +23,7 @@ if ($profileStmt) {
 $dashboardMessages = [
     'RescheduleSuccess' => 'Schedule rescheduled successfully. Notifications were sent to the user.',
     'RescheduleDateRequired' => 'Please select a valid date before rescheduling.',
+    'RescheduleFailed' => 'The schedule could not be updated. Please try again.',
     'MarkDoneSuccess' => 'Appointment marked as completed. Notifications were sent to the user.',
     'WorkerApprovedAndRecorded' => 'Worker account approved successfully.',
     'ApprovedAndRecorded' => 'Child registration approved successfully.',
@@ -32,7 +33,7 @@ $dashboardMessages = [
     'Removed' => 'The worker account was rejected and removed.'
 ];
 $dashboardNotice = $dashboardMessages[$_GET['msg'] ?? ''] ?? null;
-$dashboardNoticeIsError = in_array($_GET['msg'] ?? '', ['ChildApprovalError', 'RescheduleDateRequired'], true);
+$dashboardNoticeIsError = in_array($_GET['msg'] ?? '', ['ChildApprovalError', 'RescheduleDateRequired', 'RescheduleFailed'], true);
 
 function notify_schedule_user($conn, $patient_name, $schedule_id, $title, $message, $type) {
     $user_id = 0;
@@ -66,26 +67,93 @@ function notify_schedule_user($conn, $patient_name, $schedule_id, $title, $messa
 
 // ── Handle reschedule directly in this file ──────────────────────────────────
 if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['reschedule_maternal']) || isset($_POST['reschedule_infant']))) {
-    $schedule_id = mysqli_real_escape_string($conn, $_POST['schedule_id']);
+    $schedule_id = (int) ($_POST['schedule_id'] ?? 0);
     $new_date = trim($_POST['new_date'] ?? '');
     $parsed_date = DateTime::createFromFormat('!Y-m-d', $new_date);
-    if (!$parsed_date || $parsed_date->format('Y-m-d') !== $new_date) {
+    if ($schedule_id <= 0 || !$parsed_date || $parsed_date->format('Y-m-d') !== $new_date) {
         header("Location: super_admin_dashboard.php?msg=RescheduleDateRequired");
         exit();
     }
-    $new_date = mysqli_real_escape_string($conn, $new_date);
-    
-    // Get schedule details
-    $sched_query = mysqli_query($conn, "SELECT * FROM schedules WHERE id = '$schedule_id'");
-    $sched = mysqli_fetch_assoc($sched_query);
-    
-    if ($sched) {
-        // Update schedule
-        if (mysqli_query($conn, "UPDATE schedules SET schedule_date = '$new_date', status = 'Approved' WHERE id = '$schedule_id'")
-            && mysqli_affected_rows($conn) > 0) {
-            logAdminAction($conn, "Rescheduled schedule ID {$schedule_id} for {$sched['patient_name']} to {$new_date}.");
+
+    if (!ensureRescheduleRequestsTable($conn)) {
+        error_log("Unable to prepare reschedule requests: " . mysqli_error($conn));
+        header("Location: super_admin_dashboard.php?msg=RescheduleFailed");
+        exit();
+    }
+
+    $conn->begin_transaction();
+    $sched_stmt = $conn->prepare("SELECT * FROM schedules WHERE id = ? FOR UPDATE");
+    if (!$sched_stmt) {
+        $conn->rollback();
+        error_log("Unable to load schedule {$schedule_id}: " . $conn->error);
+        header("Location: super_admin_dashboard.php?msg=RescheduleFailed");
+        exit();
+    }
+    $sched_stmt->bind_param("i", $schedule_id);
+    if (!$sched_stmt->execute()) {
+        $schedule_error = $sched_stmt->error;
+        $sched_stmt->close();
+        $conn->rollback();
+        error_log("Unable to load schedule {$schedule_id}: " . $schedule_error);
+        header("Location: super_admin_dashboard.php?msg=RescheduleFailed");
+        exit();
+    }
+    $sched = $sched_stmt->get_result()->fetch_assoc();
+    $sched_stmt->close();
+
+    if (!$sched) {
+        $conn->rollback();
+        header("Location: super_admin_dashboard.php?msg=RescheduleFailed");
+        exit();
+    }
+
+    $update_stmt = $conn->prepare("UPDATE schedules SET schedule_date = ?, status = 'Approved' WHERE id = ?");
+    if (!$update_stmt) {
+        $conn->rollback();
+        error_log("Unable to prepare schedule update for {$schedule_id}: " . $conn->error);
+        header("Location: super_admin_dashboard.php?msg=RescheduleFailed");
+        exit();
+    }
+    $update_stmt->bind_param("si", $new_date, $schedule_id);
+    $schedule_updated = $update_stmt->execute();
+    $update_error = $update_stmt->error;
+    $update_stmt->close();
+
+    if ($schedule_updated) {
+        $request_stmt = $conn->prepare("UPDATE schedule_reschedule_requests
+            SET status = 'Approved'
+            WHERE id = (
+                SELECT latest_request.id
+                FROM (
+                    SELECT id
+                    FROM schedule_reschedule_requests
+                    WHERE schedule_id = ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                ) latest_request
+            ) AND LOWER(status) = 'pending'");
+        if (!$request_stmt) {
+            $schedule_updated = false;
+            $update_error = $conn->error;
+        } else {
+            $request_stmt->bind_param("i", $schedule_id);
+            $schedule_updated = $request_stmt->execute();
+            $update_error = $request_stmt->error;
+            $request_stmt->close();
         }
-        
+    }
+
+    if (!$schedule_updated) {
+        $conn->rollback();
+        error_log("Reschedule update failed for schedule {$schedule_id}: " . $update_error);
+        header("Location: super_admin_dashboard.php?msg=RescheduleFailed");
+        exit();
+    }
+
+    $conn->commit();
+    logAdminAction($conn, "Rescheduled schedule ID {$schedule_id} for {$sched['patient_name']} to {$new_date}.");
+
+    if ($sched) {
         // Create notification for user
         $date_fmt = date('F j, Y', strtotime($new_date));
         $time_fmt = date('g:i A', strtotime($sched['schedule_time']));
@@ -286,8 +354,6 @@ if (check_table_exists($conn, 'schedules')) {
 <head>
     <meta charset="UTF-8">
     <title>Super Admin Dashboard | Alawihao</title>
-    <script src="../theme.js?v=<?= time() ?>"></script>
-    <link rel="stylesheet" href="../theme.css?v=<?= time() ?>">
     <link rel="stylesheet" href="../profile_picture.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <?php $notif_path='../'; include '../notif_assets.php'; ?>
@@ -621,151 +687,47 @@ if (check_table_exists($conn, 'schedules')) {
             text-decoration: none;
         }
         .section-link:hover { text-decoration: underline; }
-        [data-theme="dark"] .quick-action {
-            background: var(--dm-surface) !important;
-            border-color: var(--dm-border) !important;
-            color: var(--dm-text2) !important;
-        }
-        [data-theme="dark"] .quick-action-primary {
-            background: var(--dm-sage) !important;
-            border-color: var(--dm-sage) !important;
-            color: #1A1D1B !important;
-        }
-        [data-theme="dark"] .quick-action-menu { background: var(--dm-surface) !important; border-color: var(--dm-border) !important; }
-        [data-theme="dark"] .quick-action-menu a { color: var(--dm-text) !important; }
-        [data-theme="dark"] .quick-action-menu a:hover,
-        [data-theme="dark"] .quick-action-menu a:focus-visible { background: var(--dm-surface2) !important; }
-        [data-theme="dark"] .quick-action-menu a i { color: var(--dm-sage) !important; }
-        [data-theme="dark"] .dashboard-sync { color: var(--dm-text2); }
-        [data-theme="dark"] .dashboard-sync i { color: var(--dm-sage); }
-        [data-theme="dark"] .stat-card.is-attention { background: linear-gradient(145deg, #302d22, #332d1d) !important; border-color: #66532b !important; border-top-color: #e2a12d !important; }
-        [data-theme="dark"] .stat-card.is-attention h2,
-        [data-theme="dark"] .stat-card.is-attention .stat-card-note { color: #f4d58c; }
-        [data-theme="dark"] .stat-card.is-clear { background: linear-gradient(145deg, #242d26, #253329) !important; border-color: #38563e !important; border-top-color: #70b27a !important; }
-        [data-theme="dark"] .stat-card.is-clear h2,
-        [data-theme="dark"] .stat-card.is-clear .stat-card-note { color: #a7d8ae; }
-        [data-theme="dark"] .pending { background: #51411f; color: #f4d58c; }
-        [data-theme="dark"] .approved { background: #24412d; color: #a7d8ae; }
-        [data-theme="dark"] .rejected,
-        [data-theme="dark"] .declined { background: #512b2a; color: #f3aaaa; }
-        [data-theme="dark"] .btn-approve { background: #5f9b63; color: #fff !important; }
-        [data-theme="dark"] .btn-reject { background: #bf514c; color: #fff !important; }
-        [data-theme="dark"] .metric-progress-heading h5,
-        [data-theme="dark"] .metric-counts,
-        [data-theme="dark"] .metric-count-item strong,
-        [data-theme="dark"] .metric-status-percent,
-        [data-theme="dark"] .metric-total,
-        [data-theme="dark"] .metric-empty,
-        [data-theme="dark"] .metric-percent-label { color: var(--dm-text2) !important; }
-        [data-theme="dark"] .metric-progress-track { background: #3A403A; }
-        [data-theme="dark"] #mainDashboard .analytic-card h5,
-        [data-theme="dark"] #mainDashboard .metric-percent,
-        [data-theme="dark"] #mainDashboard .metric-count-item strong,
-        [data-theme="dark"] #mainDashboard .metric-counts,
-        [data-theme="dark"] #mainDashboard .metric-status-percent,
-        [data-theme="dark"] #mainDashboard .metric-total,
-        [data-theme="dark"] #mainDashboard .metric-empty,
-        [data-theme="dark"] #mainDashboard .metric-percent-label,
-        [data-theme="dark"] #mainDashboard .sched-date,
-        [data-theme="dark"] #mainDashboard .sched-patient-name,
-        [data-theme="dark"] #mainDashboard .sched-type,
-        [data-theme="dark"] #mainDashboard .dashboard-empty-state,
-        [data-theme="dark"] #mainDashboard .dashboard-empty-state span {
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] #mainDashboard .metric-counts,
-        [data-theme="dark"] #mainDashboard .metric-status-percent,
-        [data-theme="dark"] #mainDashboard .metric-total,
-        [data-theme="dark"] #mainDashboard .metric-empty,
-        [data-theme="dark"] #mainDashboard .metric-percent-label,
-        [data-theme="dark"] #mainDashboard .sched-type {
-            color: var(--dm-text2) !important;
-        }
-        [data-theme="dark"] #mainDashboard .status-badge {
-            background: var(--dm-surface2) !important;
-            color: var(--dm-text) !important;
-        }
-        [data-theme="dark"] #mainDashboard .status-badge.pending {
-            background: #51411f !important;
-            color: #f4d58c !important;
-        }
-        [data-theme="dark"] #mainDashboard .status-badge.approved,
-        [data-theme="dark"] #mainDashboard .status-badge.completed {
-            background: #24412d !important;
-            color: #a7d8ae !important;
-        }
-        [data-theme="dark"] #mainDashboard .status-badge.rejected,
-        [data-theme="dark"] #mainDashboard .status-badge.declined,
-        [data-theme="dark"] #mainDashboard .status-badge.reschedule-requested {
-            background: #512b2a !important;
-            color: #f3aaaa !important;
-        }
-        [data-theme="dark"] #mainDashboard .status-badge.cancelled {
-            background: #3a403a !important;
-            color: #d3dbcf !important;
-        }
-        [data-theme="dark"] #mainDashboard .btn-mark-done {
-            background: #31523c !important;
-            color: #d7f0dc !important;
-        }
-        [data-theme="dark"] #mainDashboard .btn-mark-done:hover {
-            background: #3d684b !important;
-        }
-        [data-theme="dark"] #mainDashboard .btn-resched {
-            background: #55451e !important;
-            color: #ffe6a3 !important;
-        }
-        [data-theme="dark"] #mainDashboard .btn-resched:hover {
-            background: #6b5725 !important;
-        }
-        [data-theme="dark"] #mainDashboard .date-input {
-            background: var(--dm-input-bg) !important;
-            border-color: var(--dm-input-border) !important;
-            color: var(--dm-text) !important;
-            color-scheme: dark;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card:hover {
-            background: var(--dm-surface2) !important;
-            border-color: var(--dm-border) !important;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card.is-attention:hover {
-            background: linear-gradient(145deg, #302d22, #332d1d) !important;
-            border-color: #66532b !important;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card.is-clear:hover {
-            background: linear-gradient(145deg, #242d26, #253329) !important;
-            border-color: #38563e !important;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card-icon {
-            background: #354037 !important;
-            color: #b9d6a5 !important;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card.is-attention .stat-card-icon {
-            background: #51411f !important;
-            color: #f4d58c !important;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card.is-clear .stat-card-icon {
-            background: #24412d !important;
-            color: #a7d8ae !important;
-        }
-        [data-theme="dark"] #mainDashboard .stat-card-icon i {
-            color: inherit !important;
-        }
-        [data-theme="dark"] #mainDashboard .quick-action i,
-        [data-theme="dark"] #mainDashboard .quick-action-menu a i {
-            color: currentColor !important;
-        }
-        [data-theme="dark"] #mainDashboard .dashboard-date i,
-        [data-theme="dark"] #mainDashboard .dashboard-sync i,
-        [data-theme="dark"] #mainDashboard .dashboard-empty-state i,
-        [data-theme="dark"] #mainDashboard .notif-dropdown-header i {
-            color: var(--dm-sage) !important;
-        }
-        [data-theme="dark"] #mainDashboard .notif-bell-btn i,
-        [data-theme="dark"] #mainDashboard .notif-mark-all i,
-        [data-theme="dark"] #mainDashboard .notif-empty i {
-            color: var(--dm-text2) !important;
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         @media (max-width: 1200px) {
             .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
