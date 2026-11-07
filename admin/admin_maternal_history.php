@@ -31,6 +31,15 @@ $checkups = [];
 while ($row = mysqli_fetch_assoc($visits_query)) {
     $checkups[] = $row;
 }
+
+$report_logo_path = __DIR__ . '/../images/logo.jpg';
+$report_logo_contents = is_readable($report_logo_path) ? file_get_contents($report_logo_path) : false;
+if ($report_logo_contents === false) {
+    http_response_code(500);
+    die('Could not load the Alawihao logo for the maternal health report.');
+}
+$report_logo_data = 'data:image/jpeg;base64,' . base64_encode($report_logo_contents);
+$report_date = date('F j, Y g:i A');
 ?>
 
 <!DOCTYPE html>
@@ -284,6 +293,27 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
             box-sizing: border-box;
         }
 
+        .report-header { width: 100%; border-bottom: 2px solid #43533a; margin-bottom: 20px; padding-bottom: 12px; }
+        .report-header td { border: 0; padding: 0; vertical-align: middle; }
+        .report-logo-cell { width: 88px; }
+        .report-logo { display: block; width: 76px; height: 76px; object-fit: contain; }
+        .report-identity { text-align: center; }
+        .report-identity p { margin: 0 0 4px; font-size: 9pt; color: #4A5568; }
+        .report-identity h1 { margin: 0 0 4px; color: #26351f; font-size: 15pt; letter-spacing: .4px; }
+        .report-identity h2 { margin: 0; color: #43533a; font-size: 11pt; }
+        .report-title-date { margin: 0 0 18px; text-align: center; font-family: Arial, sans-serif; }
+        .report-title-date h3 { margin: 0 0 5px; font-size: 12pt; }
+        .report-title-date p { margin: 0; color: #555; font-size: 9pt; }
+        .patient-info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; }
+        .patient-info-table td { width: 50%; padding: 5px 8px; border: 1px solid #cbd5e0; font-size: 9pt; }
+        .health-record-table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; }
+        .health-record-table th, .health-record-table td { border: 1px solid #aab2a4; padding: 8px; text-align: left; vertical-align: top; font-size: 8.5pt; }
+        .health-record-table th { background: #e9eee4; color: #26351f; }
+        .prepared-by { width: 280px; margin: 34px 0 0 auto; font-family: Arial, sans-serif; text-align: center; }
+        .prepared-by-label { margin: 0 0 7px; text-align: left; font-size: 9pt; font-weight: bold; }
+        .prepared-by-line { height: 48px; border-bottom: 1px solid #333; }
+        .prepared-by-caption { margin: 4px 0 0; font-size: 8pt; }
+
         .print-header {
             text-align: center;
             border-bottom: 2px solid #000000;
@@ -399,7 +429,7 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
         <div class="page-title-card">
             <h2>Maternal Health History & ANC Records</h2>
             <div class="header-actions">
-                <button class="btn-print-modal" onclick="openPrintModal(0)">
+                <button class="btn-print-modal" onclick="openPrintModal()">
                     🖨️ Print Record
                 </button>
                 <a href="admin_maternal_hr.php" class="btn-back">
@@ -503,6 +533,8 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
     <script>
         const checkupsData = <?php echo json_encode($checkups); ?>;
         const patientData = <?php echo json_encode($patient); ?>;
+        const reportLogoData = <?php echo json_encode($report_logo_data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+        const reportGeneratedAt = <?php echo json_encode($report_date, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -514,100 +546,89 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
             })[character]);
         }
 
-        function openPrintModal(index) {
-            // Kung walang check-up records, gamitin ang default na structure para hindi mag-error
-            const chk = checkupsData[index] || {
-                checkup_date: 'N/A',
-                trimester: 'N/A',
-                gestational_age_weeks: 'N/A',
-                weight_kg: 'N/A',
-                bp: 'N/A',
-                temperature: 'N/A',
-                remarks: 'Wala pang naitalang check-up.',
-                fetal_heart_rate: 'N/A'
-            };
-
-            const fullName = ((patientData.client_fname || '') + ' ' + (patientData.client_mi || '') + ' ' + (patientData.client_lname || '')).trim();
+        function openPrintModal() {
+            const fullName = ((patientData.client_fname || '') + ' ' + (patientData.client_mi || '') + ' ' + (patientData.client_lname || '')).trim() || 'N/A';
             const fullAddress = patientData.full_address || 'N/A';
             const spouseFullName = ((patientData.spouse_fname || '') + ' ' + (patientData.spouse_lname || '')).trim() || 'N/A';
-            const trimesterName = chk.trimester || 'Check-up Record';
+            const safeFileName = fullName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim().replace(/\s+/g, '_');
+            const checkupRows = checkupsData.length
+                ? checkupsData.map((checkup) => {
+                    const vitalSigns = [
+                        'Weight: ' + (checkup.weight_kg || 'N/A') + ' kg',
+                        'Height: ' + (checkup.height_cm || 'N/A') + ' cm',
+                        'BP: ' + (checkup.bp || 'N/A'),
+                        'Temp: ' + (checkup.temperature || 'N/A') + ' °C',
+                        'FHR: ' + (checkup.fetal_heart_rate || 'N/A')
+                    ].map(escapeHtml).join('<br>');
+                    const remarks = escapeHtml(checkup.remarks || 'Walang naitalang remarks.').replace(/\n/g, '<br>');
+
+                    return `
+                        <tr>
+                            <td>${escapeHtml(checkup.checkup_date || 'N/A')}</td>
+                            <td>${escapeHtml(checkup.trimester || 'N/A')}<br>${escapeHtml(checkup.gestational_age_weeks || 'N/A')} weeks</td>
+                            <td>${vitalSigns}</td>
+                            <td>${escapeHtml(checkup.vaccine_given || 'Wala')}</td>
+                            <td>${remarks}</td>
+                        </tr>`;
+                }).join('')
+                : '<tr><td colspan="5" style="text-align:center;">Wala pang naitalang check-up o health record.</td></tr>';
 
             let htmlContent = `
-                <div class="report-page" id="activeReportPage" data-filename="Maternal_Record_${trimesterName}">
-                    <div class="print-header">
-                        <h4>Municipality of Daet &bull; Province of Camarines Norte</h4>
-                        <h2>ALAWIHAO HEALTH CENTER</h2>
-                        <p>Brgy. Alawihao, Daet, Camarines Norte</p>
+                <div class="report-page" id="activeReportPage" data-filename="${escapeHtml(safeFileName || 'Maternal_Record')}_Health_Record">
+                    <table class="report-header">
+                        <tr>
+                            <td class="report-logo-cell"><img class="report-logo" src="${reportLogoData}" alt="Barangay Alawihao seal"></td>
+                            <td class="report-identity">
+                                <p>Municipality of Daet &bull; Province of Camarines Norte</p>
+                                <h1>ALAWIHAO HEALTH CENTER</h1>
+                                <h2>Brgy. Alawihao, Daet, Camarines Norte</h2>
+                            </td>
+                            <td class="report-logo-cell"></td>
+                        </tr>
+                    </table>
+
+                    <div class="report-title-date">
+                        <h3>Maternal Health Record Report</h3>
+                        <p>Generated ${escapeHtml(reportGeneratedAt)}</p>
                     </div>
 
-                    <div class="report-title-heading">
-                        Maternal Medical Record &mdash; ${trimesterName}
-                    </div>
+                    <table class="patient-info-table">
+                        <tr>
+                            <td><strong>Mother's Name:</strong> ${escapeHtml(fullName)}</td>
+                            <td><strong>Age / Birthdate:</strong> ${escapeHtml(patientData.age || 'N/A')} yrs old (${escapeHtml(patientData.dob || 'N/A')})</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contact:</strong> ${escapeHtml(patientData.contact || 'N/A')}</td>
+                            <td><strong>Blood Type:</strong> ${escapeHtml(patientData.blood_type || 'N/A')}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Spouse:</strong> ${escapeHtml(spouseFullName)}</td>
+                            <td><strong>LMP:</strong> ${escapeHtml(patientData.lmp || 'N/A')}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2"><strong>Address:</strong> ${escapeHtml(fullAddress)}</td>
+                        </tr>
+                    </table>
 
-                    <div class="section-block">
-                        <div class="section-title">I. Personal Information & Registration Details</div>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <label>Pangalan ng Ina</label>
-                                <span>${fullName}</span>
-                            </div>
-                            <div class="info-item">
-                                <label>Edad / Kapanganakan</label>
-                                <span>${patientData.age || 'N/A'} yrs old (${patientData.dob || 'N/A'})</span>
-                            </div>
-                            <div class="info-item">
-                                <label>Numero ng Kontak</label>
-                                <span>${patientData.contact || 'N/A'}</span>
-                            </div>
-                            <div class="info-item">
-                                <label>Tirahan</label>
-                                <span>${fullAddress}</span>
-                            </div>
-                            <div class="info-item">
-                                <label>Pangalan ng Asawa</label>
-                                <span>${spouseFullName}</span>
-                            </div>
-                            <div class="info-item">
-                                <label>Blood Type</label>
-                                <span>${patientData.blood_type || 'N/A'}</span>
-                            </div>
-                            <div class="info-item" style="grid-column: span 3;">
-                                <label>LMP (Last Menstrual Period)</label>
-                                <span>${patientData.lmp || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
+                    <table class="health-record-table">
+                        <thead>
+                            <tr>
+                                <th>Check-up Date</th>
+                                <th>Trimester / AOG</th>
+                                <th>Vital Signs</th>
+                                <th>Vaccine Given</th>
+                                <th>Remarks / Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${checkupRows}
+                        </tbody>
+                    </table>
 
-                    <div class="section-block">
-                        <div class="section-title">II. Check-up & Health Record Details (Petsa: ${chk.checkup_date || 'N/A'})</div>
-                        
-                        <div class="vitals-text-row">
-                            <div><strong>Timbang:</strong> ${chk.weight_kg || 'N/A'} kg</div>
-                            <div><strong>BP:</strong> ${chk.bp || 'N/A'}</div>
-                            <div><strong>Temp:</strong> ${chk.temperature || 'N/A'} °C</div>
-                            <div><strong>AOG:</strong> ${chk.gestational_age_weeks || 'N/A'} Weeks</div>
-                        </div>
-
-                        <div class="details-text-row">
-                            <div>
-                                <p style="font-size: 8pt; text-transform: uppercase; font-weight: bold; color: #2D3748; font-family: Arial, sans-serif; margin-bottom: 5px;">Pagsusuri / Remarks:</p>
-                                <p style="margin: 0;">${(chk.remarks || 'Walang naitalang remarks.').replace(/\n/g, '<br>')}</p>
-                            </div>
-                            <div>
-                                <p style="font-size: 8pt; text-transform: uppercase; font-weight: bold; color: #2D3748; font-family: Arial, sans-serif; margin-bottom: 5px;">Iba pang Detalye:</p>
-                                <p style="margin: 0;"><strong>Bakunang ibinigay:</strong> ${escapeHtml(chk.vaccine_given || 'Wala')}<br>
-                                   <strong>Fetal Heart Rate:</strong> ${chk.fetal_heart_rate || 'N/A'}<br>
-                                   <strong>Trimester:</strong> ${chk.trimester || 'Standard Check-up'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="signatures-section">
-                        <div class="sig-box">
-                            <div class="sig-line"></div>
-                            <p>MIDWIFE</p>
-                            <span>Signature over Printed Name &amp; License No.</span>
-                        </div>
+                    <div class="prepared-by">
+                        <p class="prepared-by-label">Prepared by:</p>
+                        <div class="prepared-by-line"></div>
+                        <p class="prepared-by-caption">Signature over Printed Name of Midwife</p>
                     </div>
                 </div>
             `;
@@ -631,15 +652,28 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
                     <meta charset='utf-8'>
                     <title>${fileName}</title>
                     <style>
-                        body { font-family: 'Times New Roman', Times, serif; color: #000000; line-height: 1.5; font-size: 11pt; }
-                        h2 { text-align: center; font-size: 14pt; font-weight: bold; font-family: Arial, sans-serif; }
-                        h4 { text-align: center; font-size: 10pt; font-weight: bold; text-transform: uppercase; font-family: Arial, sans-serif; }
-                        p { font-size: 10pt; }
-                        .print-header { text-align: center; border-bottom: 2px solid #000000; padding-bottom: 10px; margin-bottom: 15px; }
-                        .report-title-heading { font-size: 11pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 20px; text-decoration: underline; }
-                        .section-title { font-size: 10pt; font-weight: bold; border-bottom: 1px solid #000000; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; font-family: Arial, sans-serif; }
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-                        td { padding: 4px; font-size: 10pt; vertical-align: top; }
+                        @page { size: A4 portrait; margin: 20mm; }
+                        body { font-family: Arial, sans-serif; color: #000; font-size: 10pt; }
+                        .report-page { width: 100%; }
+                        .report-header { width: 100%; border-bottom: 2px solid #43533a; margin-bottom: 20px; padding-bottom: 12px; }
+                        .report-header td { border: 0; padding: 0; vertical-align: middle; }
+                        .report-logo-cell { width: 88px; }
+                        .report-logo { display: block; width: 76px; height: 76px; }
+                        .report-identity { text-align: center; }
+                        .report-identity p { margin: 0 0 4px; font-size: 9pt; }
+                        .report-identity h1 { margin: 0 0 4px; color: #26351f; font-size: 15pt; }
+                        .report-identity h2 { margin: 0; color: #43533a; font-size: 11pt; }
+                        .report-title-date { margin: 0 0 18px; text-align: center; }
+                        .report-title-date h3 { margin: 0 0 5px; font-size: 12pt; }
+                        .report-title-date p { margin: 0; color: #555; font-size: 9pt; }
+                        .patient-info-table, .health-record-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+                        .patient-info-table td { width: 50%; padding: 5px 8px; border: 1px solid #cbd5e0; font-size: 9pt; vertical-align: top; }
+                        .health-record-table th, .health-record-table td { border: 1px solid #aab2a4; padding: 8px; text-align: left; vertical-align: top; font-size: 8.5pt; }
+                        .health-record-table th { background: #e9eee4; color: #26351f; }
+                        .prepared-by { width: 280px; margin: 34px 0 0 auto; text-align: center; }
+                        .prepared-by-label { margin: 0 0 7px; text-align: left; font-size: 9pt; font-weight: bold; }
+                        .prepared-by-line { height: 48px; border-bottom: 1px solid #333; }
+                        .prepared-by-caption { margin: 4px 0 0; font-size: 8pt; }
                     </style>
                 </head>
                 <body>
@@ -662,46 +696,7 @@ while ($row = mysqli_fetch_assoc($visits_query)) {
         }
 
         function openWithWordApp() {
-            const targetElement = document.getElementById('activeReportPage');
-            if (!targetElement) return;
-            const fileName = targetElement.getAttribute('data-filename') || "Maternal_Medical_Record";
-
-            let htmlContent = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head>
-                    <meta charset='utf-8'>
-                    <title>${fileName}</title>
-                    <style>
-                        body { font-family: 'Times New Roman', Times, serif; color: #000000; line-height: 1.5; font-size: 11pt; }
-                        h2 { text-align: center; font-size: 14pt; font-weight: bold; font-family: Arial, sans-serif; }
-                        h4 { text-align: center; font-size: 10pt; font-weight: bold; text-transform: uppercase; font-family: Arial, sans-serif; }
-                        p { font-size: 10pt; }
-                        .print-header { text-align: center; border-bottom: 2px solid #000000; padding-bottom: 10px; margin-bottom: 15px; }
-                        .report-title-heading { font-size: 11pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 20px; text-decoration: underline; }
-                        .section-title { font-size: 10pt; font-weight: bold; border-bottom: 1px solid #000000; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; font-family: Arial, sans-serif; }
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-                        td { padding: 4px; font-size: 10pt; vertical-align: top; }
-                    </style>
-                </head>
-                <body>
-                    ${targetElement.innerHTML}
-                </body>
-                </html>
-            `;
-
-            let blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
-            let url = URL.createObjectURL(blob);
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = fileName + '.doc';
-            
-            document.body.appendChild(a);
-            a.click();
-            
-            setTimeout(() => {
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-            }, 1000);
+            downloadModalWord();
         }
     </script>
 

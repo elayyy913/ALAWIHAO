@@ -18,6 +18,8 @@ $sidebar_file = (in_array($current_role, ['super admin', 'superadmin'])) ? 'supe
 // 2. FETCH MATERNAL PATIENTS GALING SA REGISTRATION AT RECORDS
 $sql = "SELECT r.id as mother_id, r.client_fname as first_name, r.client_lname as last_name, 
         CONCAT(r.client_fname, ' ', r.client_lname) as full_name,
+        r.client_mi, r.age, r.dob, r.contact, r.blood_type, r.street, r.barangay,
+        r.municipality, r.spouse_fname, r.spouse_lname, r.lmp,
         (SELECT COUNT(*) FROM maternal_records m2 WHERE m2.mother_id = r.id) as checkup_count,
         (SELECT MAX(checkup_date) FROM maternal_records m2 WHERE m2.mother_id = r.id) as last_visit,
         (SELECT MAX(gestational_age_weeks) FROM maternal_records m2 WHERE m2.mother_id = r.id) as current_aog
@@ -25,6 +27,15 @@ $sql = "SELECT r.id as mother_id, r.client_fname as first_name, r.client_lname a
         WHERE r.status = 'Approved'
         ORDER BY r.client_fname ASC";
 $result = mysqli_query($conn, $sql);
+$maternalHistoryResult = $conn->query("SELECT * FROM maternal_records ORDER BY checkup_date DESC, id DESC");
+$maternalHistoryLoadError = $maternalHistoryResult ? null : $conn->error;
+$maternalHistoryMap = [];
+if ($maternalHistoryResult) {
+    while ($historyRow = $maternalHistoryResult->fetch_assoc()) {
+        $motherId = (int) $historyRow['mother_id'];
+        $maternalHistoryMap[$motherId][] = $historyRow;
+    }
+}
 
 $schedulePatientColumn = mysqli_query($conn, "SHOW COLUMNS FROM schedules LIKE 'patient_id'");
 $recordScheduleColumn = mysqli_query($conn, "SHOW COLUMNS FROM maternal_records LIKE 'schedule_id'");
@@ -101,6 +112,9 @@ if (!$recordNotice && $openScheduleNotice !== null) {
 }
 if (!$recordNotice && $maternalVaccineLoadError !== null) {
     $recordNotice = ['type' => 'error', 'message' => 'Could not load maternal vaccine inventory: ' . $maternalVaccineLoadError];
+}
+if (!$recordNotice && $maternalHistoryLoadError !== null) {
+    $recordNotice = ['type' => 'error', 'message' => 'Could not load maternal health history: ' . $maternalHistoryLoadError];
 }
 if (!$recordNotice && isset($_GET['success'])) {
     $recordNotice = ['type' => 'success', 'message' => 'Matagumpay na na-save ang maternal health record.'];
@@ -224,6 +238,8 @@ if (!$recordNotice && isset($_GET['success'])) {
             text-decoration: none; 
             font-weight: 600; 
             font-size: 0.8rem; 
+            border: none;
+            cursor: pointer;
         }
         .btn-update { 
             background: var(--sage); 
@@ -242,6 +258,32 @@ if (!$recordNotice && isset($_GET['success'])) {
         /* Modal Styling */
         .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter: blur(3px); overflow-y: auto; }
         .modal-content { background:white; margin:3% auto; padding:clamp(16px, 4vw, 30px); width:min(750px, calc(100% - 32px)); border-radius:15px; border-top:8px solid var(--sage); box-shadow: 0 25px 30px rgba(0,0,0,0.15); max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .maternal-report-modal { display:none; position:fixed; z-index:10000; inset:0; padding:20px; background:rgba(0,0,0,.42); align-items:center; justify-content:center; overflow-y:auto; }
+        .maternal-report-card { width:min(700px, 100%); max-height:90vh; overflow-y:auto; padding:20px; border-radius:12px; border-top:6px solid var(--sage); background:#fff; box-shadow:0 20px 35px rgba(0,0,0,.2); }
+        .maternal-report-header { margin-bottom:14px; padding-bottom:10px; text-align:center; border-bottom:2px solid var(--sage); }
+        .maternal-report-header h2 { margin:0; color:var(--dark-sage); font-size:1.15rem; }
+        .maternal-report-header p { margin:3px 0 0; color:#666; font-size:.78rem; }
+        .maternal-report-patient { display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; margin-bottom:16px; padding:10px; border-radius:7px; background:var(--soft-sage); font-size:.8rem; }
+        .maternal-report-section { margin:0 0 7px; color:var(--dark-sage); font-size:.76rem; text-transform:uppercase; }
+        .maternal-report-table { width:100%; border-collapse:collapse; font-size:.76rem; }
+        .maternal-report-table th, .maternal-report-table td { padding:7px 6px; border:1px solid #cbd5e0; text-align:left; vertical-align:top; }
+        .maternal-report-table th { background:#f0f4ec; color:var(--dark-sage); font-size:.68rem; }
+        .maternal-report-empty { padding:14px !important; color:#718096; font-style:italic; text-align:center !important; }
+        .maternal-report-actions { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:12px; }
+        .maternal-report-actions-group { display:flex; flex-wrap:wrap; gap:7px; }
+        .maternal-report-actions button, .maternal-report-actions a { display:inline-block; padding:7px 11px; border:0; border-radius:5px; color:#fff; font-size:.75rem; font-weight:600; text-decoration:none; cursor:pointer; }
+        .maternal-word-button { background:#4267ad; }
+        .maternal-print-button { background:#4a5568; }
+        .maternal-full-history { background:#718096; }
+        .maternal-close-button { background:#e2e8f0; color:#2d3748 !important; }
+        @media print {
+            body * { visibility:hidden !important; }
+            .maternal-report-modal { display:block !important; position:absolute; inset:0; padding:0; overflow:visible; background:#fff; }
+            .maternal-report-card { width:100%; max-height:none; overflow:visible; padding:0; border:0; border-radius:0; box-shadow:none; }
+            #maternalPrintable, #maternalPrintable * { visibility:visible !important; }
+            #maternalPrintable { position:absolute; inset:0; width:100%; padding:20px; background:#fff; }
+            .maternal-report-actions { display:none !important; }
+        }
         
         .trimester-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tri-btn { flex: 1; padding: 10px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; color: #4A5568; text-align: center; transition: all 0.2s; }
@@ -345,7 +387,13 @@ if (!$recordNotice && isset($_GET['success'])) {
                                 </td>
                                 <td>
                                     <div class="btn-group">
-                                        <a href="admin_maternal_history.php?id=<?php echo $patientId; ?>" class="btn-history">View History</a>
+                                        <button type="button" class="btn-history maternal-view-history"
+                                            data-maternal-report="<?php echo htmlspecialchars(json_encode([
+                                                'patient' => $row,
+                                                'history' => $maternalHistoryMap[$patientId] ?? []
+                                            ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>">
+                                            View History
+                                        </button>
                                         <button type="button" class="btn-update" onclick='openUpdateModal(<?php echo $patientId; ?>, <?php echo json_encode($row['full_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Add Record</button>
                                     </div>
                                 </td>
@@ -400,6 +448,40 @@ if (!$recordNotice && isset($_GET['success'])) {
                 </table>
             </section>
             <?php endforeach; ?>
+        </div>
+    </div>
+
+    <div class="maternal-report-modal" id="maternalHistoryModal" role="dialog" aria-modal="true" aria-labelledby="maternalReportTitle">
+        <div class="maternal-report-card">
+            <div id="maternalPrintable">
+                <header class="maternal-report-header">
+                    <h2>Alawihao Health Center</h2>
+                    <p>Maternal Health Record Report Card</p>
+                </header>
+                <div class="maternal-report-patient" id="maternalReportPatient"></div>
+                <h3 class="maternal-report-section" id="maternalReportTitle">Maternal Check-up History</h3>
+                <table class="maternal-report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Trimester / AOG</th>
+                            <th>Wt / BP</th>
+                            <th>Vaccine</th>
+                            <th>Next Visit</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="maternalReportRows"></tbody>
+                </table>
+            </div>
+            <div class="maternal-report-actions">
+                <div class="maternal-report-actions-group">
+                    <button type="button" class="maternal-word-button" onclick="downloadMaternalReportWord()">Download as Word</button>
+                    <button type="button" class="maternal-print-button" onclick="window.print()">Print / PDF</button>
+                    <a class="maternal-full-history" id="maternalFullHistoryLink" href="#">Full History</a>
+                </div>
+                <button type="button" class="maternal-close-button" onclick="closeMaternalHistoryModal()">Close</button>
+            </div>
         </div>
     </div>
 
@@ -697,6 +779,115 @@ if (!$recordNotice && isset($_GET['success'])) {
     </div>
 
     <script>
+    let maternalReportFileName = 'Maternal_Health_Record';
+
+    function escapeMaternalReportValue(value) {
+        return String(value ?? '').replace(/[&<>"']/g, character => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[character]);
+    }
+
+    function openMaternalHistoryModal(reportData) {
+        const patient = reportData.patient || {};
+        const history = Array.isArray(reportData.history) ? reportData.history : [];
+        const fullName = [patient.first_name, patient.client_mi, patient.last_name].filter(Boolean).join(' ').trim() || 'N/A';
+        const safeName = fullName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim().replace(/\s+/g, '_');
+        maternalReportFileName = (safeName || 'Maternal') + '_Health_Record';
+
+        document.getElementById('maternalReportPatient').innerHTML = `
+            <div><strong>Mother's Name:</strong> ${escapeMaternalReportValue(fullName)}</div>
+            <div><strong>Age / Birthdate:</strong> ${escapeMaternalReportValue(patient.age || 'N/A')} yrs old (${escapeMaternalReportValue(patient.dob || 'N/A')})</div>
+            <div><strong>Spouse:</strong> ${escapeMaternalReportValue([patient.spouse_fname, patient.spouse_lname].filter(Boolean).join(' ') || 'N/A')}</div>
+            <div><strong>Contact:</strong> ${escapeMaternalReportValue(patient.contact || 'N/A')}</div>
+            <div><strong>LMP:</strong> ${escapeMaternalReportValue(patient.lmp || 'N/A')}</div>
+            <div><strong>Blood Type:</strong> ${escapeMaternalReportValue(patient.blood_type || 'N/A')}</div>
+        `;
+
+        const reportRows = history.length
+            ? history.map(record => {
+                const weeks = Number(record.gestational_age_weeks) || 0;
+                const trimester = weeks > 0
+                    ? (weeks <= 13 ? '1st Trimester' : (weeks <= 27 ? '2nd Trimester' : '3rd Trimester'))
+                    : 'N/A';
+                const remarks = [record.remarks, record.impression_diagnosis, record.mga_payo]
+                    .filter(Boolean)
+                    .join(' — ') || 'None';
+                return `
+                    <tr>
+                        <td>${escapeMaternalReportValue(record.checkup_date || record.created_at || 'N/A')}</td>
+                        <td>${trimester}<br>${weeks > 0 ? escapeMaternalReportValue(weeks) + ' weeks' : 'N/A'}</td>
+                        <td>${escapeMaternalReportValue(record.weight_kg || 'N/A')} kg<br>${escapeMaternalReportValue(record.bp || 'N/A')}</td>
+                        <td>${escapeMaternalReportValue(record.vaccine_given || record.tt_status || 'None')}</td>
+                        <td>${escapeMaternalReportValue(record.next_visit_date || 'N/A')}</td>
+                        <td>${escapeMaternalReportValue(remarks)}</td>
+                    </tr>`;
+            }).join('')
+            : '<tr><td class="maternal-report-empty" colspan="6">Wala pang naitalang maternal check-up history.</td></tr>';
+
+        document.getElementById('maternalReportRows').innerHTML = reportRows;
+        document.getElementById('maternalFullHistoryLink').href = 'admin_maternal_history.php?id=' + encodeURIComponent(patient.mother_id);
+        document.getElementById('maternalHistoryModal').style.display = 'flex';
+    }
+
+    function closeMaternalHistoryModal() {
+        document.getElementById('maternalHistoryModal').style.display = 'none';
+    }
+
+    function downloadMaternalReportWord() {
+        const report = document.getElementById('maternalPrintable');
+        if (!report) return;
+
+        const documentHtml = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                  xmlns:w="urn:schemas-microsoft-com:office:word"
+                  xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <title>Maternal Health Record</title>
+                <style>
+                    body { font-family: Arial, sans-serif; color: #222; }
+                    .maternal-report-header { margin-bottom:14px; padding-bottom:10px; text-align:center; border-bottom:2px solid #8dae74; }
+                    .maternal-report-header h2 { margin:0; color:#6b8e55; font-size:16pt; }
+                    .maternal-report-header p { margin:3px 0 0; color:#666; font-size:10pt; }
+                    .maternal-report-patient { display:table; width:100%; margin-bottom:16px; padding:10px; background:#f1f5ed; font-size:10pt; }
+                    .maternal-report-patient div { display:inline-block; width:48%; padding:3px 0; }
+                    .maternal-report-section { color:#6b8e55; font-size:10pt; text-transform:uppercase; }
+                    .maternal-report-table { width:100%; border-collapse:collapse; font-size:9pt; }
+                    .maternal-report-table th, .maternal-report-table td { padding:7px; border:1px solid #cbd5e0; text-align:left; vertical-align:top; }
+                    .maternal-report-table th { background:#f0f4ec; color:#6b8e55; }
+                </style>
+            </head>
+            <body>${report.innerHTML}</body>
+            </html>`;
+        const blob = new Blob(['\ufeff', documentHtml], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = maternalReportFileName + '.doc';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    document.querySelectorAll('.maternal-view-history').forEach(button => {
+        button.addEventListener('click', () => {
+            try {
+                openMaternalHistoryModal(JSON.parse(button.dataset.maternalReport || '{}'));
+            } catch (error) {
+                console.error('Unable to open maternal health history report.', error);
+            }
+        });
+    });
+
+    document.getElementById('maternalHistoryModal').addEventListener('click', event => {
+        if (event.target.id === 'maternalHistoryModal') closeMaternalHistoryModal();
+    });
+
     function setTrimester(trimesterNum) {
         document.getElementById('selected_trimester').value = trimesterNum;
         

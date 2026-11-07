@@ -31,6 +31,7 @@ $is_sched_active    = in_array($current_page, ['schedule_management.php', 'admin
 $is_logs_active     = ($current_page === 'activity_logs.php');
 $is_sms_active      = ($current_page === 'sms_management.php');
 $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admin_setting.php']);
+$is_community_active = ($current_page === 'community.php');
 ?>
 
 <script>
@@ -190,6 +191,17 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         text-align: left !important;
         box-sizing: border-box !important;
     }
+    .community-unread-dot {
+        width: 9px !important;
+        height: 9px !important;
+        flex: 0 0 9px !important;
+        margin-left: auto !important;
+        margin-right: 4px !important;
+        border-radius: 50% !important;
+        background: #2f9e44 !important;
+        box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.15) !important;
+    }
+    .community-unread-dot[hidden] { display: none !important; }
     .management-heading {
         cursor: default !important;
         margin-top: 2px !important;
@@ -349,6 +361,10 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
         </div>
 
         <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link <?php echo $is_sched_active ? 'active' : ''; ?>" id="link-schedule">Schedule Management</a>
+        <a href="/FINAL_CAPSTONE/community.php" class="nav-link <?php echo $is_community_active ? 'active' : ''; ?>" id="link-community" data-user-id="<?php echo (int) ($_SESSION['user_id'] ?? 0); ?>">
+            Community <span class="community-unread-dot" data-community-unread-dot aria-label="May bagong mensahe" hidden></span>
+        </a>
+        <script src="/FINAL_CAPSTONE/community_chat_notifications.js" defer></script>
 
         <?php if ($is_super_admin): ?>
         <span class="nav-label">(others)</span>
