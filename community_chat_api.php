@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/db_connect.php';
 require_once __DIR__ . '/community_chat_helpers.php';
+require_once __DIR__ . '/profile_picture_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -34,7 +35,7 @@ if ($method === 'GET') {
 
     if ($afterId === 0) {
         $sql = "
-            SELECT m.id, m.user_id, m.message, m.created_at, u.first_name, u.last_name, u.role
+            SELECT m.id, m.user_id, m.message, m.created_at, u.first_name, u.last_name, u.role, u.profile_picture
             FROM (
                 SELECT id, user_id, message, created_at
                 FROM community_messages
@@ -47,7 +48,7 @@ if ($method === 'GET') {
         $result = $conn->query($sql);
     } else {
         $stmt = $conn->prepare("
-            SELECT m.id, m.user_id, m.message, m.created_at, u.first_name, u.last_name, u.role
+            SELECT m.id, m.user_id, m.message, m.created_at, u.first_name, u.last_name, u.role, u.profile_picture
             FROM community_messages m
             INNER JOIN users u ON u.id = m.user_id
             WHERE m.id > ?
@@ -80,6 +81,7 @@ if ($method === 'GET') {
             'user_id' => (int) $row['user_id'],
             'name' => $name !== '' ? $name : 'Member',
             'role' => (string) $row['role'],
+            'profile_picture' => profilePictureUrl($row['profile_picture'] ?? ''),
             'message' => (string) $row['message'],
             'created_at' => (string) $row['created_at'],
         ];

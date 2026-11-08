@@ -7,7 +7,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $current_role = $_SESSION['role'] ?? 'Admin';
 $is_super_admin = (strtolower(trim($current_role)) === 'super admin' || strtolower(trim($current_role)) === 'superadmin');
 
-$base_url = "/FINAL_CAPSTONE/admin/";
+$script_directory = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+if (basename($script_directory) === 'admin') {
+    $script_directory = rtrim(dirname($script_directory), '/');
+}
+$project_base_url = ($script_directory === '' || $script_directory === '.') ? '/' : $script_directory . '/';
+$base_url = $project_base_url . 'admin/';
 $dashboard_url = $is_super_admin ? $base_url . 'super_admin_dashboard.php' : $base_url . 'admin_dashboard.php';
 
 // Active states logic para sa mga links at dropdowns
@@ -306,7 +311,7 @@ $is_community_active = ($current_page === 'community.php');
     <div class="sidebar-header">
         <button class="close-sidebar-x" onclick="hideSidebar()" title="Close Navigation">&times;</button>
         <div class="sidebar-header-content">
-            <img src="/FINAL_CAPSTONE/images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
+            <img src="<?php echo $project_base_url; ?>images/logo.jpg" alt="Barangay Alawihao Logo" class="sidebar-logo">
             <div>
                 <div class="brand-name">ALAWIHAO <span>CENTER</span></div>
                 <p>Administrative Control</p>
@@ -361,10 +366,10 @@ $is_community_active = ($current_page === 'community.php');
         </div>
 
         <a href="<?php echo $base_url; ?>schedule_management.php" class="nav-link <?php echo $is_sched_active ? 'active' : ''; ?>" id="link-schedule">Schedule Management</a>
-        <a href="/FINAL_CAPSTONE/community.php" class="nav-link <?php echo $is_community_active ? 'active' : ''; ?>" id="link-community" data-user-id="<?php echo (int) ($_SESSION['user_id'] ?? 0); ?>">
+        <a href="<?php echo $project_base_url; ?>community.php" class="nav-link <?php echo $is_community_active ? 'active' : ''; ?>" id="link-community" data-user-id="<?php echo (int) ($_SESSION['user_id'] ?? 0); ?>">
             Community <span class="community-unread-dot" data-community-unread-dot aria-label="May bagong mensahe" hidden></span>
         </a>
-        <script src="/FINAL_CAPSTONE/community_chat_notifications.js" defer></script>
+        <script src="<?php echo $project_base_url; ?>community_chat_notifications.js" defer></script>
 
         <?php if ($is_super_admin): ?>
         <span class="nav-label">(others)</span>
@@ -380,7 +385,7 @@ $is_community_active = ($current_page === 'community.php');
     </div>
 
     <div class="sidebar-footer">
-        <a href="/FINAL_CAPSTONE/logout.php" class="logout-btn">Log out</a>
+        <a href="<?php echo $project_base_url; ?>logout.php" class="logout-btn">Log out</a>
     </div>
 </nav>
 

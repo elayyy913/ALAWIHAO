@@ -6,6 +6,10 @@
     const userId = communityLink.dataset.userId;
     const storageKey = 'community_chat_last_seen_' + userId;
     const isCommunityPage = window.location.pathname.endsWith('/community.php');
+    const scriptUrl = document.currentScript && document.currentScript.src;
+    const apiUrl = scriptUrl
+        ? new URL('community_chat_api.php', scriptUrl)
+        : new URL('community_chat_api.php', window.location.href);
     let hasInitialised = false;
     let isChecking = false;
 
@@ -33,10 +37,8 @@
         try {
             const lastSeen = readLastSeen();
             const cursor = lastSeen === null ? 0 : lastSeen;
-            const response = await fetch(
-                '/FINAL_CAPSTONE/community_chat_api.php?after_id=' + encodeURIComponent(cursor),
-                { credentials: 'same-origin', cache: 'no-store' }
-            );
+            apiUrl.search = new URLSearchParams({ after_id: cursor }).toString();
+            const response = await fetch(apiUrl, { credentials: 'same-origin', cache: 'no-store' });
             const data = await response.json();
             if (!response.ok || !data.success) return;
 

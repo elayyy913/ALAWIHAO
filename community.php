@@ -46,6 +46,8 @@ try {
         .community-wrap { width: 100%; height: 100%; }
         .community-heading { margin-bottom: 18px; }
         .community-heading h1 { margin: 0 0 6px; font-size: 1.7rem; }
+        body.sidebar-closed .community-heading,
+        .sidebar.is-hidden ~ .community-main .community-heading { padding-left: 44px; }
 
         /* Card fills the remaining viewport height */
         .community-card {
@@ -60,15 +62,22 @@ try {
             overflow: hidden;
         }
         .community-card-head { padding: 16px 20px; border-bottom: 1px solid #e7ece4; display: flex; align-items: center; gap: 12px; }
-        .community-presence { width: 10px; height: 10px; flex: 0 0 auto; background: #65a45b; border-radius: 50%; }
+        .community-logo { width: 42px; height: 42px; flex: 0 0 42px; border: 1px solid #e2e8df; border-radius: 50%; object-fit: cover; }
         .community-card-head strong { display: block; }
         .community-card-head small { display: block; margin-top: 3px; color: var(--community-muted); }
         .community-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
         .community-empty { margin: auto; max-width: 360px; color: var(--community-muted); text-align: center; line-height: 1.5; }
         .community-message { max-width: min(72%, 680px); align-self: flex-start; }
         .community-message.mine { align-self: flex-end; }
+        .community-message-content { min-width: 0; }
+        .community-message-line { display: flex; align-items: flex-end; gap: 7px; }
+        .community-message.mine .community-message-line { flex-direction: row-reverse; }
+        .community-avatar-trigger { position: relative; width: 34px; height: 34px; flex: 0 0 34px; overflow: hidden; padding: 0; border: 0; border-radius: 50%; background: #e4efdd; color: #435248; cursor: pointer; }
+        .community-avatar-trigger img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+        .community-avatar-fallback { display: grid; width: 100%; height: 100%; place-items: center; font-weight: 700; }
+        .community-message-content { min-width: 0; }
         .community-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin: 0 4px 5px; font-size: .78rem; color: var(--community-muted); }
-        .community-meta strong { color: #435248; }
+        .community-meta .community-profile-link { padding: 0; border: 0; background: none; color: #435248; font: inherit; font-weight: 700; cursor: pointer; }
         .community-bubble { padding: 10px 13px; border-radius: 13px 13px 13px 3px; background: #f0f4ed; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
         .community-message.mine .community-bubble { background: #e4efdd; border-radius: 13px 13px 3px 13px; }
         .community-compose { padding: 14px 16px; border-top: 1px solid #e7ece4; }
@@ -80,6 +89,15 @@ try {
         .community-help { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--community-muted); font-size: .78rem; }
         .community-status { min-height: 20px; margin: 7px 2px 0; color: #a33a32; font-size: .85rem; }
         .community-notice { padding: 22px; background: #fff; border: 1px solid #e2e8df; border-radius: 12px; line-height: 1.5; }
+        .community-profile-dialog { position: fixed; inset: 50% auto auto 50%; width: min(300px, calc(100vw - 32px)); margin: 0; padding: 28px 22px 22px; transform: translate(-50%, -50%); border: 1px solid #dfe5da; border-radius: 16px; color: #263126; text-align: center; box-shadow: 0 12px 40px #17200f38; }
+        .community-profile-dialog::backdrop { background: #17200f66; }
+        .community-profile-close { position: absolute; top: 8px; right: 12px; border: 0; background: transparent; color: #68756c; font-size: 24px; cursor: pointer; }
+        .community-profile-photo, .community-profile-fallback { width: 88px; height: 88px; margin: 0 auto 12px; border-radius: 50%; object-fit: cover; }
+        .community-profile-fallback { display: grid; place-items: center; background: #e4efdd; color: #435248; font-size: 32px; font-weight: 700; }
+        .community-profile-photo[hidden], .community-profile-fallback[hidden] { display: none; }
+        .community-profile-dialog > strong, .community-profile-dialog > span:not(.community-profile-fallback) { display: block; }
+        .community-profile-dialog > span:not(.community-profile-fallback) { margin-top: 5px; color: #68756c; font-size: 13px; }
+        .community-profile-dialog p { margin: 14px 0 0; color: #68756c; font-size: 12px; }
         @media (max-width: 700px) {
             .community-main { padding: 18px 12px; }
             .community-card { height: calc(100vh - 130px); min-height: 360px; }
@@ -111,7 +129,7 @@ if (isset($communityMember) && $communityMember !== null) {
         <?php else: ?>
             <section class="community-card" aria-label="Community group chat">
                 <div class="community-card-head">
-                    <span class="community-presence" aria-hidden="true"></span>
+                    <img class="community-logo" src="images/logo.jpg" alt="Alawihao Health Center logo">
                     <div><strong>Alawihao Health Center</strong><small>Shared community chat</small></div>
                 </div>
                 <div class="community-messages" id="communityMessages" role="log" aria-live="polite">
@@ -125,6 +143,14 @@ if (isset($communityMember) && $communityMember !== null) {
                     <p class="community-status" id="communityStatus" role="status"></p>
                 </div>
             </section>
+            <dialog class="community-profile-dialog" id="communityProfileDialog" aria-labelledby="communityProfileName">
+                <button class="community-profile-close" id="communityProfileClose" type="button" aria-label="Isara ang profile">&times;</button>
+                <img class="community-profile-photo" id="communityProfilePhoto" alt="" hidden>
+                <span class="community-profile-fallback" id="communityProfileFallback" aria-hidden="true"></span>
+                <strong id="communityProfileName"></strong>
+                <span id="communityProfileRole"></span>
+                <p>Community member</p>
+            </dialog>
         <?php endif; ?>
     </div>
 </main>
@@ -140,8 +166,48 @@ if (isset($communityMember) && $communityMember !== null) {
     const input = document.getElementById('communityMessage');
     const sendButton = document.getElementById('communitySend');
     const statusEl = document.getElementById('communityStatus');
+    const profileDialog = document.getElementById('communityProfileDialog');
+    const profilePhoto = document.getElementById('communityProfilePhoto');
+    const profileFallback = document.getElementById('communityProfileFallback');
+    const profileName = document.getElementById('communityProfileName');
+    const profileRole = document.getElementById('communityProfileRole');
     let lastMessageId = 0;
     let isLoading = false;
+
+    function showCommunityProfile(message) {
+        profileName.textContent = message.name;
+        profileRole.textContent = message.role;
+        profileFallback.textContent = message.name.trim().charAt(0).toUpperCase() || '?';
+        profileFallback.hidden = Boolean(message.profile_picture);
+        profilePhoto.hidden = !message.profile_picture;
+        profilePhoto.removeAttribute('src');
+        profilePhoto.onerror = () => {
+            profilePhoto.hidden = true;
+            profileFallback.hidden = false;
+        };
+        if (message.profile_picture) profilePhoto.src = message.profile_picture;
+        profileDialog.showModal();
+    }
+
+    function createCommunityAvatar(message) {
+        const avatar = document.createElement('button');
+        avatar.type = 'button';
+        avatar.className = 'community-avatar-trigger';
+        avatar.setAttribute('aria-label', 'Tingnan ang profile ni ' + message.name);
+        const fallback = document.createElement('span');
+        fallback.className = 'community-avatar-fallback';
+        fallback.textContent = message.name.trim().charAt(0).toUpperCase() || '?';
+        avatar.appendChild(fallback);
+        if (message.profile_picture) {
+            const image = document.createElement('img');
+            image.src = message.profile_picture;
+            image.alt = '';
+            image.onerror = () => image.remove();
+            avatar.appendChild(image);
+        }
+        avatar.addEventListener('click', () => showCommunityProfile(message));
+        return avatar;
+    }
 
     function appendMessage(message) {
         if (emptyEl) emptyEl.remove();
@@ -149,10 +215,21 @@ if (isset($communityMember) && $communityMember !== null) {
         const wrapper = document.createElement('article');
         wrapper.className = 'community-message' + (Number(message.user_id) === currentUserId ? ' mine' : '');
 
+        const line = document.createElement('div');
+        line.className = 'community-message-line';
+        const avatar = createCommunityAvatar(message);
+        const content = document.createElement('div');
+        content.className = 'community-message-content';
         const meta = document.createElement('div');
         meta.className = 'community-meta';
         const name = document.createElement('strong');
-        name.textContent = message.name;
+        const profileLink = document.createElement('button');
+        profileLink.type = 'button';
+        profileLink.className = 'community-profile-link';
+        profileLink.textContent = message.name;
+        profileLink.setAttribute('aria-label', 'Tingnan ang profile ni ' + message.name);
+        profileLink.addEventListener('click', () => showCommunityProfile(message));
+        name.appendChild(profileLink);
         const role = document.createElement('span');
         role.textContent = message.role;
         const time = document.createElement('time');
@@ -162,7 +239,9 @@ if (isset($communityMember) && $communityMember !== null) {
         const bubble = document.createElement('div');
         bubble.className = 'community-bubble';
         bubble.textContent = message.message;
-        wrapper.append(meta, bubble);
+        content.append(meta, bubble);
+        line.append(avatar, content);
+        wrapper.appendChild(line);
         messagesEl.appendChild(wrapper);
         if (shouldScroll) messagesEl.scrollTop = messagesEl.scrollHeight;
     }
@@ -215,6 +294,7 @@ if (isset($communityMember) && $communityMember !== null) {
         }
     });
 
+    document.getElementById('communityProfileClose').addEventListener('click', () => profileDialog.close());
     loadMessages();
     window.setInterval(loadMessages, 5000);
 })();

@@ -1,6 +1,11 @@
 <?php 
 $current_page = basename($_SERVER['PHP_SELF']); 
 $is_home = ($current_page == 'user_dashboard.php');
+$script_directory = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+if (basename($script_directory) === 'admin') {
+    $script_directory = rtrim(dirname($script_directory), '/');
+}
+$project_base_url = ($script_directory === '' || $script_directory === '.') ? '/' : $script_directory . '/';
 $show_community_link = false;
 if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'])) {
     require_once __DIR__ . '/community_chat_helpers.php';
@@ -48,10 +53,7 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'])) {
         <span class="nav-label">(others)</span>
         <a href="user_schedule.php" class="nav-link" id="link-schedule">Schedule</a>
         <?php if ($show_community_link): ?>
-        <a href="community.php" class="nav-link <?php echo $current_page === 'community.php' ? 'active' : ''; ?>" id="link-community" data-user-id="<?php echo (int) $_SESSION['user_id']; ?>">
-            Community <span class="community-unread-dot" data-community-unread-dot aria-label="May bagong mensahe" hidden></span>
-        </a>
-        <script src="/FINAL_CAPSTONE/community_chat_notifications.js" defer></script>
+        <script src="<?php echo $project_base_url; ?>community_chat_notifications.js" defer></script>
         <?php endif; ?>
         <a href="user_settings.php" class="nav-link" id="link-settings">Settings</a>
     </div>
@@ -74,6 +76,7 @@ $chatbot_pages = [
     'user_schedule.php',
     'user_settings.php',
     'health_article.php',
+    'community.php',
 ];
 if (in_array($current_page, $chatbot_pages, true)) {
     include 'user_chatbot.php';
