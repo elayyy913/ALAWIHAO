@@ -987,7 +987,7 @@ if (check_table_exists($conn, 'schedules')) {
         <div class="right-column">
         <section class="table-container" aria-labelledby="upcomingMaternalTitle">
             <h3 id="upcomingMaternalTitle">Upcoming Maternal Check-ups & Vaccinations</h3>
-            <div class="schedule-card-list">
+            <div class="schedule-card-list" id="maternalScheduleList" data-variant="super">
                 <?php if (!empty($upcoming_maternal)): foreach($upcoming_maternal as $sched):
                     $patientName = $sched['full_name'] ?? $sched['client_name'] ?? 'N/A';
                     $serviceType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
@@ -1021,7 +1021,7 @@ if (check_table_exists($conn, 'schedules')) {
 
         <section class="table-container" aria-labelledby="upcomingInfantTitle">
             <h3 id="upcomingInfantTitle">Upcoming Infant (Child) Vaccinations</h3>
-            <div class="schedule-card-list">
+            <div class="schedule-card-list" id="infantScheduleList" data-variant="super">
                 <?php if (!empty($upcoming_infant)): foreach($upcoming_infant as $sched):
                     $infantName = $sched['full_name'] ?? $sched['child_name'] ?? 'N/A';
                     $vaccineType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
@@ -1212,5 +1212,6 @@ if (check_table_exists($conn, 'schedules')) {
 </script>
 
 <?php $notif_path = '../'; include '../notif_js.php'; ?>
+<script src="dashboard_schedule_live.js" defer></script>
 </body>
 </html>

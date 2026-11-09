@@ -825,7 +825,7 @@ if (check_table_exists($conn, 'schedules')) {
             
             <a class="metric-card" href="#today-appointments" style="border-top-color: #3B82F6;">
                 <div class="metric-title">TODAY'S SCHEDULES</div>
-                <div class="metric-value" style="color: #3B82F6;"><?php echo $today_maternal_count + $today_infant_count; ?></div>
+                <div class="metric-value" id="todayScheduleCount" style="color: #3B82F6;"><?php echo $today_maternal_count + $today_infant_count; ?></div>
             </a>
         </div>
 
@@ -889,8 +889,9 @@ if (check_table_exists($conn, 'schedules')) {
                 <div class="card" id="today-appointments">
                     <div class="schedule-heading">
                         <div class="card-header-title">Upcoming Maternal Schedules</div>
-                        <span class="schedule-count"><?php echo count($upcoming_maternal); ?> scheduled</span>
+                        <span class="schedule-count"><span id="todayMaternalScheduleCount"><?php echo count($upcoming_maternal); ?></span> scheduled</span>
                     </div>
+                    <div id="maternalScheduleList" data-variant="admin">
                     <?php if (!empty($upcoming_maternal)): ?>
                         <?php foreach ($upcoming_maternal as $s): ?>
                         <div class="sched-item">
@@ -925,13 +926,15 @@ if (check_table_exists($conn, 'schedules')) {
                     <?php else: ?>
                         <p class="no-data" style="margin:0;">No upcoming maternal appointments.</p>
                     <?php endif; ?>
+                    </div>
                 </div>
 
                 <div class="card" id="upcoming-infant-appointments">
                     <div class="schedule-heading">
                         <div class="card-header-title">Upcoming Infant Schedules</div>
-                        <span class="schedule-count"><?php echo count($upcoming_infant); ?> scheduled</span>
+                        <span class="schedule-count"><span id="todayInfantScheduleCount"><?php echo count($upcoming_infant); ?></span> scheduled</span>
                     </div>
+                    <div id="infantScheduleList" data-variant="admin">
                     <?php if (!empty($upcoming_infant)): ?>
                         <?php foreach ($upcoming_infant as $s): ?>
                         <div class="sched-item child-sched">
@@ -966,6 +969,7 @@ if (check_table_exists($conn, 'schedules')) {
                     <?php else: ?>
                         <p class="no-data" style="margin:0;">No upcoming infant appointments.</p>
                     <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1487,5 +1491,6 @@ if (check_table_exists($conn, 'schedules')) {
 
 </script>
 <?php $notif_path = '../'; include '../notif_js.php'; ?>
+<script src="dashboard_schedule_live.js" defer></script>
 </body>
 </html>
