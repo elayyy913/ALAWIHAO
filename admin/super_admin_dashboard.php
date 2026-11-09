@@ -241,6 +241,28 @@ $total_pending = (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t F
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Pending'"))['t'] ?? 0) +
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0);
 
+if (!ensureRescheduleRequestsTable($conn)) {
+    die("Unable to load pending reschedule requests: " . mysqli_error($conn));
+}
+$pending_reschedule_query = mysqli_query($conn, "SELECT COUNT(*) AS total
+    FROM schedule_reschedule_requests r
+    JOIN schedules s ON s.id = r.schedule_id
+    WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM schedule_reschedule_requests approved
+          WHERE approved.schedule_id = r.schedule_id
+            AND LOWER(approved.status) = 'approved'
+            AND approved.requested_date = r.requested_date
+            AND approved.requested_time = r.requested_time
+            AND approved.requested_date = s.schedule_date
+            AND approved.requested_time = s.schedule_time
+      )");
+if (!$pending_reschedule_query) {
+    die("Unable to count pending reschedule requests: " . mysqli_error($conn));
+}
+$pending_reschedule_count = (int) mysqli_fetch_assoc($pending_reschedule_query)['total'];
+
 // --- REGISTRATION STATUS DISTRIBUTION ---
 $mat_status = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     COUNT(*) AS total,
@@ -326,7 +348,9 @@ if (check_table_exists($conn, 'schedules')) {
     $mat_upcoming_q = mysqli_query($conn, "
         SELECT id, schedule_date, schedule_time, service_type, status, patient_name AS full_name 
         FROM schedules 
-        WHERE category = 'Maternal' AND LOWER(status) != 'completed' 
+        WHERE category = 'Maternal'
+          AND LOWER(status) != 'completed'
+          AND schedule_date >= CURDATE()
         ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
     ");
     if ($mat_upcoming_q) {
@@ -339,7 +363,9 @@ if (check_table_exists($conn, 'schedules')) {
     $inf_upcoming_q = mysqli_query($conn, "
         SELECT id, patient_name as child_name, schedule_date, schedule_time, service_type as vaccine_type, status
         FROM schedules 
-        WHERE category = 'Child' AND LOWER(status) != 'completed' 
+        WHERE category = 'Child'
+          AND LOWER(status) != 'completed'
+          AND schedule_date >= CURDATE()
         ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
     ");
     if ($inf_upcoming_q) {
@@ -407,6 +433,8 @@ if (check_table_exists($conn, 'schedules')) {
         position: relative;
         overflow: hidden;
     }
+    a.stat-card, a.stat-card:hover, a.stat-card:focus { color: inherit; text-decoration: none; }
+    a.stat-card:focus-visible { outline: 3px solid rgba(107, 142, 85, .45); outline-offset: 3px; }
     .stat-card:hover {
         transform: translateY(-2px);
         background: linear-gradient(135deg, #FFFFFF 0%, #F7FAF4 100%);
@@ -845,26 +873,26 @@ if (check_table_exists($conn, 'schedules')) {
             <h2 id="statTotalPatients"><?php echo $total_patients; ?></h2>
             <span class="stat-card-note">Approved patient records</span>
         </article>
-        <article class="stat-card">
+        <a class="stat-card" href="admin_child_hr.php">
             <div class="stat-card-head"><h4>APPROVED INFANTS</h4><span class="stat-card-icon"><i class="fa-solid fa-baby" aria-hidden="true"></i></span></div>
             <h2 id="statInfants"><?php echo $total_newborns; ?></h2>
             <span class="stat-card-note">Child health records</span>
-        </article>
-        <article class="stat-card">
+        </a>
+        <a class="stat-card" href="admin_maternal_hr.php">
             <div class="stat-card-head"><h4>APPROVED MATERNAL</h4><span class="stat-card-icon"><i class="fa-solid fa-person-pregnant" aria-hidden="true"></i></span></div>
             <h2 id="statMaternal"><?php echo $total_pregnant; ?></h2>
             <span class="stat-card-note">Maternal health records</span>
-        </article>
-        <article class="stat-card <?php echo (int) $total_pending > 0 ? 'is-attention' : 'is-clear'; ?>" id="pendingApprovalCard">
-            <div class="stat-card-head"><h4>FOR APPROVAL</h4><span class="stat-card-icon"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span></div>
-            <h2 id="statPending"><?php echo $total_pending; ?></h2>
-            <span class="stat-card-note" id="pendingApprovalNote"><?php echo (int) $total_pending > 0 ? htmlspecialchars($total_pending . ' ' . ((int) $total_pending === 1 ? 'item needs' : 'items need') . ' review', ENT_QUOTES, 'UTF-8') : 'All caught up — no pending approvals'; ?></span>
-        </article>
-        <article class="stat-card">
+        </a>
+        <a class="stat-card <?php echo $pending_reschedule_count > 0 ? 'is-attention' : 'is-clear'; ?>" id="pendingApprovalCard" href="schedule_management.php?tab=reschedTab">
+            <div class="stat-card-head"><h4>RESCHEDULE REQUESTS</h4><span class="stat-card-icon"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span></div>
+            <h2 id="statPending"><?php echo $pending_reschedule_count; ?></h2>
+            <span class="stat-card-note" id="pendingApprovalNote"><?php echo $pending_reschedule_count > 0 ? htmlspecialchars($pending_reschedule_count . ' pending ' . ($pending_reschedule_count === 1 ? 'request' : 'requests'), ENT_QUOTES, 'UTF-8') : 'No pending reschedule requests'; ?></span>
+        </a>
+        <a class="stat-card" href="admin_health_workers.php">
             <div class="stat-card-head"><h4>HEALTH WORKERS</h4><span class="stat-card-icon"><i class="fa-solid fa-user-nurse" aria-hidden="true"></i></span></div>
             <h2 id="statWorkers"><?php echo $total_workers; ?></h2>
             <span class="stat-card-note">Approved staff accounts</span>
-        </article>
+        </a>
     </div>
 
     <section class="analytics-section" aria-labelledby="registrationMetricsTitle">
@@ -956,82 +984,75 @@ if (check_table_exists($conn, 'schedules')) {
         <?php include 'maternal_verification_pad.php'; ?>
         <?php // include 'infant_verification_pad.php'; -- idadagdag pagkatapos ma-split ?>
 
-        <!-- RIGHT COLUMN -->
         <div class="right-column">
-            
-            <!-- Upcoming Maternal Check-ups -->
-            <div class="table-container">
-                <h3>Upcoming Maternal Check-ups & Vaccinations</h3>
-                <div class="schedule-card-list">
-                    <?php if (!empty($upcoming_maternal)): foreach($upcoming_maternal as $sched): 
-                        $patientName = $sched['full_name'] ?? $sched['client_name'] ?? 'N/A';
-                        $serviceType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
-                        $schedDate = $sched['schedule_date'] ?? date('Y-m-d');
-                        $schedId = $sched['id'] ?? '';
-                    ?>
-                    <div class="schedule-item maternal-border">
-                        <?php 
-                        $schedStatus = $sched['status'] ?? 'Pending';
-                        $statusClass = strtolower(str_replace(' ', '-', $schedStatus));
-                        ?>
-                        <div class="sched-header-row">
-                            <span class="sched-date"><?php echo htmlspecialchars($schedDate); ?></span>
-                            <span class="status-badge <?php echo $statusClass; ?>"><?php echo htmlspecialchars($schedStatus); ?></span>
-                        </div>
-                        <div class="sched-patient-name"><?php echo htmlspecialchars($patientName); ?></div>
-                        <div class="sched-type">Type: <?php echo htmlspecialchars($serviceType); ?></div>
-                        
-                        <form method="POST" action="" class="sched-actions">
-                            <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
-                            <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
-                            <button type="submit" name="mark_done_maternal" class="btn-mark-done" formnovalidate>Mark Done</button>
-                            <div class="resched-group">
-                                <input type="date" name="new_date" class="date-input" required>
-                                <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
-                            </div>
-                        </form>
+        <section class="table-container" aria-labelledby="upcomingMaternalTitle">
+            <h3 id="upcomingMaternalTitle">Upcoming Maternal Check-ups & Vaccinations</h3>
+            <div class="schedule-card-list">
+                <?php if (!empty($upcoming_maternal)): foreach($upcoming_maternal as $sched):
+                    $patientName = $sched['full_name'] ?? $sched['client_name'] ?? 'N/A';
+                    $serviceType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
+                    $schedDate = $sched['schedule_date'] ?? date('Y-m-d');
+                    $schedId = $sched['id'] ?? '';
+                    $schedStatus = $sched['status'] ?? 'Pending';
+                    $statusClass = strtolower(str_replace(' ', '-', $schedStatus));
+                ?>
+                <div class="schedule-item maternal-border">
+                    <div class="sched-header-row">
+                        <span class="sched-date"><?php echo htmlspecialchars($schedDate); ?></span>
+                        <span class="status-badge <?php echo $statusClass; ?>"><?php echo htmlspecialchars($schedStatus); ?></span>
                     </div>
-                    <?php endforeach; else: ?>
-                        <div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming maternal appointments.</span></div>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <!-- Upcoming Child Vaccinations -->
-            <div class="table-container">
-                <h3>Upcoming Child Vaccinations</h3>
-                <div class="schedule-card-list">
-                    <?php if (!empty($upcoming_infant)): foreach($upcoming_infant as $sched): 
-                        $infantName = $sched['full_name'] ?? $sched['child_name'] ?? 'N/A';
-                        $vaccineType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
-                        $schedDateFull = ($sched['schedule_date'] ?? date('Y-m-d')) . (!empty($sched['schedule_time']) ? ' (' . $sched['schedule_time'] . ')' : '');
-                        $schedId = $sched['id'] ?? '';
-                    ?>
-                    <div class="schedule-item infant-border">
-                        <div class="sched-header-row">
-                            <span class="sched-date"><?php echo htmlspecialchars($schedDateFull); ?></span>
+                    <div class="sched-patient-name"><?php echo htmlspecialchars($patientName); ?></div>
+                    <div class="sched-type">Type: <?php echo htmlspecialchars($serviceType); ?></div>
+                    <form method="POST" action="" class="sched-actions">
+                        <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
+                        <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
+                        <button type="submit" name="mark_done_maternal" class="btn-mark-done" formnovalidate>Mark Done</button>
+                        <div class="resched-group">
+                            <input type="date" name="new_date" class="date-input" required>
+                            <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
                         </div>
-                        <div class="sched-patient-name"><?php echo htmlspecialchars($infantName); ?></div>
-                        <div class="sched-type">Vaccine: <?php echo htmlspecialchars($vaccineType); ?></div>
-                        
-                        <form method="POST" action="" class="sched-actions">
-                            <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
-                            <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
-                            <button type="submit" name="mark_done_infant" class="btn-mark-done" formnovalidate>Mark Done</button>
-                            <div class="resched-group">
-                                <input type="date" name="new_date" class="date-input" required>
-                                <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
-                            </div>
-                        </form>
-                    </div>
-                    <?php endforeach; else: ?>
-                        <div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming child immunizations.</span></div>
-                    <?php endif; ?>
+                    </form>
                 </div>
+                <?php endforeach; else: ?>
+                    <div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming maternal appointments.</span></div>
+                <?php endif; ?>
             </div>
+        </section>
 
+        <section class="table-container" aria-labelledby="upcomingInfantTitle">
+            <h3 id="upcomingInfantTitle">Upcoming Infant (Child) Vaccinations</h3>
+            <div class="schedule-card-list">
+                <?php if (!empty($upcoming_infant)): foreach($upcoming_infant as $sched):
+                    $infantName = $sched['full_name'] ?? $sched['child_name'] ?? 'N/A';
+                    $vaccineType = $sched['service_type'] ?? $sched['service'] ?? 'N/A';
+                    $schedDateFull = ($sched['schedule_date'] ?? date('Y-m-d')) . (!empty($sched['schedule_time']) ? ' (' . $sched['schedule_time'] . ')' : '');
+                    $schedId = $sched['id'] ?? '';
+                    $schedStatus = $sched['status'] ?? 'Pending';
+                    $statusClass = strtolower(str_replace(' ', '-', $schedStatus));
+                ?>
+                <div class="schedule-item infant-border">
+                    <div class="sched-header-row">
+                        <span class="sched-date"><?php echo htmlspecialchars($schedDateFull); ?></span>
+                        <span class="status-badge <?php echo $statusClass; ?>"><?php echo htmlspecialchars($schedStatus); ?></span>
+                    </div>
+                    <div class="sched-patient-name"><?php echo htmlspecialchars($infantName); ?></div>
+                    <div class="sched-type">Vaccine: <?php echo htmlspecialchars($vaccineType); ?></div>
+                    <form method="POST" action="" class="sched-actions">
+                        <input type="hidden" name="schedule_id" value="<?php echo $schedId; ?>">
+                        <input type="hidden" name="redirect_to" value="admin/super_admin_dashboard.php">
+                        <button type="submit" name="mark_done_infant" class="btn-mark-done" formnovalidate>Mark Done</button>
+                        <div class="resched-group">
+                            <input type="date" name="new_date" class="date-input" required>
+                            <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
+                        </div>
+                    </form>
+                </div>
+                <?php endforeach; else: ?>
+                    <div class="dashboard-empty-state"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>No upcoming infant appointments.</span></div>
+                <?php endif; ?>
+            </div>
+        </section>
         </div>
-
     </div>
 </div>
 
@@ -1121,15 +1142,15 @@ if (check_table_exists($conn, 'schedules')) {
                 document.getElementById('statTotalPatients').innerText = data.total_patients;
                 document.getElementById('statInfants').innerText = data.total_newborns;
                 document.getElementById('statMaternal').innerText = data.total_pregnant;
-                document.getElementById('statPending').innerText = data.total_pending;
+                document.getElementById('statPending').innerText = data.pending_reschedule_count;
                 document.getElementById('statWorkers').innerText = data.total_workers;
-                const pendingCount = Math.max(0, Number(data.total_pending) || 0);
+                const pendingCount = Math.max(0, Number(data.pending_reschedule_count) || 0);
                 const pendingCard = document.getElementById('pendingApprovalCard');
                 pendingCard.classList.toggle('is-attention', pendingCount > 0);
                 pendingCard.classList.toggle('is-clear', pendingCount === 0);
                 document.getElementById('pendingApprovalNote').innerText = pendingCount > 0
-                    ? pendingCount + (pendingCount === 1 ? ' item needs review' : ' items need review')
-                    : 'All caught up — no pending approvals';
+                    ? pendingCount + (pendingCount === 1 ? ' pending request' : ' pending requests')
+                    : 'No pending reschedule requests';
 
                 const updatedAt = new Date(data.updated_at);
                 const lastUpdated = document.getElementById('dashboardLastUpdated');

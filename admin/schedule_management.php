@@ -966,6 +966,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule']))
     }
 }
 // SECURED QUERIES
+// Move appointments whose scheduled date has passed into the completed records.
+$completePastSchedules = $conn->query("UPDATE schedules
+    SET status = 'Completed'
+    WHERE schedule_date < CURDATE()
+      AND LOWER(TRIM(status)) IN ('pending', 'approved', 'rescheduled')");
+if (!$completePastSchedules) {
+    die("Unable to complete past schedules: " . $conn->error);
+}
+
 // Deduplicate: for each patient+service combination, prefer the latest Approved row
 // over any older Pending row. We pick the row with the highest id per patient+service.
 $result_child = $conn->query("
