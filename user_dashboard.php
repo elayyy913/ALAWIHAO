@@ -420,7 +420,10 @@ if ($profileStmt) {
             background: none; border: none; cursor: pointer;
             font-size: 1.3rem; color: var(--green); position: relative;
             padding: 6px 10px; border-radius: 8px; transition: background 0.2s;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 40px; height: 40px; flex: 0 0 40px;
         }
+        .notif-bell-icon { display: block; width: 22px; height: 22px; }
         .notif-bell-btn:hover { background: var(--bg); }
         #notifBellBadge {
             position: absolute; top: 2px; right: 4px;
