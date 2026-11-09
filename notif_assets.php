@@ -14,6 +14,7 @@
     padding: 6px 10px; border-radius: 8px; transition: background 0.2s;
     display: inline-flex; align-items: center;
 }
+.notif-bell-icon { display: block; width: 22px; height: 22px; }
 .notif-bell-btn:hover { background: #F1F5ED; }
 #notifBellBadge {
     position: absolute; top: 2px; right: 4px;
