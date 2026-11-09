@@ -88,6 +88,28 @@ $pending_infant_count = $infant_pending ? mysqli_num_rows($infant_pending) : 0;
 $pending_maternal_count = $maternal_pending ? mysqli_num_rows($maternal_pending) : 0;
 $pending_total = ($pending_infant_count + $pending_maternal_count);
 
+if (!ensureRescheduleRequestsTable($conn)) {
+    die("Unable to load pending reschedule requests: " . mysqli_error($conn));
+}
+$pending_reschedule_query = mysqli_query($conn, "SELECT COUNT(*) AS total
+    FROM schedule_reschedule_requests r
+    JOIN schedules s ON s.id = r.schedule_id
+    WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM schedule_reschedule_requests approved
+          WHERE approved.schedule_id = r.schedule_id
+            AND LOWER(approved.status) = 'approved'
+            AND approved.requested_date = r.requested_date
+            AND approved.requested_time = r.requested_time
+            AND approved.requested_date = s.schedule_date
+            AND approved.requested_time = s.schedule_time
+      )");
+if (!$pending_reschedule_query) {
+    die("Unable to count pending reschedule requests: " . mysqli_error($conn));
+}
+$pending_reschedule_count = (int) mysqli_fetch_assoc($pending_reschedule_query)['total'];
+
 // 5. FETCH MATERNAL SCHEDULES
 $today_maternal_count = 0;
 $upcoming_maternal = [];
@@ -99,7 +121,9 @@ if (check_table_exists($conn, 'schedules')) {
     $mat_upcoming_q = mysqli_query($conn, "
         SELECT id, schedule_date, schedule_time, service_type AS appointment_type, status, patient_name AS full_name 
         FROM schedules 
-        WHERE category = 'Maternal' AND LOWER(status) != 'completed' 
+        WHERE category = 'Maternal'
+          AND LOWER(status) != 'completed'
+          AND schedule_date >= CURDATE()
         ORDER BY schedule_date ASC, schedule_time ASC LIMIT 10
     ");
 
@@ -129,7 +153,9 @@ if (check_table_exists($conn, 'schedules')) {
                service_type as vaccine_type,
                status
         FROM schedules 
-        WHERE category = 'Child' AND LOWER(status) != 'completed' 
+        WHERE category = 'Child'
+          AND LOWER(status) != 'completed'
+          AND schedule_date >= CURDATE()
         ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
     ");
 
@@ -140,34 +166,6 @@ if (check_table_exists($conn, 'schedules')) {
     }
 }
 
-$upcoming_schedule = [];
-foreach ($upcoming_maternal as $schedule) {
-    $upcoming_schedule[] = [
-        'id' => $schedule['id'],
-        'schedule_date' => $schedule['schedule_date'],
-        'schedule_time' => $schedule['schedule_time'],
-        'patient_name' => $schedule['full_name'],
-        'service' => $schedule['appointment_type'],
-        'status' => $schedule['status'],
-        'category' => 'Maternal',
-    ];
-}
-foreach ($upcoming_infant as $schedule) {
-    $upcoming_schedule[] = [
-        'id' => $schedule['id'],
-        'schedule_date' => $schedule['schedule_date'],
-        'schedule_time' => $schedule['schedule_time'],
-        'patient_name' => $schedule['child_name'],
-        'service' => $schedule['vaccine_type'],
-        'status' => $schedule['status'],
-        'category' => 'Child',
-    ];
-}
-usort($upcoming_schedule, function ($first, $second) {
-    $first_datetime = strtotime($first['schedule_date'] . ' ' . $first['schedule_time']);
-    $second_datetime = strtotime($second['schedule_date'] . ' ' . $second['schedule_time']);
-    return $first_datetime <=> $second_datetime;
-});
 ?>
 
 <!DOCTYPE html>
@@ -396,6 +394,7 @@ usort($upcoming_schedule, function ($first, $second) {
             color: inherit;
             text-decoration: none;
         }
+        a.metric-card:hover, a.metric-card:focus { color: inherit; text-decoration: none; }
 
         a.metric-card:focus-visible {
             outline: 3px solid rgba(107, 142, 85, 0.4);
@@ -423,6 +422,12 @@ usort($upcoming_schedule, function ($first, $second) {
             font-size: 1.7rem;
             font-weight: 700;
             color: var(--text-main);
+        }
+
+        .metric-note {
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 0.72rem;
         }
 
         .grid-container {
@@ -812,9 +817,10 @@ usort($upcoming_schedule, function ($first, $second) {
                 <div class="metric-value"><?php echo $total_infant; ?></div>
             </a>
             
-            <a class="metric-card" href="#pending-approvals" style="border-top-color: #D97706;">
-                <div class="metric-title">PENDING APPROVALS</div>
-                <div class="metric-value" style="color: #D97706;"><?php echo $pending_total; ?></div>
+            <a class="metric-card" href="schedule_management.php?tab=reschedTab" style="border-top-color: #D97706;">
+                <div class="metric-title">RESCHEDULE REQUESTS</div>
+                <div class="metric-value" style="color: #D97706;"><?php echo $pending_reschedule_count; ?></div>
+                <div class="metric-note"><?php echo $pending_reschedule_count === 1 ? '1 pending request' : $pending_reschedule_count . ' pending requests'; ?></div>
             </a>
             
             <a class="metric-card" href="#today-appointments" style="border-top-color: #3B82F6;">
@@ -882,13 +888,12 @@ usort($upcoming_schedule, function ($first, $second) {
             <div class="right-column">
                 <div class="card" id="today-appointments">
                     <div class="schedule-heading">
-                        <div class="card-header-title">Upcoming Appointments</div>
-                        <span class="schedule-count"><?php echo count($upcoming_schedule); ?> scheduled</span>
+                        <div class="card-header-title">Upcoming Maternal Schedules</div>
+                        <span class="schedule-count"><?php echo count($upcoming_maternal); ?> scheduled</span>
                     </div>
-                    <?php if (!empty($upcoming_schedule)): ?>
-                        <?php foreach ($upcoming_schedule as $s): ?>
-                        <?php $is_child_schedule = $s['category'] === 'Child'; ?>
-                        <div class="sched-item <?php echo $is_child_schedule ? 'child-sched' : ''; ?>">
+                    <?php if (!empty($upcoming_maternal)): ?>
+                        <?php foreach ($upcoming_maternal as $s): ?>
+                        <div class="sched-item">
                             <div class="schedule-meta">
                                 <strong class="schedule-date">
                                     <?php echo htmlspecialchars(date('M j, Y', strtotime($s['schedule_date']))); ?>
@@ -896,40 +901,70 @@ usort($upcoming_schedule, function ($first, $second) {
                                         · <?php echo htmlspecialchars(date('g:i A', strtotime($s['schedule_time']))); ?>
                                     <?php endif; ?>
                                 </strong>
-                                <span class="schedule-category <?php echo $is_child_schedule ? 'child' : ''; ?>">
-                                    <?php echo $is_child_schedule ? 'Child' : 'Maternal'; ?>
-                                </span>
+                                <span class="schedule-category">Maternal</span>
                             </div>
                             <span class="status-badge"><?php echo htmlspecialchars($s['status']); ?></span>
                             <strong class="schedule-service" style="font-size:0.86rem; color:var(--text-main);">
-                                <?php echo htmlspecialchars($s['patient_name'] ?: ($is_child_schedule ? 'Child' : 'Patient')); ?>
+                                <?php echo htmlspecialchars($s['full_name'] ?: 'Patient'); ?>
                             </strong>
                             <span style="font-size:0.8rem; color:var(--text-muted);">
-                                <?php echo $is_child_schedule ? 'Vaccine' : 'Service'; ?>:
-                                <?php echo htmlspecialchars($s['service'] ?: ($is_child_schedule ? 'General Vaccine' : 'Check-up')); ?>
+                                Service: <?php echo htmlspecialchars($s['appointment_type'] ?: 'Check-up'); ?>
                             </span>
 
                             <form method="POST" action="../process_verification.php" class="sched-actions">
                                 <input type="hidden" name="schedule_id" value="<?php echo (int) $s['id']; ?>">
                                 <input type="hidden" name="redirect_to" value="admin_dashboard.php">
-                                <?php if ($is_child_schedule): ?>
-                                    <button type="submit" name="mark_done_infant" class="btn-done" formnovalidate>Mark Done</button>
-                                    <div class="resched-container" style="margin-top:0;">
-                                        <input type="date" name="new_date" class="resched-input" required>
-                                        <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
-                                    </div>
-                                <?php else: ?>
-                                    <button type="submit" name="mark_done_maternal" class="btn-done" formnovalidate>Mark Done</button>
-                                    <div class="resched-container" style="margin-top:0;">
-                                        <input type="date" name="new_date" class="resched-input" required>
-                                        <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
-                                    </div>
-                                <?php endif; ?>
+                                <button type="submit" name="mark_done_maternal" class="btn-done" formnovalidate>Mark Done</button>
+                                <div class="resched-container" style="margin-top:0;">
+                                    <input type="date" name="new_date" class="resched-input" required>
+                                    <button type="submit" name="reschedule_maternal" class="btn-resched">Resched</button>
+                                </div>
                             </form>
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <p class="no-data" style="margin:0;">No upcoming appointments. New scheduled visits will appear here.</p>
+                        <p class="no-data" style="margin:0;">No upcoming maternal appointments.</p>
+                    <?php endif; ?>
+                </div>
+
+                <div class="card" id="upcoming-infant-appointments">
+                    <div class="schedule-heading">
+                        <div class="card-header-title">Upcoming Infant Schedules</div>
+                        <span class="schedule-count"><?php echo count($upcoming_infant); ?> scheduled</span>
+                    </div>
+                    <?php if (!empty($upcoming_infant)): ?>
+                        <?php foreach ($upcoming_infant as $s): ?>
+                        <div class="sched-item child-sched">
+                            <div class="schedule-meta">
+                                <strong class="schedule-date">
+                                    <?php echo htmlspecialchars(date('M j, Y', strtotime($s['schedule_date']))); ?>
+                                    <?php if (!empty($s['schedule_time'])): ?>
+                                        · <?php echo htmlspecialchars(date('g:i A', strtotime($s['schedule_time']))); ?>
+                                    <?php endif; ?>
+                                </strong>
+                                <span class="schedule-category child">Infant</span>
+                            </div>
+                            <span class="status-badge"><?php echo htmlspecialchars($s['status']); ?></span>
+                            <strong class="schedule-service" style="font-size:0.86rem; color:var(--text-main);">
+                                <?php echo htmlspecialchars($s['child_name'] ?: 'Child'); ?>
+                            </strong>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">
+                                Vaccine: <?php echo htmlspecialchars($s['vaccine_type'] ?: 'General Vaccine'); ?>
+                            </span>
+
+                            <form method="POST" action="../process_verification.php" class="sched-actions">
+                                <input type="hidden" name="schedule_id" value="<?php echo (int) $s['id']; ?>">
+                                <input type="hidden" name="redirect_to" value="admin_dashboard.php">
+                                <button type="submit" name="mark_done_infant" class="btn-done" formnovalidate>Mark Done</button>
+                                <div class="resched-container" style="margin-top:0;">
+                                    <input type="date" name="new_date" class="resched-input" required>
+                                    <button type="submit" name="reschedule_infant" class="btn-resched">Resched</button>
+                                </div>
+                            </form>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="no-data" style="margin:0;">No upcoming infant appointments.</p>
                     <?php endif; ?>
                 </div>
             </div>
