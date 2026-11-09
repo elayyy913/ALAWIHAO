@@ -18,6 +18,31 @@ $total_pending = (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t F
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM maternal_registration WHERE status='Pending'"))['t'] ?? 0) +
                  (mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as t FROM users WHERE role='Admin' AND status='Pending'"))['t'] ?? 0);
 
+if (!ensureRescheduleRequestsTable($conn)) {
+    http_response_code(500);
+    exit(json_encode(['error' => 'Unable to load pending reschedule requests.']));
+}
+$pending_reschedule_query = mysqli_query($conn, "SELECT COUNT(*) AS total
+    FROM schedule_reschedule_requests r
+    JOIN schedules s ON s.id = r.schedule_id
+    WHERE r.status = 'Pending' AND s.status = 'Reschedule Requested'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM schedule_reschedule_requests approved
+          WHERE approved.schedule_id = r.schedule_id
+            AND LOWER(approved.status) = 'approved'
+            AND approved.requested_date = r.requested_date
+            AND approved.requested_time = r.requested_time
+            AND approved.requested_date = s.schedule_date
+            AND approved.requested_time = s.schedule_time
+      )");
+if (!$pending_reschedule_query) {
+    error_log('Unable to count pending reschedule requests: ' . mysqli_error($conn));
+    http_response_code(500);
+    exit(json_encode(['error' => 'Unable to count pending reschedule requests.']));
+}
+$pending_reschedule_count = (int) mysqli_fetch_assoc($pending_reschedule_query)['total'];
+
 // --- REGISTRATION STATUS DISTRIBUTION ---
 $mat_status = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     COUNT(*) AS total,
@@ -122,7 +147,9 @@ if (check_table_exists($conn, 'schedules')) {
     $mat_upcoming_q = mysqli_query($conn, "
         SELECT id, schedule_date, schedule_time, service_type, status, patient_name AS full_name 
         FROM schedules 
-        WHERE category = 'Maternal' AND LOWER(status) != 'completed' 
+        WHERE category = 'Maternal'
+          AND LOWER(status) != 'completed'
+          AND schedule_date >= CURDATE()
         ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
     ");
     if ($mat_upcoming_q && mysqli_num_rows($mat_upcoming_q) > 0) {
@@ -160,7 +187,9 @@ if (check_table_exists($conn, 'schedules')) {
     $inf_upcoming_q = mysqli_query($conn, "
         SELECT id, patient_name as child_name, schedule_date, schedule_time, service_type as vaccine_type, status
         FROM schedules 
-        WHERE category = 'Child' AND LOWER(status) != 'completed' 
+        WHERE category = 'Child'
+          AND LOWER(status) != 'completed'
+          AND schedule_date >= CURDATE()
         ORDER BY schedule_date ASC, schedule_time ASC LIMIT 5
     ");
     if ($inf_upcoming_q && mysqli_num_rows($inf_upcoming_q) > 0) {
@@ -201,6 +230,7 @@ echo json_encode([
     'total_newborns' => $total_newborns,
     'total_pregnant' => $total_pregnant,
     'total_pending' => $total_pending,
+    'pending_reschedule_count' => $pending_reschedule_count,
     'total_workers' => $total_workers,
     
     // Registration status breakdowns
