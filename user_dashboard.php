@@ -648,7 +648,7 @@ if ($profileStmt) {
 
             <div class="footer-bottom">
                 <span class="footer-copy">&copy; <?= date('Y') ?> Barangay Alawihao Health Center. All rights reserved.</span>
-                <span class="footer-badge"><img src="images/shield.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;"> DOH-Accredited Facility</span>
+                <span class="footer-badge"><i class="fa fa-shield-halved" style="font-size:12px;vertical-align:middle;"></i> DOH-Accredited Facility</span>
             </div>
         </div>
     </div>
