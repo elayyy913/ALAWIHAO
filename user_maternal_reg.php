@@ -8,7 +8,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $maternalDefaults = [];
-$prefillError = '';
 $userId = (int) $_SESSION['user_id'];
 $prefillStmt = $conn->prepare(
     "SELECT family_serial, client_lname, client_fname, client_mi, client_ext, dob, blood_type,
@@ -23,12 +22,10 @@ $prefillStmt = $conn->prepare(
 
 if (!$prefillStmt) {
     error_log('Maternal registration prefill prepare failed: ' . $conn->error);
-    $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
 } else {
     $prefillStmt->bind_param('i', $userId);
     if (!$prefillStmt->execute()) {
         error_log('Maternal registration prefill query failed: ' . $prefillStmt->error);
-        $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
     } else {
         $maternalDefaults = $prefillStmt->get_result()->fetch_assoc() ?: [];
     }
@@ -95,8 +92,16 @@ switch ($_GET['status'] ?? '') {
     case 'success':
         $statusMessage = 'Registration submitted successfully. Your maternal record is now pending review.';
         break;
+    case 'current_year_dob':
+        $statusMessage = 'You cannot register if your birth year is the current year. Please check the Date of Birth.';
+        $statusIsError = true;
+        break;
+    case 'invalid_dob':
+        $statusMessage = 'The Date of Birth is invalid. Please check the date you entered.';
+        $statusIsError = true;
+        break;
     case 'registration_error':
-        $statusMessage = 'Hindi na-save ang registration dahil may system error. Pakisubukan ulit o makipag-ugnayan sa health center.';
+        $statusMessage = 'The registration could not be saved because of a system error. Please try again or contact the health center.';
         $statusIsError = true;
         break;
 }
@@ -335,6 +340,8 @@ switch ($_GET['status'] ?? '') {
         }
         .form-notification.error i { color: #bd493b; }
         .reg-btn:disabled { opacity: .55; cursor: not-allowed; }
+        .field-error { display: block; margin-top: 5px; color: #a63227; font: 0.8rem Arial, sans-serif; }
+        .field-error[hidden] { display: none; }
 
         .saved-profile {
             margin: 20px 0;
@@ -439,27 +446,17 @@ switch ($_GET['status'] ?? '') {
             <div class="form-notification error" role="alert">
                 <span>
                     <?php if ($pregnancyStatusLookupError): ?>
-                        May system error sa pag-check ng pregnancy status. Pakisubukan ulit mamaya o makipag-ugnayan sa administrator.
+                        A system error occurred while checking your pregnancy status. Please try again later or contact the administrator.
                     <?php else: ?>
-                        Hindi pa handa ang pregnancy tracking. Ipa-run muna sa administrator ang <code>database_maternal_pregnancy_status.sql</code>.
+                        Pregnancy tracking is not set up yet. Ask the administrator to run <code>database_maternal_pregnancy_status.sql</code>.
                     <?php endif; ?>
                 </span>
             </div>
         <?php elseif ($activePregnancy): ?>
             <div class="form-notification error" role="status">
-                <span>May isa ka pang pregnancy record na <?php echo $activePregnancy['status'] === 'Pending' ? 'naghihintay ng review' : 'Active'; ?>. Hindi muna maaaring mag-register ng isa pang pregnancy. Pagkatapos ma-confirm ng admin/health worker ang panganganak, magiging Completed ito at maaari ka nang mag-register muli.</span>
+                <span>You already have a pregnancy record <?php echo $activePregnancy['status'] === 'Pending' ? 'awaiting review' : 'marked Active'; ?>. You cannot register another pregnancy yet. After an administrator or health worker confirms the delivery, this record will be marked Completed and you can register again.</span>
             </div>
         <?php endif; ?>
-        <?php if ($prefillError !== ''): ?>
-            <div class="form-notification" role="status">
-                <span><?php echo $escapeValue($prefillError); ?></span>
-            </div>
-        <?php elseif ($maternalDefaults): ?>
-            <div class="form-notification" role="status">
-                <span>Na-fill na ang personal information mula sa huli mong maternal registration. Pakisuri at i-update kung may nagbago.</span>
-            </div>
-        <?php endif; ?>
-        
         <!-- FIX 1: Ayusin ang form tag mula sa '<<form' patungong '<form' -->
         <form method="POST" action="admin/save_maternal.php">
             
@@ -505,11 +502,11 @@ switch ($_GET['status'] ?? '') {
 
             <div class="row">
                 <div class="form-group" style="flex: 1.5;">
-                    <label>LAST NAME (Apelyido):</label>
+                    <label>LAST NAME:</label>
                     <input type="text" name="client_lname" value="<?php echo $escapeValue($maternalDefaults['client_lname'] ?? ''); ?>" data-required="true"<?php echo $hasMaternalProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="flex: 1.5;">
-                    <label>FIRST NAME (Pangalan):</label>
+                    <label>FIRST NAME:</label>
                     <input type="text" name="client_fname" value="<?php echo $escapeValue($maternalDefaults['client_fname'] ?? ''); ?>" data-required="true"<?php echo $hasMaternalProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="flex: 0.8;">
@@ -523,6 +520,7 @@ switch ($_GET['status'] ?? '') {
                 <div class="form-group">
                     <label>DATE OF BIRTH:</label>
                     <input type="date" name="dob" id="dob" value="<?php echo $escapeValue($maternalDefaults['dob'] ?? ''); ?>">
+                    <small id="dobValidationMessage" class="field-error" aria-live="polite" hidden>The birth year cannot be the current year.</small>
                 </div>
                 <div class="form-group" style="flex: 0.3;">
                     <label>AGE:</label>
@@ -667,7 +665,7 @@ switch ($_GET['status'] ?? '') {
                             <?php for($i=1; $i<=6; $i++) echo "<td><input type='date' name='h_date[]' class='col-$i' disabled style='width:90%; border:1px solid #eaddca;'></td>"; ?>
                         </tr>
                         <tr>
-                            <td class="row-label">TYPE OF DELIVERY: <span class="tagalog-hint">(Uri ng Panganganak)</span></td>
+                            <td class="row-label">TYPE OF DELIVERY:</td>
                             <?php for($i=1; $i<=6; $i++): ?>
                                 <td>
                                     <select name="h_type[]" class="table-select col-<?php echo $i; ?>" disabled>
@@ -679,7 +677,7 @@ switch ($_GET['status'] ?? '') {
                             <?php endfor; ?>
                         </tr>
                         <tr>
-                            <td class="row-label">BIRTH OUTCOME: <span class="tagalog-hint">(Kinalabasan ng Panganganak)</span></td>
+                            <td class="row-label">BIRTH OUTCOME:</td>
                             <?php for($i=1; $i<=6; $i++): ?>
                                 <td>
                                     <select name="h_outcome[]" class="table-select col-<?php echo $i; ?>" disabled>
@@ -692,7 +690,7 @@ switch ($_GET['status'] ?? '') {
                             <?php endfor; ?>
                         </tr>
                         <tr>
-                            <td class="row-label">NO. OF CHILD DELIVERED: <span class="tagalog-hint">(Bilang ng naipanganak)</span></td>
+                            <td class="row-label">NO. OF CHILDREN DELIVERED:</td>
                             <?php for($i=1; $i<=6; $i++): ?>
                                 <td>
                                     <select name="h_child_count[]" class="table-select col-<?php echo $i; ?> child-count-select" data-col="<?php echo $i; ?>" disabled>
@@ -722,15 +720,28 @@ switch ($_GET['status'] ?? '') {
         // Age Calculation
         const dobInput = document.getElementById('dob');
         if (dobInput) {
+            const dobValidationMessage = document.getElementById('dobValidationMessage');
+            const validateDobYear = function() {
+                const hasCurrentYear = dobInput.value && Number(dobInput.value.slice(0, 4)) >= new Date().getFullYear();
+                const profileFieldsHidden = dobInput.closest('[hidden]') !== null;
+                dobInput.setCustomValidity(hasCurrentYear && !profileFieldsHidden ? 'The birth year cannot be the current year.' : '');
+                dobValidationMessage.hidden = !hasCurrentYear || profileFieldsHidden;
+            };
+            dobInput.addEventListener('input', validateDobYear);
             dobInput.addEventListener('change', function() {
+                validateDobYear();
                 const birthDate = new Date(this.value);
                 const today = new Date();
                 let age = today.getFullYear() - birthDate.getFullYear();
                 if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age--;
-                document.getElementById('age').value = age;
+                document.getElementById('age').value = this.value && Number.isFinite(age) ? age : '';
             });
             if (dobInput.value) {
-                dobInput.dispatchEvent(new Event('change'));
+                const birthDate = new Date(dobInput.value);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age--;
+                document.getElementById('age').value = Number.isFinite(age) ? age : '';
             }
         }
 
@@ -748,6 +759,7 @@ switch ($_GET['status'] ?? '') {
                 this.textContent = isEditing ? 'Edit' : 'Done editing';
                 profileFields.hidden = isEditing;
                 profileFields.classList.toggle('profile-fields-collapsed', isEditing);
+                dobInput.dispatchEvent(new Event('input'));
 
                 requiredProfileFields.forEach(function(field) {
                     if (isEditing) {

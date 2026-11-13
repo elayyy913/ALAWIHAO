@@ -762,9 +762,13 @@ foreach ($schedule_categories as $category => $label) {
                                 <?= $request_pending ? 'Awaiting review' : ($reschedule_approved ? 'Request Another Resched' : 'Request Resched') ?>
                             </button>
                             <?php if ($request_pending && (int) ($row['latest_pending_reschedule_id'] ?? 0) > 0): ?>
-                                <form method="POST" class="cancel-reschedule-form" onsubmit="return confirm('Sigurado ka bang gusto mong kanselahin ang reschedule request na ito?');">
+                                <form method="POST" class="cancel-reschedule-form"
+                                    data-confirm-title="Cancel reschedule request?"
+                                    data-confirm="Are you sure you want to cancel this pending reschedule request?"
+                                    data-confirm-label="Cancel request">
                                     <input type="hidden" name="reschedule_request_id" value="<?= (int) $row['latest_pending_reschedule_id'] ?>">
-                                    <button type="submit" name="cancel_reschedule" class="btn-cancel-resched">
+                                    <input type="hidden" name="cancel_reschedule" value="1">
+                                    <button type="submit" class="btn-cancel-resched">
                                         <i class="fa fa-xmark"></i> Cancel Request
                                     </button>
                                 </form>
