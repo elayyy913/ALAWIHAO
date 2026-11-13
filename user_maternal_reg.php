@@ -7,6 +7,59 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$maternalDefaults = [];
+$prefillError = '';
+$userId = (int) $_SESSION['user_id'];
+$prefillStmt = $conn->prepare(
+    "SELECT family_serial, client_lname, client_fname, client_mi, client_ext, dob, blood_type,
+            highest_educ, occupation, spouse_lname, spouse_fname, spouse_mi, spouse_ext,
+            spouse_dob, spouse_blood, street, barangay, municipality, province, contact,
+            phic_cat, philhealth_no
+     FROM maternal_registration
+     WHERE user_id = ?
+     ORDER BY id DESC
+     LIMIT 1"
+);
+
+if (!$prefillStmt) {
+    error_log('Maternal registration prefill prepare failed: ' . $conn->error);
+    $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
+} else {
+    $prefillStmt->bind_param('i', $userId);
+    if (!$prefillStmt->execute()) {
+        error_log('Maternal registration prefill query failed: ' . $prefillStmt->error);
+        $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
+    } else {
+        $maternalDefaults = $prefillStmt->get_result()->fetch_assoc() ?: [];
+    }
+    $prefillStmt->close();
+}
+
+$escapeValue = static function ($value) {
+    return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+};
+$maternalDefaults['contact'] = preg_replace('/\D+/', '', (string) ($maternalDefaults['contact'] ?? ''));
+if (preg_match('/^63\d{10}$/', $maternalDefaults['contact'])) {
+    $maternalDefaults['contact'] = '0' . substr($maternalDefaults['contact'], 2);
+}
+$hasMaternalProfile = !empty($maternalDefaults);
+$patientFullName = trim(implode(' ', array_filter([
+    $maternalDefaults['client_fname'] ?? '',
+    $maternalDefaults['client_mi'] ?? '',
+    $maternalDefaults['client_lname'] ?? '',
+    $maternalDefaults['client_ext'] ?? '',
+], static function ($value) {
+    return trim((string) $value) !== '';
+})));
+$spouseFullName = trim(implode(' ', array_filter([
+    $maternalDefaults['spouse_fname'] ?? '',
+    $maternalDefaults['spouse_mi'] ?? '',
+    $maternalDefaults['spouse_lname'] ?? '',
+    $maternalDefaults['spouse_ext'] ?? '',
+], static function ($value) {
+    return trim((string) $value) !== '';
+})));
+
 $success_message = ($_GET['status'] ?? '') === 'success'
     ? 'Registration submitted successfully. Your maternal record is now pending review.'
     : '';
@@ -237,6 +290,77 @@ $success_message = ($_GET['status'] ?? '') === 'success'
             margin-top: 2px;
         }
 
+        .saved-profile {
+            margin: 20px 0;
+            padding: 18px;
+            border: 1px solid #d7dfce;
+            border-radius: 10px;
+            background: #f8fbf5;
+        }
+
+        .saved-profile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .saved-profile-title {
+            margin: 0;
+            color: #35452b;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .profile-edit-btn {
+            padding: 8px 14px;
+            border: 1px solid var(--sage-green);
+            border-radius: 6px;
+            background: #fff;
+            color: #52653b;
+            font: inherit;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .profile-edit-btn:hover {
+            background: #edf3e7;
+        }
+
+        .saved-profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .saved-profile-item {
+            min-width: 0;
+            padding: 10px 12px;
+            border-radius: 7px;
+            background: #fff;
+        }
+
+        .saved-profile-item span {
+            display: block;
+            margin-bottom: 4px;
+            color: #687260;
+            font-size: 0.68rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .saved-profile-item strong {
+            display: block;
+            color: #263321;
+            font-size: 0.85rem;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-fields-collapsed {
+            display: none;
+        }
+
         #hamburgerBtn.hamburger-btn {
             color: #2d5016 !important;
         }
@@ -265,6 +389,15 @@ $success_message = ($_GET['status'] ?? '') === 'success'
                 <span><?php echo htmlspecialchars($success_message); ?></span>
             </div>
         <?php endif; ?>
+        <?php if ($prefillError !== ''): ?>
+            <div class="form-notification" role="status">
+                <span><?php echo $escapeValue($prefillError); ?></span>
+            </div>
+        <?php elseif ($maternalDefaults): ?>
+            <div class="form-notification" role="status">
+                <span>Na-fill na ang personal information mula sa huli mong maternal registration. Pakisuri at i-update kung may nagbago.</span>
+            </div>
+        <?php endif; ?>
         
         <!-- FIX 1: Ayusin ang form tag mula sa '<<form' patungong '<form' -->
         <form method="POST" action="admin/save_maternal.php">
@@ -272,9 +405,39 @@ $success_message = ($_GET['status'] ?? '') === 'success'
             <!-- FIX 2: I-secure na mapapasa ang status na 'Pending' papunta sa backend processing -->
             <input type="hidden" name="status" value="Pending">
 
+            <?php if ($hasMaternalProfile): ?>
+                <section class="saved-profile" aria-labelledby="savedProfileTitle">
+                    <div class="saved-profile-header">
+                        <h3 class="saved-profile-title" id="savedProfileTitle">Saved personal & family information</h3>
+                        <button type="button" class="profile-edit-btn" id="toggleProfileEdit" aria-expanded="false" aria-controls="maternalProfileFields">Edit</button>
+                    </div>
+                    <div class="saved-profile-grid">
+                        <div class="saved-profile-item"><span>Family serial number</span><strong><?php echo $escapeValue($maternalDefaults['family_serial'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Patient name</span><strong><?php echo $escapeValue($patientFullName) ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Date of birth</span><strong><?php echo $escapeValue($maternalDefaults['dob'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Blood type</span><strong><?php echo $escapeValue($maternalDefaults['blood_type'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Address</span><strong><?php echo $escapeValue(implode(', ', array_filter([
+                            $maternalDefaults['street'] ?? '',
+                            $maternalDefaults['barangay'] ?? '',
+                            $maternalDefaults['municipality'] ?? '',
+                            $maternalDefaults['province'] ?? '',
+                        ], static function ($value) {
+                            return trim((string) $value) !== '';
+                        }))) ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Spouse</span><strong><?php echo $escapeValue($spouseFullName) ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Highest education</span><strong><?php echo $escapeValue($maternalDefaults['highest_educ'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Occupation</span><strong><?php echo $escapeValue($maternalDefaults['occupation'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>Contact number</span><strong><?php echo $escapeValue($maternalDefaults['contact'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>PHIC category</span><strong><?php echo $escapeValue($maternalDefaults['phic_cat'] ?? '') ?: 'Not provided'; ?></strong></div>
+                        <div class="saved-profile-item"><span>PhilHealth number</span><strong><?php echo $escapeValue($maternalDefaults['philhealth_no'] ?? '') ?: 'Not provided'; ?></strong></div>
+                    </div>
+                </section>
+            <?php endif; ?>
+
+            <div id="maternalProfileFields"<?php echo $hasMaternalProfile ? ' class="profile-fields-collapsed" hidden' : ''; ?>>
             <div class="form-group" style="width: 250px; margin-bottom: 20px;">
                 <label>FAMILY SERIAL NUMBER:</label>
-                <input type="text" name="family_serial">
+                <input type="text" name="family_serial" value="<?php echo $escapeValue($maternalDefaults['family_serial'] ?? ''); ?>">
             </div>
 
             <div class="section-header">PATIENT PERSONAL INFORMATION</div>
@@ -282,23 +445,23 @@ $success_message = ($_GET['status'] ?? '') === 'success'
             <div class="row">
                 <div class="form-group" style="flex: 1.5;">
                     <label>LAST NAME (Apelyido):</label>
-                    <input type="text" name="client_lname" required>
+                    <input type="text" name="client_lname" value="<?php echo $escapeValue($maternalDefaults['client_lname'] ?? ''); ?>" data-required="true"<?php echo $hasMaternalProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="flex: 1.5;">
                     <label>FIRST NAME (Pangalan):</label>
-                    <input type="text" name="client_fname" required>
+                    <input type="text" name="client_fname" value="<?php echo $escapeValue($maternalDefaults['client_fname'] ?? ''); ?>" data-required="true"<?php echo $hasMaternalProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="flex: 0.8;">
                     <label>MIDDLE INITIAL:</label>
-                    <input type="text" name="client_mi" maxlength="2">
+                    <input type="text" name="client_mi" value="<?php echo $escapeValue($maternalDefaults['client_mi'] ?? ''); ?>" maxlength="2">
                 </div>
                 <div class="form-group" style="flex: 0.5;">
                     <label>EXT. (Jr/Sr):</label>
-                    <input type="text" name="client_ext">
+                    <input type="text" name="client_ext" value="<?php echo $escapeValue($maternalDefaults['client_ext'] ?? ''); ?>">
                 </div>
                 <div class="form-group">
                     <label>DATE OF BIRTH:</label>
-                    <input type="date" name="dob" id="dob">
+                    <input type="date" name="dob" id="dob" value="<?php echo $escapeValue($maternalDefaults['dob'] ?? ''); ?>">
                 </div>
                 <div class="form-group" style="flex: 0.3;">
                     <label>AGE:</label>
@@ -307,75 +470,26 @@ $success_message = ($_GET['status'] ?? '') === 'success'
                 <div class="form-group">
                     <label>BLOOD TYPE:</label>
                     <select name="blood_type" class="table-select">
-                        <option value="">--</option><option value="A+">A+</option><option value="A-">A-</option>
-                        <option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
+                        <option value="">--</option>
+                        <?php foreach (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $bloodType): ?>
+                            <option value="<?php echo $bloodType; ?>" <?php echo ($maternalDefaults['blood_type'] ?? '') === $bloodType ? 'selected' : ''; ?>><?php echo $bloodType; ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
 
+            <div class="section-header">HEALTH & CONTACT INFORMATION</div>
             <div class="row">
                 <div class="form-group">
-                    <label>LAST MENSTRUAL PERIOD:</label>
-                    <input type="date" name="lmp">
-                </div>
-                <div class="form-group">
                     <label>HIGHEST EDUC:</label>
-                    <input type="text" name="highest_educ">
+                    <input type="text" name="highest_educ" value="<?php echo $escapeValue($maternalDefaults['highest_educ'] ?? ''); ?>">
                 </div>
                 <div class="form-group">
                     <label>OCCUPATION:</label>
-                    <input type="text" name="occupation">
+                    <input type="text" name="occupation" value="<?php echo $escapeValue($maternalDefaults['occupation'] ?? ''); ?>">
                 </div>
             </div>
-
-            <div class="section-header">ADDRESS & SPOUSE INFORMATION</div>
-            
             <div class="row">
-                <div class="form-group" style="flex: 1.5;">
-                    <label>SPOUSE LAST NAME:</label>
-                    <input type="text" name="spouse_lname">
-                </div>
-                <div class="form-group" style="flex: 1.5;">
-                    <label>SPOUSE FIRST NAME:</label>
-                    <input type="text" name="spouse_fname">
-                </div>
-                <div class="form-group" style="flex: 0.5;">
-                    <label>MIDDLE INITIAL:</label>
-                    <input type="text" name="spouse_mi" maxlength="2">
-                </div>
-                <div class="form-group" style="flex: 0.5;">
-                    <label>EXT. (Jr/Sr):</label>
-                    <input type="text" name="spouse_ext">
-                </div>
-                <div class="form-group">
-                    <label>DATE OF BIRTH:</label>
-                    <input type="date" name="spouse_dob">
-                </div>
-                <div class="form-group">
-                    <label>BLOOD TYPE:</label>
-                    <select name="spouse_blood_type" class="table-select">
-                        <option value="">--</option><option value="A+">A+</option><option value="A-">A-</option>
-                        <option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="form-group" style="flex: 1.5;">
-                    <label>ADDRESS: (NUMBER, STREET, PUROK)</label>
-                    <input type="text" name="street">
-                </div>
-                <div class="form-group"><label>BARANGAY:</label><input type="text" name="barangay" value="Alawihao"></div>
-                <div class="form-group"><label>MUNICIPALITY:</label><input type="text" name="municipality" value="Daet"></div>
-                <div class="form-group"><label>PROVINCE:</label><input type="text" name="province" value="Camarines Norte"></div>
-            </div>
-
-            <div class="section-header">HEALTH & SOCIO-ECONOMIC DETAILS</div>
-
-            <div class="row">
-                <div class="form-group"><label>AVERAGE MONTHLY INCOME:</label><input type="text" name="income"></div>
                 <div class="form-group">
                     <label>CONTACT NUMBER:</label>
                     <div class="phone-field">
@@ -385,12 +499,76 @@ $success_message = ($_GET['status'] ?? '') === 'success'
                             <option value="UK" data-flag="🇬🇧" data-code="+44" data-pattern="^\\d{10,11}$">🇬🇧 +44</option>
                             <option value="AU" data-flag="🇦🇺" data-code="+61" data-pattern="^\\d{9}$">🇦🇺 +61</option>
                         </select>
-                        <input id="contactInput" class="phone-input" type="tel" name="contact" inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number (11 digits starting with 09)" required>
+                        <input id="contactInput" class="phone-input" type="tel" name="contact" value="<?php echo $escapeValue($maternalDefaults['contact'] ?? ''); ?>" data-required="true"<?php echo $hasMaternalProfile ? '' : ' required'; ?> inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number (11 digits starting with 09)">
                     </div>
                     <small class="field-hint" id="contactHint">Philippine format: 09XXXXXXXXX</small>
                 </div>
-                <div class="form-group"><label>PHIC CAT:</label><input type="text" name="phic_cat"></div>
-                <div class="form-group"><label>PHILHEALTH #:</label><input type="text" name="philhealth"></div>
+                <div class="form-group">
+                    <label>PHIC CAT:</label>
+                    <input type="text" name="phic_cat" value="<?php echo $escapeValue($maternalDefaults['phic_cat'] ?? ''); ?>">
+                </div>
+                <div class="form-group">
+                    <label>PHILHEALTH #:</label>
+                    <input type="text" name="philhealth" value="<?php echo $escapeValue($maternalDefaults['philhealth_no'] ?? ''); ?>">
+                </div>
+            </div>
+
+            <div class="section-header">ADDRESS & SPOUSE INFORMATION</div>
+            
+            <div class="row">
+                <div class="form-group" style="flex: 1.5;">
+                    <label>SPOUSE LAST NAME:</label>
+                    <input type="text" name="spouse_lname" value="<?php echo $escapeValue($maternalDefaults['spouse_lname'] ?? ''); ?>">
+                </div>
+                <div class="form-group" style="flex: 1.5;">
+                    <label>SPOUSE FIRST NAME:</label>
+                    <input type="text" name="spouse_fname" value="<?php echo $escapeValue($maternalDefaults['spouse_fname'] ?? ''); ?>">
+                </div>
+                <div class="form-group" style="flex: 0.5;">
+                    <label>MIDDLE INITIAL:</label>
+                    <input type="text" name="spouse_mi" value="<?php echo $escapeValue($maternalDefaults['spouse_mi'] ?? ''); ?>" maxlength="2">
+                </div>
+                <div class="form-group" style="flex: 0.5;">
+                    <label>EXT. (Jr/Sr):</label>
+                    <input type="text" name="spouse_ext" value="<?php echo $escapeValue($maternalDefaults['spouse_ext'] ?? ''); ?>">
+                </div>
+                <div class="form-group">
+                    <label>DATE OF BIRTH:</label>
+                    <input type="date" name="spouse_dob" value="<?php echo $escapeValue($maternalDefaults['spouse_dob'] ?? ''); ?>">
+                </div>
+                <div class="form-group">
+                    <label>BLOOD TYPE:</label>
+                    <select name="spouse_blood" class="table-select">
+                        <option value="">--</option>
+                        <?php foreach (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $bloodType): ?>
+                            <option value="<?php echo $bloodType; ?>" <?php echo ($maternalDefaults['spouse_blood'] ?? '') === $bloodType ? 'selected' : ''; ?>><?php echo $bloodType; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group" style="flex: 1.5;">
+                    <label>ADDRESS: (NUMBER, STREET, PUROK)</label>
+                    <input type="text" name="street" value="<?php echo $escapeValue($maternalDefaults['street'] ?? ''); ?>">
+                </div>
+                <div class="form-group"><label>BARANGAY:</label><input type="text" name="barangay" value="<?php echo $escapeValue($maternalDefaults['barangay'] ?? 'Alawihao'); ?>"></div>
+                <div class="form-group"><label>MUNICIPALITY:</label><input type="text" name="municipality" value="<?php echo $escapeValue($maternalDefaults['municipality'] ?? 'Daet'); ?>"></div>
+                <div class="form-group"><label>PROVINCE:</label><input type="text" name="province" value="<?php echo $escapeValue($maternalDefaults['province'] ?? 'Camarines Norte'); ?>"></div>
+            </div>
+            </div>
+
+            <div class="section-header">PREGNANCY & HEALTH DETAILS</div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>LAST MENSTRUAL PERIOD:</label>
+                    <input type="date" name="lmp">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group"><label>AVERAGE MONTHLY INCOME:</label><input type="text" name="income"></div>
             </div>
 
             <div class="row">
@@ -489,6 +667,34 @@ $success_message = ($_GET['status'] ?? '') === 'success'
                 let age = today.getFullYear() - birthDate.getFullYear();
                 if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age--;
                 document.getElementById('age').value = age;
+            });
+            if (dobInput.value) {
+                dobInput.dispatchEvent(new Event('change'));
+            }
+        }
+
+        const profileFields = document.getElementById('maternalProfileFields');
+        const profileEditButton = document.getElementById('toggleProfileEdit');
+        if (profileFields && profileEditButton) {
+            const requiredProfileFields = profileFields.querySelectorAll('[data-required="true"]');
+            requiredProfileFields.forEach(function(field) {
+                field.removeAttribute('required');
+            });
+
+            profileEditButton.addEventListener('click', function() {
+                const isEditing = this.getAttribute('aria-expanded') === 'true';
+                this.setAttribute('aria-expanded', String(!isEditing));
+                this.textContent = isEditing ? 'Edit' : 'Done editing';
+                profileFields.hidden = isEditing;
+                profileFields.classList.toggle('profile-fields-collapsed', isEditing);
+
+                requiredProfileFields.forEach(function(field) {
+                    if (isEditing) {
+                        field.removeAttribute('required');
+                    } else {
+                        field.setAttribute('required', '');
+                    }
+                });
             });
         }
 

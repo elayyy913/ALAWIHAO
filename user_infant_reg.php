@@ -8,10 +8,100 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$user_id = (int) $_SESSION['user_id'];
+$childProfile = [];
+$maternalProfile = [];
+$prefillError = '';
+
+$childStmt = $conn->prepare(
+    "SELECT family_no, address, barangay, health_center, mother_name, father_name, contact
+     FROM children
+     WHERE user_id = ?
+     ORDER BY id DESC
+     LIMIT 1"
+);
+if (!$childStmt) {
+    error_log('Infant registration child prefill prepare failed: ' . $conn->error);
+    $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
+} else {
+    $childStmt->bind_param('i', $user_id);
+    if (!$childStmt->execute()) {
+        error_log('Infant registration child prefill query failed: ' . $childStmt->error);
+        $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
+    } else {
+        $childProfile = $childStmt->get_result()->fetch_assoc() ?: [];
+    }
+    $childStmt->close();
+}
+
+$maternalStmt = $conn->prepare(
+    "SELECT family_serial, client_lname, client_fname, client_mi, client_ext,
+            spouse_lname, spouse_fname, spouse_mi, spouse_ext,
+            street, barangay, contact
+     FROM maternal_registration
+     WHERE user_id = ?
+     ORDER BY id DESC
+     LIMIT 1"
+);
+if (!$maternalStmt) {
+    error_log('Infant registration maternal prefill prepare failed: ' . $conn->error);
+    $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
+} else {
+    $maternalStmt->bind_param('i', $user_id);
+    if (!$maternalStmt->execute()) {
+        error_log('Infant registration maternal prefill query failed: ' . $maternalStmt->error);
+        $prefillError = 'Previous personal information could not be loaded. You can still complete the form manually.';
+    } else {
+        $maternalProfile = $maternalStmt->get_result()->fetch_assoc() ?: [];
+    }
+    $maternalStmt->close();
+}
+
+$firstNonEmpty = static function (...$values) {
+    foreach ($values as $value) {
+        if ($value !== null && trim((string) $value) !== '') {
+            return $value;
+        }
+    }
+    return '';
+};
+$maternalFatherName = trim(implode(' ', array_filter([
+    $maternalProfile['spouse_fname'] ?? '',
+    $maternalProfile['spouse_mi'] ?? '',
+    $maternalProfile['spouse_lname'] ?? '',
+    $maternalProfile['spouse_ext'] ?? '',
+], static function ($value) {
+    return trim((string) $value) !== '';
+})));
+$maternalMotherName = trim(implode(' ', array_filter([
+    $maternalProfile['client_fname'] ?? '',
+    $maternalProfile['client_mi'] ?? '',
+    $maternalProfile['client_lname'] ?? '',
+    $maternalProfile['client_ext'] ?? '',
+], static function ($value) {
+    return trim((string) $value) !== '';
+})));
+$infantDefaults = [
+    'family_no' => $firstNonEmpty($childProfile['family_no'] ?? '', $maternalProfile['family_serial'] ?? ''),
+    'address' => $firstNonEmpty($childProfile['address'] ?? '', $maternalProfile['street'] ?? ''),
+    'barangay' => $firstNonEmpty($childProfile['barangay'] ?? '', $maternalProfile['barangay'] ?? '', 'Alawihao'),
+    'mother_name' => $firstNonEmpty($childProfile['mother_name'] ?? '', $maternalMotherName),
+    'father_name' => $firstNonEmpty($childProfile['father_name'] ?? '', $maternalFatherName),
+    'contact' => $firstNonEmpty($childProfile['contact'] ?? '', $maternalProfile['contact'] ?? ''),
+    'health_center' => $firstNonEmpty($childProfile['health_center'] ?? '', 'Alawihao Health Center'),
+];
+$infantDefaults['contact'] = preg_replace('/\D+/', '', (string) $infantDefaults['contact']);
+if (preg_match('/^63\d{10}$/', $infantDefaults['contact'])) {
+    $infantDefaults['contact'] = '0' . substr($infantDefaults['contact'], 2);
+}
+$hasInfantProfile = !empty($childProfile) || !empty($maternalProfile);
+$escapeValue = static function ($value) {
+    return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+};
+
 $message = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $user_id = $_SESSION['user_id']; 
     $baby_name = mysqli_real_escape_string($conn, $_POST['baby_name']);
     $gender = $_POST['gender'];
     $blood_type = $_POST['blood_type']; 
@@ -29,21 +119,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $father = mysqli_real_escape_string($conn, $_POST['father_name']); 
     $contact = mysqli_real_escape_string($conn, $_POST['contact'] ?? '');
     
-    $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']);
     $status = "Pending";
-    
-    $vaccines_arr = [];
-    if (isset($_POST['vaccines']) && is_array($_POST['vaccines'])) {
-        foreach ($_POST['vaccines'] as $vax_name) {
-            $vax_date = isset($_POST['vax_date'][$vax_name]) ? $_POST['vax_date'][$vax_name] : '';
-            if (!empty($vax_date)) {
-                $vaccines_arr[] = $vax_name . " (" . $vax_date . ")";
-            } else {
-                $vaccines_arr[] = $vax_name;
-            }
-        }
-    }
-    $vaccines = !empty($vaccines_arr) ? implode(", ", $vaccines_arr) : "None";
+    $vaccines = "None";
+    $administered_by = "";
 
     $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, contact, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
@@ -265,53 +343,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 0.68rem;
         }
 
-        .vaccine-checklist {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            padding: 15px;
-            background: #fafaf9;
-            border: 1px solid var(--border-color);
-            border-radius: 2px;
-        }
-
-        .vax-container {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            background: #ffffff;
-            padding: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 2px;
-        }
-
-        .vax-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: #374151;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .vax-item input[type="checkbox"] {
-            width: 15px;
-            height: 15px;
-            cursor: pointer;
-            accent-color: var(--sage-green);
-        }
-
-        .vax-date-group {
-            display: none;
-            margin-top: 5px;
-        }
-
-        .vax-date-group input {
-            font-size: 0.8rem;
-            padding: 5px;
-        }
-
         .enroll-btn {
             background-color: var(--sage-green); 
             color: white; 
@@ -341,9 +372,83 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             border-left: 3px solid var(--sage-green);
         }
 
+        .saved-profile {
+            margin-bottom: 24px;
+            padding: 18px;
+            border: 1px solid #d7dfce;
+            border-radius: 10px;
+            background: #f8fbf5;
+        }
+
+        .saved-profile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .saved-profile-title {
+            margin: 0;
+            color: #35452b;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .profile-edit-btn {
+            padding: 8px 14px;
+            border: 1px solid var(--sage-green);
+            border-radius: 6px;
+            background: #fff;
+            color: #52653b;
+            font: inherit;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .profile-edit-btn:hover { background: #edf3e7; }
+        .saved-profile-section + .saved-profile-section { margin-top: 18px; }
+
+        .saved-profile-section h4 {
+            margin: 0 0 10px;
+            color: #52653b;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .saved-profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
+        }
+
+        .saved-profile-item {
+            min-width: 0;
+            padding: 10px 12px;
+            border-radius: 7px;
+            background: #fff;
+        }
+
+        .saved-profile-item span {
+            display: block;
+            margin-bottom: 4px;
+            color: #687260;
+            font-size: 0.68rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .saved-profile-item strong {
+            display: block;
+            color: #263321;
+            font-size: 0.85rem;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-fields-collapsed { display: none; }
+
         @media (max-width: 992px) {
             .form-grid { grid-template-columns: repeat(2, 1fr); }
-            .vaccine-checklist { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 768px) {
@@ -363,19 +468,55 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <h2>Infant Registration Form</h2>
         
         <?php if($message) echo "<div class='success-msg'>$message</div>"; ?>
+        <?php if ($prefillError !== ''): ?>
+            <div class="success-msg"><?php echo $escapeValue($prefillError); ?></div>
+        <?php endif; ?>
 
         <form method="POST">
-            
+
+            <?php if ($hasInfantProfile): ?>
+                <section class="saved-profile" aria-labelledby="savedInfantProfileTitle">
+                    <div class="saved-profile-header">
+                        <h3 class="saved-profile-title" id="savedInfantProfileTitle">Saved child and family information</h3>
+                        <button type="button" class="profile-edit-btn" id="toggleInfantProfileEdit" aria-expanded="false" aria-controls="infantProfileFields infantProfileAddressFields">Edit</button>
+                    </div>
+                    <div class="saved-profile-section">
+                        <h4>Administrative Details</h4>
+                        <div class="saved-profile-grid">
+                            <div class="saved-profile-item"><span>Health center</span><strong><?php echo $escapeValue($infantDefaults['health_center']) ?: 'Not provided'; ?></strong></div>
+                            <div class="saved-profile-item"><span>Family serial / no.</span><strong><?php echo $escapeValue($infantDefaults['family_no']) ?: 'Not provided'; ?></strong></div>
+                        </div>
+                    </div>
+                    <div class="saved-profile-section">
+                        <h4>Address Information</h4>
+                        <div class="saved-profile-grid">
+                            <div class="saved-profile-item"><span>Address</span><strong><?php echo $escapeValue($infantDefaults['address']) ?: 'Not provided'; ?></strong></div>
+                            <div class="saved-profile-item"><span>Barangay</span><strong><?php echo $escapeValue($infantDefaults['barangay']) ?: 'Not provided'; ?></strong></div>
+                        </div>
+                    </div>
+                    <div class="saved-profile-section">
+                        <h4>Parent / Guardian Information</h4>
+                        <div class="saved-profile-grid">
+                            <div class="saved-profile-item"><span>Mother</span><strong><?php echo $escapeValue($infantDefaults['mother_name']) ?: 'Not provided'; ?></strong></div>
+                            <div class="saved-profile-item"><span>Father</span><strong><?php echo $escapeValue($infantDefaults['father_name']) ?: 'Not provided'; ?></strong></div>
+                            <div class="saved-profile-item"><span>Contact</span><strong><?php echo $escapeValue($infantDefaults['contact']) ?: 'Not provided'; ?></strong></div>
+                        </div>
+                    </div>
+                </section>
+            <?php endif; ?>
+
+            <div id="infantProfileFields"<?php echo $hasInfantProfile ? ' class="profile-fields-collapsed" hidden' : ''; ?>>
             <div class="form-section-title">Administrative Details</div>
             <div class="form-grid">
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Health Center</label>
-                    <input type="text" name="health_center" value="Alawihao Health Center" required>
+                    <input type="text" name="health_center" value="<?php echo $escapeValue($infantDefaults['health_center']); ?>" data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Family Serial / No.</label>
-                    <input type="text" name="family_no" placeholder="Enter Family No." required>
+                    <input type="text" name="family_no" value="<?php echo $escapeValue($infantDefaults['family_no']); ?>" placeholder="Enter Family No." data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?>>
                 </div>
+            </div>
             </div>
 
             <div class="form-section-title">Patient Personal Information</div>
@@ -428,15 +569,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
+            <div id="infantProfileAddressFields"<?php echo $hasInfantProfile ? ' class="profile-fields-collapsed" hidden' : ''; ?>>
             <div class="form-section-title">Address Information</div>
             <div class="form-grid">
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Address (Number, Street, Purok)</label>
-                    <input type="text" name="address" placeholder="Enter Address" required>
+                    <input type="text" name="address" value="<?php echo $escapeValue($infantDefaults['address']); ?>" placeholder="Enter Address" data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Barangay</label>
-                    <input type="text" name="barangay" value="Alawihao" required>
+                    <input type="text" name="barangay" value="<?php echo $escapeValue($infantDefaults['barangay']); ?>" data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?>>
                 </div>
             </div>
 
@@ -444,11 +586,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="form-grid">
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Mother's Full Name</label>
-                    <input type="text" name="mother_name" placeholder="Full Name of Mother" required>
+                    <input type="text" name="mother_name" value="<?php echo $escapeValue($infantDefaults['mother_name']); ?>" placeholder="Full Name of Mother" data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?>>
                 </div>
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Father's Full Name</label>
-                    <input type="text" name="father_name" placeholder="Full Name of Father" required>
+                    <input type="text" name="father_name" value="<?php echo $escapeValue($infantDefaults['father_name']); ?>" placeholder="Full Name of Father" data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?>>
                 </div>
             </div>
 
@@ -466,94 +608,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </div>
                         <div class="phone-number-group">
                             <label>Phone number</label>
-                            <input id="contactInput" class="phone-input" type="tel" name="contact" inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number" required>
+                            <input id="contactInput" class="phone-input" type="tel" name="contact" value="<?php echo $escapeValue($infantDefaults['contact']); ?>" data-required="true"<?php echo $hasInfantProfile ? '' : ' required'; ?> inputmode="numeric" maxlength="11" pattern="^09\d{9}$" placeholder="09123456789" title="Enter a valid Philippine mobile number">
                         </div>
                     </div>
                     <small class="field-hint" id="contactHint">Philippine format: 09XXXXXXXXX</small>
                 </div>
             </div>
-
-            <div class="form-section-title">Immunization Records</div>
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label>Select Vaccines Taken & Date Administered</label>
-                <div class="vaccine-checklist">
-                    
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="BCG" onchange="toggleVaxDate(this, 'date_bcg')"> BCG
-                        </label>
-                        <div class="vax-date-group" id="date_bcg">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[BCG]">
-                        </div>
-                    </div>
-
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="Hepa B" onchange="toggleVaxDate(this, 'date_hepab')"> Hepa B
-                        </label>
-                        <div class="vax-date-group" id="date_hepab">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[Hepa B]">
-                        </div>
-                    </div>
-
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="Pentavalent" onchange="toggleVaxDate(this, 'date_penta')"> Pentavalent
-                        </label>
-                        <div class="vax-date-group" id="date_penta">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[Pentavalent]">
-                        </div>
-                    </div>
-
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="OPV" onchange="toggleVaxDate(this, 'date_opv')"> OPV
-                        </label>
-                        <div class="vax-date-group" id="date_opv">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[OPV]">
-                        </div>
-                    </div>
-
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="IPV" onchange="toggleVaxDate(this, 'date_ipv')"> IPV
-                        </label>
-                        <div class="vax-date-group" id="date_ipv">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[IPV]">
-                        </div>
-                    </div>
-
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="PCV" onchange="toggleVaxDate(this, 'date_pcv')"> PCV
-                        </label>
-                        <div class="vax-date-group" id="date_pcv">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[PCV]">
-                        </div>
-                    </div>
-
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="MMR" onchange="toggleVaxDate(this, 'date_mmr')"> MMR
-                        </label>
-                        <div class="vax-date-group" id="date_mmr">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[MMR]">
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 10px; grid-column: span 2;">
-                        <label style="font-size: 0.75rem; color: #666; font-weight: bold;">NAGTROK / HEALTH FACILITY (Kung saan binakunahan):</label>
-                        <input type="text" name="administered_by" class="form-control" placeholder="Hal. Alawihao Health Center o Hospisyo" style="padding: 8px; width: 100%; border: 1px solid #ddd; border-radius: 6px; margin-top: 4px;">
-                    </div>
-
-                </div>
             </div>
 
             <button type="submit" class="enroll-btn">Confirm Registration</button>
@@ -562,26 +622,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </div>
 
 <script>
-    function toggleVaxDate(checkbox, dateId) {
-        const dateContainer = document.getElementById(dateId);
-        const dateInput = dateContainer.querySelector('input');
-        
-        if (checkbox.checked) {
-            dateContainer.style.display = 'block';
-            dateInput.required = true; 
-        } else {
-            dateContainer.style.display = 'none';
-            dateInput.required = false;
-            dateInput.value = ''; 
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
         const sidebar = document.getElementById('mySidebar') || document.querySelector('.sidebar');
         const mainContent = document.getElementById('main');
         
         if (sidebar && mainContent) {
             mainContent.classList.add('main-content-active');
+        }
+
+        const profileSections = [
+            document.getElementById('infantProfileFields'),
+            document.getElementById('infantProfileAddressFields')
+        ].filter(Boolean);
+        const profileEditButton = document.getElementById('toggleInfantProfileEdit');
+        if (profileEditButton && profileSections.length) {
+            const requiredProfileFields = profileSections
+                .flatMap(function(section) {
+                    return Array.from(section.querySelectorAll('[data-required="true"]'));
+                });
+            requiredProfileFields.forEach(function(field) {
+                field.removeAttribute('required');
+            });
+
+            profileEditButton.addEventListener('click', function() {
+                const isEditing = this.getAttribute('aria-expanded') === 'true';
+                this.setAttribute('aria-expanded', String(!isEditing));
+                this.textContent = isEditing ? 'Edit' : 'Done editing';
+                profileSections.forEach(function(section) {
+                    section.hidden = isEditing;
+                    section.classList.toggle('profile-fields-collapsed', isEditing);
+                });
+                requiredProfileFields.forEach(function(field) {
+                    if (isEditing) {
+                        field.removeAttribute('required');
+                    } else {
+                        field.setAttribute('required', '');
+                    }
+                });
+            });
         }
 
         const countrySelect = document.getElementById('countrySelect');
