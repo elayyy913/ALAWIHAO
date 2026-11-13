@@ -147,8 +147,25 @@
             </div>
         </div>
 
-        <div class="section-tag">IMMUNIZATION RECORDS</div>
-        <div id="nb_vaccines_container" class="checkbox-group" style="background: #F4F4ED; pointer-events: none;">
+        <div class="section-tag">VACCINES TAKEN / IMMUNIZATION VERIFICATION</div>
+        <div class="checkbox-group" style="background: #F4F4ED; pointer-events: auto; max-height: none;">
+            <?php foreach (['BCG', 'Hepa B', 'Pentavalent', 'OPV', 'IPV', 'PCV', 'MMR'] as $vaccine): ?>
+                <div style="display:grid; grid-template-columns: minmax(130px, 1fr) minmax(150px, 1fr); align-items:center; gap:10px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="vaccines[]" value="<?php echo htmlspecialchars($vaccine, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo htmlspecialchars($vaccine, ENT_QUOTES, 'UTF-8'); ?>
+                    </label>
+                    <input type="date" name="vaccine_dates[<?php echo htmlspecialchars($vaccine, ENT_QUOTES, 'UTF-8'); ?>]" aria-label="<?php echo htmlspecialchars($vaccine, ENT_QUOTES, 'UTF-8'); ?> date administered">
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label for="nb_administered_by_name">Nurse / Health Worker Name</label>
+            <input type="text" id="nb_administered_by_name" name="administered_by_name" maxlength="100" placeholder="Name of the nurse or health worker">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label for="nb_administered_by">Administered at / Health Facility</label>
+            <input type="text" id="nb_administered_by" name="administered_by" maxlength="100" placeholder="Health center or hospital">
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
@@ -516,6 +533,40 @@
 </div>
 
 <script>
+    function resetChildVaccineReview(data) {
+        const form = document.getElementById('newbornReviewForm');
+        const vaccineEntries = String(data.vaccine_taken || '').split(',');
+
+        form.querySelectorAll('input[name="vaccines[]"]').forEach(function(checkbox) {
+            const dateInput = form.querySelector('[name="vaccine_dates[' + checkbox.value + ']"]');
+            checkbox.checked = false;
+            dateInput.value = '';
+            dateInput.required = false;
+
+            const entry = vaccineEntries.map(function(item) {
+                return item.trim();
+            }).find(function(item) {
+                return item.toLowerCase().startsWith(checkbox.value.toLowerCase());
+            });
+            if (entry && entry.toLowerCase() !== 'none') {
+                checkbox.checked = true;
+                const match = entry.match(/\((\d{4}-\d{2}-\d{2})\)/);
+                if (match) dateInput.value = match[1];
+                dateInput.required = true;
+            }
+
+            checkbox.onchange = function() {
+                dateInput.required = checkbox.checked;
+                if (!checkbox.checked) dateInput.value = '';
+            };
+        });
+        const providerDetails = String(data.administered_by || '');
+        const providerMatch = providerDetails.match(/^Administered by: (.*?) \| Facility: (.*)$/);
+        const nameMatch = providerDetails.match(/^Administered by: (.*)$/);
+        document.getElementById('nb_administered_by_name').value = providerMatch ? providerMatch[1] : (nameMatch ? nameMatch[1] : '');
+        document.getElementById('nb_administered_by').value = providerMatch ? providerMatch[2] : (nameMatch ? '' : providerDetails);
+    }
+
     function openNewbornModal(data) {
         document.getElementById('nb_child_id').value = data.id || '';
         document.getElementById('nb_child_name').value = data.child_name || '';
@@ -531,21 +582,7 @@
         document.getElementById('nb_barangay').value = data.barangay || 'Alawihao';
         document.getElementById('nb_father_name').value = data.father_name || '';
 
-        let vaccinesStr = data.vaccine_taken || data.immunization_records || data.vaccines || '';
-        let vaccinesArray = vaccinesStr ? vaccinesStr.split(',').map(v => v.trim()) : [];
-        let container = document.getElementById('nb_vaccines_container');
-        container.innerHTML = '';
-
-        if (vaccinesArray.length > 0 && vaccinesArray[0] !== '') {
-            vaccinesArray.forEach(vac => {
-                let label = document.createElement('label');
-                label.className = 'checkbox-label';
-                label.innerHTML = `<input type="checkbox" checked disabled> ${vac}`;
-                container.appendChild(label);
-            });
-        } else {
-            container.innerHTML = '<span style="font-size: 0.80rem; color: #777; font-style: italic;">No immunization records checked/provided.</span>';
-        }
+        resetChildVaccineReview(data);
 
         document.getElementById('newbornVerifyModal').style.display = 'block';
     }
