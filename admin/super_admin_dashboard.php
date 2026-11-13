@@ -28,7 +28,7 @@ $dashboardMessages = [
     'WorkerApprovedAndRecorded' => 'Worker account approved successfully.',
     'ApprovedAndRecorded' => 'Child registration approved successfully.',
     'MaternalApproved' => 'Maternal registration approved successfully.',
-    'ChildApprovalError' => 'The child measurements could not be saved. Check the values and try again.',
+    'ChildApprovalError' => 'The child measurements or immunization details could not be saved. Check the values and try again.',
     'Rejected' => 'The registration was rejected and kept for reporting.',
     'Removed' => 'The worker account was rejected and removed.'
 ];

@@ -155,6 +155,68 @@ if ($inventory_report_mode !== '') {
     exit();
 }
 
+$create_vaccine_batches_table = "CREATE TABLE IF NOT EXISTS vaccine_stock_batches (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    vaccine_id INT NOT NULL,
+    batch_number VARCHAR(100) NOT NULL,
+    quantity_received INT NOT NULL,
+    manufactured_date DATE NULL,
+    expiration_date DATE NULL,
+    stock_in_date DATETIME NOT NULL,
+    received_by VARCHAR(255) NOT NULL,
+    provided_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_vaccine_stock_batches_vaccine_expiry (vaccine_id, expiration_date),
+    INDEX idx_vaccine_stock_batches_expiration (expiration_date)
+) ENGINE=InnoDB";
+if (!$conn->query($create_vaccine_batches_table)) {
+    die("Could not prepare vaccine batch tracking: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+
+$create_vaccine_returns_table = "CREATE TABLE IF NOT EXISTS vaccine_returns (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    vaccine_id INT NOT NULL,
+    batch_id BIGINT UNSIGNED NOT NULL,
+    vaccine_name VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    batch_number VARCHAR(100) NOT NULL,
+    quantity INT NOT NULL,
+    returned_by VARCHAR(255) NOT NULL,
+    reason TEXT NULL,
+    returned_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_vaccine_returns_date (returned_at),
+    INDEX idx_vaccine_returns_batch (batch_id)
+) ENGINE=InnoDB";
+if (!$conn->query($create_vaccine_returns_table)) {
+    die("Could not prepare returned vaccine tracking: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+
+$batch_number_column = $conn->query("SHOW COLUMNS FROM vaccine_stock_batches LIKE 'batch_number'");
+if (!$batch_number_column) {
+    die("Could not check vaccine batch number schema: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+if ($batch_number_column->num_rows === 0 && !$conn->query(
+    "ALTER TABLE vaccine_stock_batches ADD COLUMN batch_number VARCHAR(100) NOT NULL DEFAULT 'Legacy batch' AFTER vaccine_id"
+)) {
+    die("Could not update vaccine batch number schema: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+
+$seed_legacy_batches = "INSERT INTO vaccine_stock_batches
+    (vaccine_id, batch_number, quantity_received, manufactured_date, expiration_date, stock_in_date, received_by, provided_by)
+    SELECT v.id, 'Legacy batch', GREATEST(COALESCE(v.total_received, 0), COALESCE(v.available_stock, 0)),
+        NULL, NULL, COALESCE(v.stock_in_date, v.created_at, NOW()),
+        COALESCE(NULLIF(v.received_by, ''), 'Legacy stock'),
+        COALESCE(NULLIF(v.provided_by, ''), 'Previously recorded stock')
+    FROM vaccines v
+    WHERE v.available_stock > 0
+      AND NOT EXISTS (
+          SELECT 1 FROM vaccine_stock_batches b WHERE b.vaccine_id = v.id
+      )";
+if (!$conn->query($seed_legacy_batches)) {
+    die("Could not initialize vaccine batch tracking: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+
 $message = "";
 
 // ---------------------------------------------------------
@@ -166,9 +228,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
     $vaccine_name = trim($_POST['vaccine_name'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $category = trim($_POST['category'] ?? '');
+    $batch_number = trim($_POST['batch_number'] ?? '');
     $quantity_received = filter_var($_POST['quantity_received'] ?? null, FILTER_VALIDATE_INT);
     $stock_date = trim($_POST['stock_date'] ?? date('Y-m-d'));
     $stock_time = trim($_POST['stock_time'] ?? date('H:i'));
+    $manufactured_date = trim($_POST['manufactured_date'] ?? '');
+    $expiration_date = trim($_POST['expiration_date'] ?? '');
     $stock_in_datetime = $stock_date . ' ' . $stock_time . ':00';
 
     $received_by = trim($_POST['received_by'] ?? '');
@@ -176,13 +241,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
     $valid_stock_date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $stock_date)
         && checkdate((int) substr($stock_date, 5, 2), (int) substr($stock_date, 8, 2), (int) substr($stock_date, 0, 4));
     $valid_stock_time = preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $stock_time);
+    $valid_manufactured_date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $manufactured_date)
+        && checkdate((int) substr($manufactured_date, 5, 2), (int) substr($manufactured_date, 8, 2), (int) substr($manufactured_date, 0, 4));
+    $valid_expiration_date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $expiration_date)
+        && checkdate((int) substr($expiration_date, 5, 2), (int) substr($expiration_date, 8, 2), (int) substr($expiration_date, 0, 4));
 
     if ($quantity_received === false || $quantity_received < 1) {
         $message = "Error: Enter a quantity greater than zero.";
     } elseif ($vaccine_name === '' || !in_array($category, ['Baby', 'Maternal'], true)) {
         $message = "Error: Select a valid vaccine and category.";
+    } elseif ($batch_number === '' || strlen($batch_number) > 100) {
+        $message = "Error: Enter a batch number with no more than 100 characters.";
     } elseif (empty($received_by) || empty($provided_by) || !$valid_stock_date || !$valid_stock_time) {
         $message = "Error: Source, receiver, date, and time are required.";
+    } elseif (!$valid_manufactured_date || !$valid_expiration_date
+        || $manufactured_date > $stock_date || $expiration_date <= $stock_date
+        || $expiration_date <= $manufactured_date) {
+        $message = "Error: Enter valid manufacture and expiration dates. Manufacture must be on or before stock receipt, and expiration must be after both.";
     } else {
         if (!$conn->begin_transaction()) {
             $message = "Error: Could not start the inventory update: " . $conn->error;
@@ -257,6 +332,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
                                 break;
                             }
 
+                            $move_batches_stmt = $conn->prepare("UPDATE vaccine_stock_batches SET vaccine_id = ? WHERE vaccine_id = ?");
+                            if (!$move_batches_stmt) {
+                                $save_ok = false;
+                                $save_error = "Error consolidating vaccine batch tracking: " . $conn->error;
+                                break;
+                            }
+                            $move_batches_stmt->bind_param("ii", $vaccine_id, $duplicate_id);
+                            if (!$move_batches_stmt->execute()) {
+                                $save_ok = false;
+                                $save_error = "Error consolidating vaccine batch tracking: " . $move_batches_stmt->error;
+                            }
+                            $move_batches_stmt->close();
+                            if (!$save_ok) {
+                                break;
+                            }
+
                             $delete_duplicate_stmt = $conn->prepare("DELETE FROM vaccines WHERE id = ?");
                             if (!$delete_duplicate_stmt) {
                                 $save_ok = false;
@@ -271,6 +362,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
                             $delete_duplicate_stmt->close();
                             if (!$save_ok) {
                                 break;
+                            }
+                        }
+
+                        if ($save_ok) {
+                            $batch_stmt = $conn->prepare("INSERT INTO vaccine_stock_batches
+                                (vaccine_id, batch_number, quantity_received, manufactured_date, expiration_date, stock_in_date, received_by, provided_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                            if (!$batch_stmt) {
+                                $save_ok = false;
+                                $save_error = "Error preparing vaccine batch tracking: " . $conn->error;
+                            } else {
+                                $batch_stmt->bind_param(
+                                    "isisssss",
+                                    $vaccine_id,
+                                    $batch_number,
+                                    $quantity_received,
+                                    $manufactured_date,
+                                    $expiration_date,
+                                    $stock_in_datetime,
+                                    $received_by,
+                                    $provided_by
+                                );
+                                if (!$batch_stmt->execute()) {
+                                    $save_ok = false;
+                                    $save_error = "Error saving vaccine batch dates: " . $batch_stmt->error;
+                                }
+                                $batch_stmt->close();
                             }
                         }
 
@@ -329,114 +447,183 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_vaccine'])) {
     }
 }
 
-// Update vaccine details and allow a direct current-stock correction
+// Update vaccine details, current stock, and selected batch tracking fields.
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_vaccine'])) {
     $id = (int) ($_POST['vaccine_id'] ?? 0);
+    $batch_id = filter_var($_POST['batch_id'] ?? 0, FILTER_VALIDATE_INT);
     $vaccine_name = trim($_POST['vaccine_name'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $category = trim($_POST['category'] ?? '');
     $new_available_stock = filter_var($_POST['available_stock'] ?? null, FILTER_VALIDATE_INT);
-    if ($id < 1 || $new_available_stock === false || $new_available_stock < 0) {
-        $message = "Error: Enter a valid vaccine and stock quantity.";
+    $batch_number = trim($_POST['batch_number'] ?? '');
+    $manufactured_date = trim($_POST['manufactured_date'] ?? '');
+    $expiration_date = trim($_POST['expiration_date'] ?? '');
+    $stock_in_datetime_input = trim($_POST['stock_in_datetime'] ?? '');
+    $batch_received_by = trim($_POST['batch_received_by'] ?? '');
+    $batch_provided_by = trim($_POST['batch_provided_by'] ?? '');
+    $stock_in_datetime = '';
+    $valid_manufactured_date = $manufactured_date === '' || (
+        preg_match('/^\d{4}-\d{2}-\d{2}$/', $manufactured_date)
+        && checkdate((int) substr($manufactured_date, 5, 2), (int) substr($manufactured_date, 8, 2), (int) substr($manufactured_date, 0, 4))
+    );
+    $valid_expiration_date = $expiration_date === '' || (
+        preg_match('/^\d{4}-\d{2}-\d{2}$/', $expiration_date)
+        && checkdate((int) substr($expiration_date, 5, 2), (int) substr($expiration_date, 8, 2), (int) substr($expiration_date, 0, 4))
+    );
+    $stock_datetime = DateTime::createFromFormat('!Y-m-d\TH:i', $stock_in_datetime_input);
+    $valid_stock_datetime = $stock_datetime && $stock_datetime->format('Y-m-d\TH:i') === $stock_in_datetime_input;
+    if ($valid_stock_datetime) {
+        $stock_in_datetime = $stock_datetime->format('Y-m-d H:i:s');
+    }
+
+    if ($id < 1 || $new_available_stock === false || $new_available_stock < 0 || $batch_id === false || $batch_id < 0) {
+        $message = "Error: Enter a valid vaccine, batch, and stock quantity.";
     } elseif ($vaccine_name === '' || !in_array($category, ['Baby', 'Maternal'], true)) {
         $message = "Error: Select a valid vaccine and category.";
+    } elseif ($batch_id > 0 && (
+        $batch_number === '' || strlen($batch_number) > 100
+        || !$valid_manufactured_date || !$valid_expiration_date
+        || ($manufactured_date !== '' && $expiration_date !== '' && $manufactured_date > $expiration_date)
+        || !$valid_stock_datetime
+        || $batch_received_by === '' || strlen($batch_received_by) > 255
+        || $batch_provided_by === '' || strlen($batch_provided_by) > 255
+    )) {
+        $message = "Error: Enter valid details for the selected vaccine batch.";
     } elseif (!$conn->begin_transaction()) {
         $message = "Error: Could not start the vaccine update: " . $conn->error;
     } else {
+        $save_ok = true;
+        $save_error = '';
         $current_stmt = $conn->prepare("SELECT available_stock FROM vaccines WHERE id = ? FOR UPDATE");
         if (!$current_stmt) {
-            $error = $conn->error;
-            $conn->rollback();
-            $message = "Error checking current vaccine stock: " . $error;
+            $save_ok = false;
+            $save_error = "Error checking current vaccine stock: " . $conn->error;
         } else {
             $current_stmt->bind_param("i", $id);
             if (!$current_stmt->execute()) {
-                $error = $conn->error;
-                $current_stmt->close();
-                $conn->rollback();
-                $message = "Error checking current vaccine stock: " . $error;
+                $save_ok = false;
+                $save_error = "Error checking current vaccine stock: " . $current_stmt->error;
             } else {
                 $current_vaccine = $current_stmt->get_result()->fetch_assoc();
-                $current_stmt->close();
                 if (!$current_vaccine) {
-                    $conn->rollback();
-                    $message = "Error: Vaccine not found.";
-                } else {
-                    $duplicate_stmt = $conn->prepare("SELECT id FROM vaccines WHERE vaccine_name = ? AND category = ? AND id <> ? LIMIT 1");
-                    if (!$duplicate_stmt) {
-                        $error = $conn->error;
-                        $conn->rollback();
-                        $message = "Error checking for duplicate vaccines: " . $error;
-                    } else {
-                        $duplicate_stmt->bind_param("ssi", $vaccine_name, $category, $id);
-                        if (!$duplicate_stmt->execute()) {
-                            $error = $conn->error;
-                            $duplicate_stmt->close();
-                            $conn->rollback();
-                            $message = "Error checking for duplicate vaccines: " . $error;
-                        } elseif ($duplicate_stmt->get_result()->num_rows > 0) {
-                            $duplicate_stmt->close();
-                            $conn->rollback();
-                            $message = "Error: This vaccine already exists in the selected category. Use Add / Receive Stock to combine its stock.";
-                        } else {
-                            $duplicate_stmt->close();
-                            $old_available_stock = (int) $current_vaccine['available_stock'];
-                            $stock_difference = $new_available_stock - $old_available_stock;
-                            $update_stmt = $conn->prepare("UPDATE vaccines SET vaccine_name = ?, description = ?, category = ?, available_stock = ? WHERE id = ?");
-                            if (!$update_stmt) {
-                                $error = $conn->error;
-                                $conn->rollback();
-                                $message = "Error preparing vaccine update: " . $error;
-                            } else {
-                                $update_stmt->bind_param("sssii", $vaccine_name, $description, $category, $new_available_stock, $id);
-                                $update_ok = $update_stmt->execute();
-                                $update_error = $conn->error;
-                                $update_stmt->close();
-
-                                if (!$update_ok) {
-                                    $conn->rollback();
-                                    $message = "Error updating vaccine details: " . $update_error;
-                                } else {
-                                    $log_ok = true;
-                                    $log_error = '';
-                                    if ($stock_difference !== 0) {
-                                        $action_type = $stock_difference > 0 ? 'IN' : 'OUT';
-                                        $adjustment_quantity = abs($stock_difference);
-                                        $adjustment_remarks = "Manual stock quantity edit";
-                                        $adjustment_datetime = date('Y-m-d H:i:s');
-                                        $recorded_by = 'Admin ID ' . (int) $_SESSION['user_id'];
-                                        $log_stmt = $conn->prepare("INSERT INTO vaccine_logs (vaccine_id, action_type, quantity, remarks, transaction_date, recorded_by) VALUES (?, ?, ?, ?, ?, ?)");
-                                        if (!$log_stmt) {
-                                            $log_ok = false;
-                                            $log_error = $conn->error;
-                                        } else {
-                                            $log_stmt->bind_param("isisss", $id, $action_type, $adjustment_quantity, $adjustment_remarks, $adjustment_datetime, $recorded_by);
-                                            $log_ok = $log_stmt->execute();
-                                            if (!$log_ok) {
-                                                $log_error = $conn->error;
-                                            }
-                                            $log_stmt->close();
-                                        }
-                                    }
-
-                                    if (!$log_ok) {
-                                        $conn->rollback();
-                                        $message = "Error recording stock quantity change: " . $log_error;
-                                    } elseif ($conn->commit()) {
-                                        $message = $stock_difference === 0
-                                            ? "Vaccine details updated successfully."
-                                            : "Vaccine and current stock updated successfully.";
-                                    } else {
-                                        $error = $conn->error;
-                                        $conn->rollback();
-                                        $message = "Error saving vaccine update: " . $error;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    $save_ok = false;
+                    $save_error = "Error: Vaccine not found.";
                 }
             }
+            $current_stmt->close();
+        }
+
+        if ($save_ok && $batch_id > 0) {
+            $batch_check_stmt = $conn->prepare("SELECT id FROM vaccine_stock_batches WHERE id = ? AND vaccine_id = ? FOR UPDATE");
+            if (!$batch_check_stmt) {
+                $save_ok = false;
+                $save_error = "Error checking vaccine batch: " . $conn->error;
+            } else {
+                $batch_check_stmt->bind_param("ii", $batch_id, $id);
+                if (!$batch_check_stmt->execute()) {
+                    $save_ok = false;
+                    $save_error = "Error checking vaccine batch: " . $batch_check_stmt->error;
+                } elseif (!$batch_check_stmt->get_result()->fetch_assoc()) {
+                    $save_ok = false;
+                    $save_error = "Error: The selected batch does not belong to this vaccine.";
+                }
+                $batch_check_stmt->close();
+            }
+        }
+
+        if ($save_ok) {
+            $duplicate_stmt = $conn->prepare("SELECT id FROM vaccines WHERE vaccine_name = ? AND category = ? AND id <> ? LIMIT 1");
+            if (!$duplicate_stmt) {
+                $save_ok = false;
+                $save_error = "Error checking for duplicate vaccines: " . $conn->error;
+            } else {
+                $duplicate_stmt->bind_param("ssi", $vaccine_name, $category, $id);
+                if (!$duplicate_stmt->execute()) {
+                    $save_ok = false;
+                    $save_error = "Error checking for duplicate vaccines: " . $duplicate_stmt->error;
+                } elseif ($duplicate_stmt->get_result()->num_rows > 0) {
+                    $save_ok = false;
+                    $save_error = "Error: This vaccine already exists in the selected category. Use Add / Receive Stock to combine its stock.";
+                }
+                $duplicate_stmt->close();
+            }
+        }
+
+        if ($save_ok) {
+            $old_available_stock = (int) $current_vaccine['available_stock'];
+            $stock_difference = $new_available_stock - $old_available_stock;
+            $update_stmt = $conn->prepare("UPDATE vaccines SET vaccine_name = ?, description = ?, category = ?, available_stock = ? WHERE id = ?");
+            if (!$update_stmt) {
+                $save_ok = false;
+                $save_error = "Error preparing vaccine update: " . $conn->error;
+            } else {
+                $update_stmt->bind_param("sssii", $vaccine_name, $description, $category, $new_available_stock, $id);
+                if (!$update_stmt->execute()) {
+                    $save_ok = false;
+                    $save_error = "Error updating vaccine details: " . $update_stmt->error;
+                }
+                $update_stmt->close();
+            }
+        }
+
+        if ($save_ok && $batch_id > 0) {
+            $update_batch_stmt = $conn->prepare("UPDATE vaccine_stock_batches
+                SET batch_number = ?, manufactured_date = NULLIF(?, ''), expiration_date = NULLIF(?, ''),
+                    stock_in_date = ?, received_by = ?, provided_by = ?
+                WHERE id = ? AND vaccine_id = ?");
+            if (!$update_batch_stmt) {
+                $save_ok = false;
+                $save_error = "Error preparing vaccine batch update: " . $conn->error;
+            } else {
+                $update_batch_stmt->bind_param(
+                    "ssssssii",
+                    $batch_number,
+                    $manufactured_date,
+                    $expiration_date,
+                    $stock_in_datetime,
+                    $batch_received_by,
+                    $batch_provided_by,
+                    $batch_id,
+                    $id
+                );
+                if (!$update_batch_stmt->execute()) {
+                    $save_ok = false;
+                    $save_error = "Error updating vaccine batch details: " . $update_batch_stmt->error;
+                }
+                $update_batch_stmt->close();
+            }
+        }
+
+        if ($save_ok && $stock_difference !== 0) {
+            $action_type = $stock_difference > 0 ? 'IN' : 'OUT';
+            $adjustment_quantity = abs($stock_difference);
+            $adjustment_remarks = "Manual stock quantity edit";
+            $adjustment_datetime = date('Y-m-d H:i:s');
+            $recorded_by = 'Admin ID ' . (int) $_SESSION['user_id'];
+            $log_stmt = $conn->prepare("INSERT INTO vaccine_logs (vaccine_id, action_type, quantity, remarks, transaction_date, recorded_by) VALUES (?, ?, ?, ?, ?, ?)");
+            if (!$log_stmt) {
+                $save_ok = false;
+                $save_error = "Error preparing stock quantity history: " . $conn->error;
+            } else {
+                $log_stmt->bind_param("isisss", $id, $action_type, $adjustment_quantity, $adjustment_remarks, $adjustment_datetime, $recorded_by);
+                if (!$log_stmt->execute()) {
+                    $save_ok = false;
+                    $save_error = "Error recording stock quantity change: " . $log_stmt->error;
+                }
+                $log_stmt->close();
+            }
+        }
+
+        if ($save_ok && $conn->commit()) {
+            $message = $stock_difference === 0
+                ? "Vaccine and batch details updated successfully."
+                : "Vaccine, batch details, and current stock updated successfully.";
+        } else {
+            if ($save_ok) {
+                $save_error = "Error saving vaccine update: " . $conn->error;
+            }
+            $conn->rollback();
+            $message = $save_error;
         }
     }
 }
@@ -444,15 +631,149 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_vaccine'])) {
 // Delete Vaccine
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
-    $sql = "DELETE FROM vaccines WHERE id = ?";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("i", $delete_id);
-        if ($stmt->execute()) {
-            $message = "Vaccine deleted successfully!";
+    if (!$conn->begin_transaction()) {
+        $message = "Error starting vaccine deletion: " . $conn->error;
+    } else {
+        $batch_delete_stmt = $conn->prepare("DELETE FROM vaccine_stock_batches WHERE vaccine_id = ?");
+        $vaccine_delete_stmt = $conn->prepare("DELETE FROM vaccines WHERE id = ?");
+        if (!$batch_delete_stmt || !$vaccine_delete_stmt) {
+            $delete_error = $conn->error;
+            if ($batch_delete_stmt) $batch_delete_stmt->close();
+            if ($vaccine_delete_stmt) $vaccine_delete_stmt->close();
+            $conn->rollback();
+            $message = "Error preparing vaccine deletion: " . $delete_error;
         } else {
-            $message = "Error deleting record: " . $conn->error;
+            $batch_delete_stmt->bind_param("i", $delete_id);
+            $delete_ok = $batch_delete_stmt->execute();
+            $delete_error = $batch_delete_stmt->error;
+            $batch_delete_stmt->close();
+
+            if ($delete_ok) {
+                $vaccine_delete_stmt->bind_param("i", $delete_id);
+                $delete_ok = $vaccine_delete_stmt->execute();
+                $delete_error = $vaccine_delete_stmt->error;
+            }
+            $vaccine_delete_stmt->close();
+
+            if ($delete_ok && $conn->commit()) {
+                $message = "Vaccine deleted successfully!";
+            } else {
+                $conn->rollback();
+                $message = "Error deleting record: " . ($delete_error ?: $conn->error);
+            }
         }
-        $stmt->close();
+    }
+}
+
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['record_vaccine_return'])) {
+    $batch_id = filter_var($_POST['return_batch_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $return_quantity = filter_var($_POST['return_quantity'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $returned_by = trim((string) ($_POST['returned_by'] ?? ''));
+    $return_reason = trim((string) ($_POST['return_reason'] ?? ''));
+
+    if (!$batch_id || !$return_quantity || $returned_by === '' || strlen($returned_by) > 255) {
+        $message = "Error: Select a valid vaccine batch, quantity, and returned-by name.";
+    } elseif (!$conn->begin_transaction()) {
+        $message = "Error starting returned vaccine transaction: " . $conn->error;
+    } else {
+        $batch_stmt = $conn->prepare("SELECT v.id AS vaccine_id, v.vaccine_name, v.category,
+                b.batch_number, b.expiration_date
+            FROM vaccine_stock_batches b
+            INNER JOIN vaccines v ON v.id = b.vaccine_id
+            WHERE b.id = ?
+                AND (b.expiration_date IS NULL OR b.expiration_date >= CURDATE())
+                AND v.available_stock > 0
+            FOR UPDATE");
+        if (!$batch_stmt) {
+            $batch_error = $conn->error;
+            $conn->rollback();
+            $message = "Error preparing vaccine batch validation: " . $batch_error;
+        } else {
+            $batch_stmt->bind_param("i", $batch_id);
+            if (!$batch_stmt->execute()) {
+                $batch_error = $batch_stmt->error;
+                $batch_stmt->close();
+                $conn->rollback();
+                $message = "Error validating vaccine batch: " . $batch_error;
+            } else {
+                $return_batch = $batch_stmt->get_result()->fetch_assoc();
+                $batch_stmt->close();
+
+                if (!$return_batch) {
+                    $conn->rollback();
+                    $message = "Error: Only batches with existing vaccine stock and no recorded or unexpired expiration date can be returned.";
+                } else {
+                    $return_datetime = date('Y-m-d H:i:s');
+                    $insert_return = $conn->prepare("INSERT INTO vaccine_returns
+                        (vaccine_id, batch_id, vaccine_name, category, batch_number, quantity, returned_by, reason, returned_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $update_stock = $conn->prepare("UPDATE vaccines SET available_stock = available_stock + ? WHERE id = ?");
+                    $insert_log = $conn->prepare("INSERT INTO vaccine_logs
+                        (vaccine_id, action_type, quantity, remarks, transaction_date, recorded_by)
+                        VALUES (?, 'IN', ?, ?, ?, ?)");
+
+                    if (!$insert_return || !$update_stock || !$insert_log) {
+                        $return_error = $conn->error;
+                        if ($insert_return) $insert_return->close();
+                        if ($update_stock) $update_stock->close();
+                        if ($insert_log) $insert_log->close();
+                        $conn->rollback();
+                        $message = "Error preparing returned vaccine record: " . $return_error;
+                    } else {
+                        $return_vaccine_id = (int) $return_batch['vaccine_id'];
+                        $return_vaccine_name = (string) $return_batch['vaccine_name'];
+                        $return_category = (string) $return_batch['category'];
+                        $return_batch_number = (string) $return_batch['batch_number'];
+                        $insert_return->bind_param(
+                            "iisssisss",
+                            $return_vaccine_id,
+                            $batch_id,
+                            $return_vaccine_name,
+                            $return_category,
+                            $return_batch_number,
+                            $return_quantity,
+                            $returned_by,
+                            $return_reason,
+                            $return_datetime
+                        );
+                        $return_ok = $insert_return->execute();
+                        $return_error = $insert_return->error;
+
+                        if ($return_ok) {
+                            $update_stock->bind_param("ii", $return_quantity, $return_vaccine_id);
+                            $return_ok = $update_stock->execute();
+                            $return_error = $update_stock->error;
+                        }
+
+                        if ($return_ok) {
+                            $return_remarks = "Returned to inventory; batch " . $return_batch_number
+                                . ($return_reason !== '' ? " | " . $return_reason : '');
+                            $insert_log->bind_param(
+                                "iisss",
+                                $return_vaccine_id,
+                                $return_quantity,
+                                $return_remarks,
+                                $return_datetime,
+                                $returned_by
+                            );
+                            $return_ok = $insert_log->execute();
+                            $return_error = $insert_log->error;
+                        }
+
+                        $insert_return->close();
+                        $update_stock->close();
+                        $insert_log->close();
+
+                        if ($return_ok && $conn->commit()) {
+                            $message = "Returned vaccine quantity added back to available stock.";
+                        } else {
+                            $conn->rollback();
+                            $message = "Error saving returned vaccine: " . ($return_error ?: $conn->error);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -463,6 +784,83 @@ if (isset($_GET['delete_id'])) {
 // Keep child and maternal inventory views separate.
 $result_baby = $conn->query("SELECT * FROM vaccines WHERE category = 'Baby' ORDER BY created_at DESC");
 $result_maternal = $conn->query("SELECT * FROM vaccines WHERE category = 'Maternal' ORDER BY created_at DESC");
+$result_all_vaccines = $conn->query("SELECT category, vaccine_name, SUM(total_received) AS total_received,
+        SUM(available_stock) AS available_stock
+    FROM vaccines
+    GROUP BY category, vaccine_name
+    ORDER BY category ASC, vaccine_name ASC");
+if (!$result_all_vaccines) {
+    die("Could not load complete vaccine inventory: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$result_stock_batches = $conn->query("SELECT b.batch_number, b.quantity_received, b.manufactured_date, b.expiration_date,
+        b.stock_in_date, b.received_by, b.provided_by, v.vaccine_name, v.category
+    FROM vaccine_stock_batches b
+    INNER JOIN vaccines v ON v.id = b.vaccine_id
+    ORDER BY (b.expiration_date IS NULL) ASC, b.expiration_date ASC, b.stock_in_date DESC");
+if (!$result_stock_batches) {
+    die("Could not load vaccine expiration tracking: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$edit_batches_query = $conn->query("SELECT id, vaccine_id, batch_number, manufactured_date, expiration_date,
+        stock_in_date, received_by, provided_by
+    FROM vaccine_stock_batches
+    ORDER BY stock_in_date DESC, id DESC");
+if (!$edit_batches_query) {
+    die("Could not load vaccine batches for editing: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$edit_batches = [];
+while ($edit_batch = $edit_batches_query->fetch_assoc()) {
+    $edit_batches[] = $edit_batch;
+}
+$expiry_summary_query = $conn->query("SELECT v.category, v.vaccine_name,
+        MIN(CASE WHEN b.expiration_date >= CURDATE() AND b.quantity_received > 0 THEN b.expiration_date END) AS next_expiration,
+        SUM(CASE WHEN b.expiration_date < CURDATE() AND b.quantity_received > 0 THEN 1 ELSE 0 END) AS expired_batches
+    FROM vaccines v
+    LEFT JOIN vaccine_stock_batches b ON b.vaccine_id = v.id
+    GROUP BY v.category, v.vaccine_name");
+if (!$expiry_summary_query) {
+    die("Could not load vaccine expiration summary: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$vaccine_expiry_summary = [];
+while ($expiry_row = $expiry_summary_query->fetch_assoc()) {
+    $expiry_key = $expiry_row['category'] . '|' . $expiry_row['vaccine_name'];
+    $vaccine_expiry_summary[$expiry_key] = [
+        'next_expiration' => $expiry_row['next_expiration'],
+        'expired_batches' => (int) $expiry_row['expired_batches']
+    ];
+}
+$batch_summary_query = $conn->query("SELECT v.category, v.vaccine_name,
+        GROUP_CONCAT(DISTINCT CASE
+            WHEN b.batch_number REGEXP '^[0-9]+$' THEN b.batch_number
+            ELSE NULL
+        END ORDER BY CAST(b.batch_number AS UNSIGNED) ASC SEPARATOR ', ') AS batch_numbers
+    FROM vaccines v
+    LEFT JOIN vaccine_stock_batches b ON b.vaccine_id = v.id
+    GROUP BY v.category, v.vaccine_name");
+if (!$batch_summary_query) {
+    die("Could not load vaccine batch number summary: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$vaccine_batch_summary = [];
+while ($batch_summary_row = $batch_summary_query->fetch_assoc()) {
+    $batch_summary_key = $batch_summary_row['category'] . '|' . $batch_summary_row['vaccine_name'];
+    $vaccine_batch_summary[$batch_summary_key] = $batch_summary_row['batch_numbers'];
+}
+$expired_batch_count_query = $conn->query("SELECT COUNT(*) AS expired_batch_count
+    FROM vaccine_stock_batches
+    WHERE expiration_date < CURDATE() AND quantity_received > 0");
+if (!$expired_batch_count_query) {
+    die("Could not count expired vaccine batches: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$expired_batch_count = (int) ($expired_batch_count_query->fetch_assoc()['expired_batch_count'] ?? 0);
+$expired_vaccine_batch_count = $expired_batch_count;
+$result_expired_batches = $conn->query("SELECT b.batch_number, b.quantity_received, b.expiration_date,
+        v.vaccine_name, v.category
+    FROM vaccine_stock_batches b
+    INNER JOIN vaccines v ON v.id = b.vaccine_id
+    WHERE b.expiration_date < CURDATE() AND b.quantity_received > 0
+    ORDER BY b.expiration_date ASC, v.vaccine_name ASC");
+if (!$result_expired_batches) {
+    die("Could not load expired vaccine batches: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
 
 $stock_lookup_query = $conn->query("SELECT vaccine_name, category, SUM(available_stock) AS current_stock FROM vaccines GROUP BY vaccine_name, category");
 if (!$stock_lookup_query) {
@@ -473,9 +871,47 @@ while ($stock_lookup_row = $stock_lookup_query->fetch_assoc()) {
     $stock_key = $stock_lookup_row['category'] . '|' . $stock_lookup_row['vaccine_name'];
     $vaccine_stock_lookup[$stock_key] = (int) $stock_lookup_row['current_stock'];
 }
+$batch_number_lookup_query = $conn->query("SELECT v.category, v.vaccine_name,
+        MAX(CASE WHEN b.batch_number REGEXP '^[0-9]+$' THEN CAST(b.batch_number AS UNSIGNED) ELSE 0 END) AS latest_batch_number
+    FROM vaccine_stock_batches b
+    INNER JOIN vaccines v ON v.id = b.vaccine_id
+    GROUP BY v.category, v.vaccine_name");
+if (!$batch_number_lookup_query) {
+    die("Could not load vaccine batch number preview: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$next_batch_number_lookup = [];
+while ($batch_number_row = $batch_number_lookup_query->fetch_assoc()) {
+    $batch_key = $batch_number_row['category'] . '|' . $batch_number_row['vaccine_name'];
+    $next_batch_number_lookup[$batch_key] = (int) $batch_number_row['latest_batch_number'] + 1;
+}
 
 $sql_logs = "SELECT l.*, v.vaccine_name, v.category FROM vaccine_logs l JOIN vaccines v ON l.vaccine_id = v.id ORDER BY l.transaction_date DESC";
 $result_logs = $conn->query($sql_logs);
+$returnable_batches_query = $conn->query("SELECT b.id, b.batch_number, b.expiration_date, v.id AS vaccine_id, v.vaccine_name, v.category
+    FROM vaccine_stock_batches b
+    INNER JOIN vaccines v ON v.id = b.vaccine_id
+    WHERE (b.expiration_date IS NULL OR b.expiration_date >= CURDATE())
+        AND v.available_stock > 0
+    ORDER BY v.category ASC, v.vaccine_name ASC, CAST(b.batch_number AS UNSIGNED) ASC, b.batch_number ASC");
+if (!$returnable_batches_query) {
+    die("Could not load eligible vaccine batches: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$returnable_batches = [];
+$returnable_vaccines = [];
+while ($returnable_batch = $returnable_batches_query->fetch_assoc()) {
+    $returnable_batch['vaccine_id'] = (int) $returnable_batch['vaccine_id'];
+    $returnable_batches[] = $returnable_batch;
+    $returnable_vaccines[$returnable_batch['vaccine_id']] = [
+        'name' => $returnable_batch['vaccine_name'],
+        'category' => $returnable_batch['category']
+    ];
+}
+$result_vaccine_returns = $conn->query("SELECT vaccine_name, category, batch_number, quantity, returned_by, reason, returned_at
+    FROM vaccine_returns
+    ORDER BY returned_at DESC, id DESC");
+if (!$result_vaccine_returns) {
+    die("Could not load returned vaccine records: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
 
 // Fetch Data for Summary Cards
 $total_available_query = $conn->query("SELECT SUM(available_stock) as total FROM vaccines");
@@ -656,6 +1092,22 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             box-shadow: 0 3px 12px rgba(34, 48, 28, .045);
             text-align: left;
         }
+        button.card-button {
+            width: 100%;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        button.card-button:hover,
+        button.card-button:focus-visible {
+            border-color: var(--sage-green);
+            box-shadow: 0 4px 14px rgba(34, 48, 28, .12);
+        }
+        button.card-button:focus-visible {
+            outline: 2px solid var(--sage-green);
+            outline-offset: 2px;
+        }
 
         .card h3 {
             margin: 0 0 6px;
@@ -677,6 +1129,12 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             color: var(--danger-red);
         }
         .card.alert-card.is-empty .value { color: var(--sage-green); }
+        button.expired-vaccine-card {
+            text-align: left;
+            border-color: <?= $expired_batch_count > 0 ? 'var(--danger-red)' : 'var(--border-color)' ?>;
+        }
+        button.expired-vaccine-card .value { color: var(--danger-red); }
+        button.expired-vaccine-card.is-empty .value { color: var(--sage-green); }
 
         .low-stock-heading {
             display: flex;
@@ -737,7 +1195,6 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         .inventory-state { margin: 8px 0 0; color: #6b7564; font-size: .76rem; line-height: 1.45; }
         .inventory-state.is-empty { color: #8a5b15; }
         .inventory-state.is-error { color: var(--danger-red); }
-
         .chart-container {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -759,6 +1216,11 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
 
         .history-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 200px); gap: 10px; margin-bottom: 14px; }
         .history-toolbar input, .history-toolbar select { width: 100%; min-height: 40px; padding: 8px 11px; border: 1px solid #d9dfd4; border-radius: 8px; background: #fff; color: #293126; font: inherit; font-size: .8rem; box-sizing: border-box; }
+        .return-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .return-form-grid .form-group { margin: 0; }
+        .return-form-grid input, .return-form-grid select, .return-form-grid textarea { width: 100%; min-height: 40px; padding: 8px 11px; border: 1px solid #d9dfd4; border-radius: 8px; background: #fff; color: #293126; font: inherit; font-size: .8rem; box-sizing: border-box; }
+        .return-form-grid textarea { min-height: 40px; resize: vertical; }
+        .return-form-submit { margin: 0 0 18px; padding: 9px 14px; border: 0; border-radius: 8px; background: var(--sage-green); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
         .vaccine-search-toolbar { margin-bottom: 12px; }
         .vaccine-search-toolbar input {
             width: 100%;
@@ -773,7 +1235,7 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             box-sizing: border-box;
         }
         .vaccine-search-toolbar input:focus { outline: 2px solid rgba(113, 131, 85, .25); border-color: var(--sage-green); }
-        .vaccine-search-count { margin: 0 0 9px; color: #74806d; font-size: .74rem; }
+        .vaccine-search-count { display: none; }
         .history-result-count { margin: 0 0 9px; color: #74806d; font-size: .74rem; }
         .table-scroll { width: 100%; overflow-x: auto; border: 1px solid #e7ebe3; border-radius: 9px; }
         .inventory-table { min-width: 720px; }
@@ -866,6 +1328,19 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             width: min(450px, calc(100% - 40px));
             box-sizing: border-box;
         }
+        .stock-breakdown-modal-content {
+            width: min(760px, calc(100% - 32px));
+        }
+        .stock-breakdown-table-wrap {
+            max-height: min(60vh, 520px);
+            overflow: auto;
+            border: 1px solid #e7ebe3;
+            border-radius: 8px;
+        }
+        .stock-breakdown-table { min-width: 700px; }
+        .stock-breakdown-table th,
+        .stock-breakdown-table td { padding: 10px 12px; }
+        .stock-breakdown-empty { padding: 22px 14px; color: #71806b; text-align: center; }
 
         .form-group { margin-bottom: 10px; }
         .form-group label {
@@ -886,21 +1361,44 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         .success-msg {
             display: flex;
             align-items: center;
-            gap: 9px;
-            color: #166534; background: #f0fdf4; padding: 10px;
-            border-left: 3px solid var(--sage-green); margin-bottom: 15px;
-            transition: opacity .3s ease, transform .3s ease;
+            gap: 12px;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1200;
+            width: min(420px, calc(100vw - 40px));
+            box-sizing: border-box;
+            color: #205b35;
+            background: #fff;
+            padding: 15px 16px;
+            border: 1px solid #d5e8d9;
+            border-left: 4px solid #31834b;
+            border-radius: 12px;
+            box-shadow: 0 12px 34px rgba(28, 42, 24, .16);
+            transition: opacity .25s ease, transform .25s ease;
         }
         .error-msg {
             display: flex;
             align-items: center;
-            gap: 9px;
-            color: #991b1b; background: #fef2f2; padding: 10px;
-            border-left: 3px solid var(--danger-red); margin-bottom: 15px;
+            gap: 12px;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1200;
+            width: min(420px, calc(100vw - 40px));
+            box-sizing: border-box;
+            color: #8d2925;
+            background: #fff;
+            padding: 15px 16px;
+            border: 1px solid #f1d5d3;
+            border-left: 4px solid var(--danger-red);
+            border-radius: 12px;
+            box-shadow: 0 12px 34px rgba(42, 25, 24, .16);
+            transition: opacity .25s ease, transform .25s ease;
         }
-        .alert-message.is-dismissing { opacity: 0; transform: translateY(-4px); }
-        .alert-icon { flex: 0 0 auto; }
-        .alert-text { flex: 1 1 auto; min-width: 0; }
+        .alert-message.is-dismissing { opacity: 0; transform: translateY(-8px); }
+        .alert-icon { flex: 0 0 auto; font-size: 1.05rem; }
+        .alert-text { flex: 1 1 auto; min-width: 0; font-size: .88rem; line-height: 1.45; }
         .alert-dismiss {
             flex: 0 0 auto;
             border: 0;
@@ -914,6 +1412,68 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             opacity: .75;
         }
         .alert-dismiss:hover { opacity: 1; }
+        .confirm-delete-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1300;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(18, 27, 16, .48);
+            backdrop-filter: blur(3px);
+        }
+        .confirm-delete-modal.is-open { display: flex; }
+        .confirm-delete-content {
+            width: min(420px, 100%);
+            padding: 24px;
+            border: 1px solid #e8ebe4;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 24px 70px rgba(20, 30, 18, .24);
+            animation: confirmModalIn .18s ease-out;
+        }
+        @keyframes confirmModalIn {
+            from { opacity: 0; transform: translateY(8px) scale(.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .confirm-delete-icon {
+            display: grid;
+            place-items: center;
+            width: 44px;
+            height: 44px;
+            margin-bottom: 15px;
+            border-radius: 13px;
+            color: #a52a26;
+            background: #fff0ef;
+            font-size: 1.05rem;
+        }
+        .confirm-delete-content h2 { margin: 0 0 7px; color: #273124; font-size: 1.1rem; }
+        .confirm-delete-content p { margin: 0; color: #687365; font-size: .87rem; line-height: 1.5; }
+        .confirm-delete-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+        .confirm-delete-actions button {
+            min-height: 39px;
+            padding: 8px 14px;
+            border: 1px solid #dce2d8;
+            border-radius: 8px;
+            background: #fff;
+            color: #475142;
+            font: inherit;
+            font-size: .84rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .confirm-delete-actions button:hover { background: #f6f8f4; }
+        .confirm-delete-actions .confirm-delete-button {
+            border-color: #b52e28;
+            background: #b52e28;
+            color: #fff;
+        }
+        .confirm-delete-actions .confirm-delete-button:hover { background: #98251f; }
+        @media (max-width: 520px) {
+            .success-msg, .error-msg { top: 12px; right: 12px; width: calc(100vw - 24px); }
+            .confirm-delete-content { padding: 20px; }
+        }
 
         .action-links a { font-weight: bold; text-decoration: none; margin-right: 10px; }
         .action-edit { color: var(--sage-green); }
@@ -966,6 +1526,7 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             .tab { flex: 0 0 auto; padding: 10px 13px; font-size: .77rem; }
             .tab-content { padding: 12px; }
             .history-toolbar { grid-template-columns: minmax(0, 1fr); }
+            .return-form-grid { grid-template-columns: minmax(0, 1fr); }
         }
     </style>
 </head>
@@ -1013,10 +1574,10 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         <!-- DASHBOARD SUMMARY & CHART -->
         <div class="dashboard-top">
             <div class="summary-cards">
-                <div class="card">
+                <button class="card card-button" type="button" onclick="openStockBreakdown()" aria-haspopup="dialog" aria-controls="stockBreakdownModal">
                     <h3>Total Available Stock</h3>
                     <p class="value"><?= $total_available ?></p>
-                </div>
+                </button>
                 <div class="card">
                     <h3>Used This Month</h3>
                     <p class="value" style="color: #666;"><?= $total_out_month ?></p>
@@ -1050,6 +1611,12 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                         <p class="inventory-state">All <?= $vaccine_item_count ?> vaccine types are above the low-stock threshold (10 doses).</p>
                     <?php endif; ?>
                 </div>
+                <button class="card card-button alert-card expired-vaccine-card<?= $expired_batch_count === 0 ? ' is-empty' : '' ?>"
+                        type="button" onclick="openExpiredVaccineModal()" aria-haspopup="dialog" aria-controls="expiredVaccineModal">
+                    <h3 class="low-stock-heading">Expired Vaccine Batches</h3>
+                    <p class="value"><?= $expired_batch_count ?></p>
+                    <p class="inventory-state"><?= $expired_batch_count > 0 ? 'Click to review expired batches.' : 'No expired vaccine batches.' ?></p>
+                </button>
             </div>
             
             <div class="chart-container<?= $has_chart_activity ? '' : ' has-no-data' ?>">
@@ -1068,11 +1635,156 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             </div>
         </div>
 
+        <div id="stockBreakdownModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="stockBreakdownTitle">
+            <div class="modal-content stock-breakdown-modal-content">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;">
+                    <div>
+                        <h3 id="stockBreakdownTitle" style="margin:0; color:#394532;">Total Available Stock</h3>
+                        <p style="margin:5px 0 0; color:#71806b; font-size:.82rem;">Quantity breakdown for infant and maternal vaccines.</p>
+                    </div>
+                    <button type="button" class="alert-dismiss" aria-label="Close stock breakdown" onclick="closeStockBreakdown()">&times;</button>
+                </div>
+                <div class="stock-breakdown-table-wrap">
+                    <table class="stock-breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Vaccine</th>
+                                <th>Batch Number</th>
+                                <th>Category</th>
+                                <th>Total Received</th>
+                                <th>Available Quantity</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($result_all_vaccines->num_rows > 0): ?>
+                                <?php while ($stock_vaccine = $result_all_vaccines->fetch_assoc()):
+                                    $stock_quantity = (int) ($stock_vaccine['available_stock'] ?? 0);
+                                    $stock_status = $stock_quantity <= 0 ? 'Out of stock' : ($stock_quantity <= 10 ? 'Low stock' : 'In stock');
+                                    $stock_status_class = $stock_quantity <= 0 ? 'stock-badge-out' : ($stock_quantity <= 10 ? 'stock-badge-low' : 'stock-badge-in');
+                                ?>
+                                    <tr>
+                                        <td><strong><?= htmlspecialchars($stock_vaccine['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></strong></td>
+                                        <td><?= ($stock_vaccine['category'] ?? '') === 'Baby' ? 'Infant' : htmlspecialchars($stock_vaccine['category'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) ($stock_vaccine['total_received'] ?? 0) ?></td>
+                                        <td><strong><?= $stock_quantity ?></strong></td>
+                                        <td><span class="stock-badge <?= $stock_status_class ?>"><?= $stock_status ?></span></td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr><td class="stock-breakdown-empty" colspan="5">No vaccines are registered in the inventory yet.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="margin:12px 0 0; text-align:right; color:#43533a; font-size:.84rem; font-weight:700;">
+                    Total available doses: <?= (int) $total_available ?>
+                </p>
+                <h4 style="margin:22px 0 9px; color:#394532;">Received Batches &amp; Expiration Tracking</h4>
+                <p style="margin:0 0 10px; color:#71806b; font-size:.78rem;">Each row records the quantity received for a delivery; total available stock is shown above. Previously recorded stock has no manufacture or expiry date available.</p>
+                <div class="stock-breakdown-table-wrap">
+                    <table class="stock-breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Vaccine</th>
+                                <th>Category</th>
+                                <th>Quantity Received</th>
+                                <th>Manufactured</th>
+                                <th>Expires</th>
+                                <th>Supplier / Received By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($result_stock_batches->num_rows > 0): ?>
+                                <?php while ($stock_batch = $result_stock_batches->fetch_assoc()):
+                                    $batch_expiration = $stock_batch['expiration_date'];
+                                    $batch_expiration_status = 'Dates not recorded';
+                                    $batch_expiration_class = 'stock-badge-low';
+                                    if ($batch_expiration) {
+                                        $days_until_expiration = (int) floor((strtotime($batch_expiration) - strtotime(date('Y-m-d'))) / 86400);
+                                        if ($days_until_expiration < 0) {
+                                            $batch_expiration_status = 'Expired';
+                                            $batch_expiration_class = 'stock-badge-out';
+                                        } elseif ($days_until_expiration <= 90) {
+                                            $batch_expiration_status = $days_until_expiration === 0 ? 'Expires today' : 'Expires in ' . $days_until_expiration . ' days';
+                                            $batch_expiration_class = 'stock-badge-low';
+                                        } else {
+                                            $batch_expiration_status = 'Not expired';
+                                            $batch_expiration_class = 'stock-badge-in';
+                                        }
+                                    }
+                                ?>
+                                    <tr>
+                                        <td><strong><?= htmlspecialchars($stock_batch['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></strong></td>
+                                        <td><?= htmlspecialchars($stock_batch['batch_number'] ?? 'Legacy batch', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= ($stock_batch['category'] ?? '') === 'Baby' ? 'Infant' : htmlspecialchars($stock_batch['category'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $stock_batch['quantity_received'] ?></td>
+                                        <td><?= $stock_batch['manufactured_date'] ? date('M d, Y', strtotime($stock_batch['manufactured_date'])) : 'Not recorded' ?></td>
+                                        <td>
+                                            <?= $batch_expiration ? date('M d, Y', strtotime($batch_expiration)) : 'Not recorded' ?><br>
+                                            <span class="stock-badge <?= $batch_expiration_class ?>"><?= htmlspecialchars($batch_expiration_status, ENT_QUOTES, 'UTF-8') ?></span>
+                                        </td>
+                                        <td>
+                                            <small><strong>From:</strong> <?= htmlspecialchars($stock_batch['provided_by'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></small><br>
+                                            <small><strong>By:</strong> <?= htmlspecialchars($stock_batch['received_by'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></small>
+                                        </td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr><td class="stock-breakdown-empty" colspan="7">No stock batches recorded.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="expiredVaccineModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="expiredVaccineTitle">
+            <div class="modal-content stock-breakdown-modal-content">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;">
+                    <div>
+                        <h3 id="expiredVaccineTitle" style="margin:0; color:#a52a26;">Expired Vaccine Batches</h3>
+                        <p style="margin:5px 0 0; color:#71806b; font-size:.82rem;"><?= $expired_batch_count ?> batch(es) with expiration dates before today.</p>
+                    </div>
+                    <button type="button" class="alert-dismiss" aria-label="Close expired vaccine batches" onclick="closeExpiredVaccineModal()">&times;</button>
+                </div>
+                <div class="stock-breakdown-table-wrap">
+                    <table class="stock-breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Vaccine</th>
+                                <th>Batch Number</th>
+                                <th>Category</th>
+                                <th>Quantity Received</th>
+                                <th>Expiration Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($result_expired_batches->num_rows > 0): ?>
+                                <?php while ($expired_batch = $result_expired_batches->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><strong><?= htmlspecialchars($expired_batch['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></strong></td>
+                                        <td><?= htmlspecialchars($expired_batch['batch_number'] ?? 'Legacy batch', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= ($expired_batch['category'] ?? '') === 'Baby' ? 'Infant' : htmlspecialchars($expired_batch['category'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $expired_batch['quantity_received'] ?></td>
+                                        <td><span class="stock-badge stock-badge-out"><?= date('M d, Y', strtotime($expired_batch['expiration_date'])) ?></span></td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr><td class="stock-breakdown-empty" colspan="5">No expired vaccine batches.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- TABS NAVIGATION -->
         <div class="tabs">
             <button class="tab active" type="button" onclick="openTab('babyTab', this)">Baby Vaccines</button>
             <button class="tab" type="button" onclick="openTab('maternalTab', this)">Maternal Vaccines</button>
             <button class="tab" type="button" onclick="openTab('historyTab', this)">Inventory History</button>
+            <button class="tab" type="button" onclick="openTab('returnedTab', this)">Returned Vaccines</button>
         </div>
 
         <!-- BABY VACCINES TAB -->
@@ -1086,9 +1798,11 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             <table class="inventory-table" id="babyVaccineTable">
                 <thead>
                     <tr>
+                        <th>Batch #</th>
                         <th>Vaccine Name</th>
                         <th>Received / Available</th>
                         <th>Received From / By</th>
+                        <th>Expiration Date</th>
                         <th>Last Stock Entry</th>
                         <th>Action</th>
                     </tr>
@@ -1099,16 +1813,23 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                             $datetime_val = !empty($row['stock_in_date']) ? $row['stock_in_date'] : $row['created_at'];
                             $datetime_timestamp = strtotime($datetime_val);
                             $availableStock = (int) ($row['available_stock'] ?? 0);
+                            $expiryKey = ($row['category'] ?? 'Baby') . '|' . ($row['vaccine_name'] ?? '');
+                            $expirySummary = $vaccine_expiry_summary[$expiryKey] ?? ['next_expiration' => null, 'expired_batches' => 0];
+                            $batchNumbers = $vaccine_batch_summary[$expiryKey] ?? 'Not recorded';
                             $vaccineSearchText = strtolower(implode(' ', [
                                 $row['vaccine_name'] ?? '',
                                 $row['description'] ?? '',
                                 $row['provided_by'] ?? '',
                                 $row['received_by'] ?? '',
+                                $batchNumbers,
+                                $expirySummary['next_expiration'] ?? '',
+                                $expirySummary['expired_batches'] > 0 ? 'expired' : '',
                                 $availableStock <= 0 ? 'out of stock' : ($availableStock <= 10 ? 'low stock' : 'in stock'),
                                 (string) $availableStock
                             ]));
                         ?>
                             <tr data-vaccine-search="<?= htmlspecialchars($vaccineSearchText, ENT_QUOTES, 'UTF-8') ?>">
+                                <td><?= htmlspecialchars($batchNumbers, ENT_QUOTES, 'UTF-8') ?></td>
                                 <td>
                                     <strong><?= htmlspecialchars($row['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></strong><br>
                                     <small class="vaccine-description"><?= htmlspecialchars($row['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></small>
@@ -1124,6 +1845,24 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                                     <small><strong>From:</strong> <?= htmlspecialchars($row['provided_by'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></small><br>
                                     <small><strong>By:</strong> <?= htmlspecialchars($row['received_by'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></small>
                                 </td>
+                                <td>
+                                    <?php if ($expirySummary['next_expiration']): ?>
+                                        <?php
+                                            $daysUntilExpiry = (int) floor((strtotime($expirySummary['next_expiration']) - strtotime(date('Y-m-d'))) / 86400);
+                                            $expiryBadgeClass = $daysUntilExpiry <= 90 ? 'stock-badge-low' : 'stock-badge-in';
+                                            $expiryLabel = $daysUntilExpiry === 0 ? 'Expires today' : ($daysUntilExpiry <= 90 ? 'In ' . $daysUntilExpiry . ' days' : 'Upcoming');
+                                        ?>
+                                        <?= date('M d, Y', strtotime($expirySummary['next_expiration'])) ?><br>
+                                        <span class="stock-badge <?= $expiryBadgeClass ?>"><?= $expiryLabel ?></span>
+                                    <?php elseif ($expirySummary['expired_batches'] > 0): ?>
+                                        <span class="stock-badge stock-badge-out">Expired</span>
+                                    <?php else: ?>
+                                        <span class="table-muted">Not recorded</span>
+                                    <?php endif; ?>
+                                    <?php if ($expirySummary['expired_batches'] > 0): ?>
+                                        <br><span class="stock-badge stock-badge-out"><?= $expirySummary['expired_batches'] ?> expired</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= $datetime_timestamp && date('Y', $datetime_timestamp) > 1 ? date('M d, Y h:i A', $datetime_timestamp) : 'N/A' ?></td>
                                 <td class="action-links">
                                     <a href="#" class="action-edit" 
@@ -1134,12 +1873,12 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                                            '<?= $row['category'] ?>',
                                            '<?= $availableStock ?>'
                                        )">Edit details</a>
-                                    <a href="?delete_id=<?= $row['id'] ?>" class="action-delete" onclick="return confirm('Sigurado ka bang gusto mong idelete ang vaccine na ito?');">Delete</a>
+                                    <a href="?delete_id=<?= (int) $row['id'] ?>" class="action-delete" data-confirm-delete>Delete</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr class="vaccine-inventory-empty"><td colspan="5" class="table-empty">No baby vaccines in inventory yet.</td></tr>
+                        <tr class="vaccine-inventory-empty"><td colspan="7" class="table-empty">No baby vaccines in inventory yet.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -1158,9 +1897,11 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             <table class="inventory-table" id="maternalVaccineTable">
                 <thead>
                     <tr>
+                        <th>Batch #</th>
                         <th>Vaccine Name</th>
                         <th>Received / Available</th>
                         <th>Received From / By</th>
+                        <th>Expiration Date</th>
                         <th>Last Stock Entry</th>
                         <th>Action</th>
                     </tr>
@@ -1171,16 +1912,23 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                             $datetime_val = !empty($row['stock_in_date']) ? $row['stock_in_date'] : $row['created_at'];
                             $datetime_timestamp = strtotime($datetime_val);
                             $availableStock = (int) ($row['available_stock'] ?? 0);
+                            $expiryKey = ($row['category'] ?? 'Maternal') . '|' . ($row['vaccine_name'] ?? '');
+                            $expirySummary = $vaccine_expiry_summary[$expiryKey] ?? ['next_expiration' => null, 'expired_batches' => 0];
+                            $batchNumbers = $vaccine_batch_summary[$expiryKey] ?? 'Not recorded';
                             $vaccineSearchText = strtolower(implode(' ', [
                                 $row['vaccine_name'] ?? '',
                                 $row['description'] ?? '',
                                 $row['provided_by'] ?? '',
                                 $row['received_by'] ?? '',
+                                $batchNumbers,
+                                $expirySummary['next_expiration'] ?? '',
+                                $expirySummary['expired_batches'] > 0 ? 'expired' : '',
                                 $availableStock <= 0 ? 'out of stock' : ($availableStock <= 10 ? 'low stock' : 'in stock'),
                                 (string) $availableStock
                             ]));
                         ?>
                             <tr data-vaccine-search="<?= htmlspecialchars($vaccineSearchText, ENT_QUOTES, 'UTF-8') ?>">
+                                <td><?= htmlspecialchars($batchNumbers, ENT_QUOTES, 'UTF-8') ?></td>
                                 <td>
                                     <strong><?= htmlspecialchars($row['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></strong><br>
                                     <small class="vaccine-description"><?= htmlspecialchars($row['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></small>
@@ -1196,6 +1944,24 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                                     <small><strong>From:</strong> <?= htmlspecialchars($row['provided_by'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></small><br>
                                     <small><strong>By:</strong> <?= htmlspecialchars($row['received_by'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></small>
                                 </td>
+                                <td>
+                                    <?php if ($expirySummary['next_expiration']): ?>
+                                        <?php
+                                            $daysUntilExpiry = (int) floor((strtotime($expirySummary['next_expiration']) - strtotime(date('Y-m-d'))) / 86400);
+                                            $expiryBadgeClass = $daysUntilExpiry <= 90 ? 'stock-badge-low' : 'stock-badge-in';
+                                            $expiryLabel = $daysUntilExpiry === 0 ? 'Expires today' : ($daysUntilExpiry <= 90 ? 'In ' . $daysUntilExpiry . ' days' : 'Upcoming');
+                                        ?>
+                                        <?= date('M d, Y', strtotime($expirySummary['next_expiration'])) ?><br>
+                                        <span class="stock-badge <?= $expiryBadgeClass ?>"><?= $expiryLabel ?></span>
+                                    <?php elseif ($expirySummary['expired_batches'] > 0): ?>
+                                        <span class="stock-badge stock-badge-out">Expired</span>
+                                    <?php else: ?>
+                                        <span class="table-muted">Not recorded</span>
+                                    <?php endif; ?>
+                                    <?php if ($expirySummary['expired_batches'] > 0): ?>
+                                        <br><span class="stock-badge stock-badge-out"><?= $expirySummary['expired_batches'] ?> expired</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= $datetime_timestamp && date('Y', $datetime_timestamp) > 1 ? date('M d, Y h:i A', $datetime_timestamp) : 'N/A' ?></td>
                                 <td class="action-links">
                                     <a href="#" class="action-edit"
@@ -1206,12 +1972,12 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                                            '<?= $row['category'] ?>',
                                            '<?= $availableStock ?>'
                                        )">Edit details</a>
-                                    <a href="?delete_id=<?= $row['id'] ?>" class="action-delete" onclick="return confirm('Sigurado ka bang gusto mong idelete ang vaccine na ito?');">Delete</a>
+                                    <a href="?delete_id=<?= (int) $row['id'] ?>" class="action-delete" data-confirm-delete>Delete</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr class="vaccine-inventory-empty"><td colspan="5" class="table-empty">No maternal vaccines in inventory yet.</td></tr>
+                        <tr class="vaccine-inventory-empty"><td colspan="7" class="table-empty">No maternal vaccines in inventory yet.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -1280,6 +2046,101 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             <div class="history-empty" id="historyFilterEmpty">No history entries match your search and filter.</div>
         </div>
 
+        <div id="returnedTab" class="tab-content">
+            <h3 style="margin:0 0 14px; color:#43533a;">Record Returned Vaccines</h3>
+            <form method="POST">
+                <div class="return-form-grid">
+                    <div class="form-group">
+                        <label for="return_category">Category *</label>
+                        <select id="return_category" required>
+                            <option value="">-- Select category --</option>
+                            <option value="Baby">Baby Vaccine</option>
+                            <option value="Maternal">Maternal Vaccine (Pregnant)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="return_vaccine_id">Vaccine Name *</label>
+                        <select id="return_vaccine_id" required disabled>
+                            <option value="">-- Select category first --</option>
+                            <?php foreach ($returnable_vaccines as $vaccine_id => $returnable_vaccine): ?>
+                                <option value="<?= (int) $vaccine_id ?>" data-category="<?= htmlspecialchars($returnable_vaccine['category'], ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars($returnable_vaccine['name'], ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="return_batch_id">Batch Number *</label>
+                        <small id="return_batch_count" aria-live="polite">Choose a vaccine name to view recorded batches.</small>
+                        <select name="return_batch_id" id="return_batch_id" required disabled>
+                            <option value="">-- Select category first --</option>
+                            <?php foreach ($returnable_batches as $returnable_batch): ?>
+                                <option value="<?= (int) $returnable_batch['id'] ?>"
+                                        data-vaccine-id="<?= (int) $returnable_batch['vaccine_id'] ?>"
+                                        data-category="<?= htmlspecialchars($returnable_batch['category'], ENT_QUOTES, 'UTF-8') ?>">
+                                    Batch <?= htmlspecialchars($returnable_batch['batch_number'], ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="return_quantity">Quantity Returned *</label>
+                        <input type="number" name="return_quantity" id="return_quantity" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="returned_by">Returned By *</label>
+                        <input type="text" name="returned_by" id="returned_by" maxlength="255" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="return_reason">Reason / Notes</label>
+                        <textarea name="return_reason" id="return_reason" rows="1" maxlength="1000"></textarea>
+                    </div>
+                </div>
+                <button class="return-form-submit" type="submit" name="record_vaccine_return" <?= $returnable_batches_query->num_rows === 0 ? 'disabled' : '' ?>>
+                    Record Return &amp; Add to Stock
+                </button>
+                <?php if ($returnable_batches_query->num_rows === 0): ?>
+                    <p class="inventory-state">No in-stock vaccine batches without a past expiration date are eligible for return.</p>
+                <?php endif; ?>
+            </form>
+
+            <h3 style="margin:18px 0 10px; color:#43533a;">Return History</h3>
+            <div class="table-scroll">
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>Date &amp; Time</th>
+                            <th>Vaccine</th>
+                            <th>Category</th>
+                            <th>Batch #</th>
+                            <th>Quantity Returned</th>
+                            <th>Returned By</th>
+                            <th>Reason / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($result_vaccine_returns->num_rows > 0): ?>
+                            <?php while ($returned_vaccine = $result_vaccine_returns->fetch_assoc()):
+                                $return_timestamp = strtotime($returned_vaccine['returned_at']);
+                            ?>
+                                <tr>
+                                    <td><?= $return_timestamp ? date('M d, Y h:i A', $return_timestamp) : 'N/A' ?></td>
+                                    <td><strong><?= htmlspecialchars($returned_vaccine['vaccine_name'], ENT_QUOTES, 'UTF-8') ?></strong></td>
+                                    <td><?= ($returned_vaccine['category'] ?? '') === 'Baby' ? 'Infant' : htmlspecialchars($returned_vaccine['category'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($returned_vaccine['batch_number'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><strong><?= (int) $returned_vaccine['quantity'] ?></strong></td>
+                                    <td><?= htmlspecialchars($returned_vaccine['returned_by'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($returned_vaccine['reason'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="7" class="table-empty">No returned vaccines recorded yet.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -1301,7 +2162,7 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             </div>
             <div class="form-group">
                 <label>Vaccine Name</label>
-                <select name="vaccine_name" id="add_vaccine_name" required onchange="updateStockPreview()">
+                <select name="vaccine_name" id="add_vaccine_name" required onchange="updateStockPreview(); updateNextBatchNumber()">
                     <option value="">-- Select Vaccine Name --</option>
                     <?php foreach ([
                         'Baby' => [
@@ -1318,43 +2179,57 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                         <?php foreach ($stockVaccineNames as $stockVaccineName):
                             $stockKey = $stockCategory . '|' . $stockVaccineName;
                             $currentVaccineStock = $vaccine_stock_lookup[$stockKey] ?? 0;
+                            $nextBatchNumber = $next_batch_number_lookup[$stockKey] ?? 1;
                         ?>
                             <option
                                 value="<?= htmlspecialchars($stockVaccineName, ENT_QUOTES, 'UTF-8') ?>"
                                 data-category="<?= htmlspecialchars($stockCategory, ENT_QUOTES, 'UTF-8') ?>"
                                 data-current-stock="<?= $currentVaccineStock ?>"
+                                data-next-batch="<?= $nextBatchNumber ?>"
                             ><?= htmlspecialchars($stockVaccineName, ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     <?php endforeach; ?>
                 </select>
-                <small>Piliin ulit ang vaccine para idagdag ang bagong dating.</small>
+            </div>
+            <div class="form-group">
+                <label>Batch Number *</label>
+                <input type="text" name="batch_number" id="batch_number" maxlength="100" required placeholder="Auto-filled for selected vaccine; editable">
             </div>
             <div class="form-group">
                 <label>Description / Notes</label>
                 <textarea name="description" rows="2" placeholder="Target disease or notes..."></textarea>
             </div>
             <div class="form-group">
-                <label>Dami ng Idadagdag</label>
+                <label>Quantity Received</label>
                 <input type="number" name="quantity_received" id="quantity_received" value="0" min="1" required oninput="updateStockPreview()">
-                <small>Idadagdag sa stock at itatala bilang IN.</small>
             </div>
             <div class="form-group">
-                <label>Bagong Total Stock</label>
+                <label>Current Stock</label>
+                <input type="number" id="current_stock" value="0" readonly>
+            </div>
+            <div class="form-group">
+                <label>New Total Stock</label>
                 <input type="number" id="stock_after_receipt" value="0" readonly>
-                <small id="stock_calculation_note">Piliin ang vaccine at ilagay ang dami.</small>
             </div>
             <div class="form-group">
-                <label>Provided By (Nagbigay / Supplier / Source) *</label>
+                <label>Provided By *</label>
                 <input type="text" name="provided_by" placeholder="e.g. Provincial Health Office" required>
             </div>
             <div class="form-group">
-                <label>Received By (Sino ang tumanggap) *</label>
+                <label>Received By *</label>
                 <input type="text" name="received_by" placeholder="e.g. Juan Dela Cruz" required>
             </div>
             <div class="form-group">
                 <label>Petsa ng stock entry *</label>
-                <input type="date" name="stock_date" value="<?= date('Y-m-d') ?>" required>
-                <small>Ilagay ang petsa ng delivery.</small>
+                <input type="date" name="stock_date" id="stock_date" value="<?= date('Y-m-d') ?>" required onchange="updateVaccineDateLimits()">
+            </div>
+            <div class="form-group">
+                <label>Manufactured Date *</label>
+                <input type="date" name="manufactured_date" id="manufactured_date" max="<?= date('Y-m-d') ?>" required onchange="updateVaccineDateLimits()">
+            </div>
+            <div class="form-group">
+                <label>Expiration Date *</label>
+                <input type="date" name="expiration_date" id="expiration_date" min="<?= date('Y-m-d', strtotime('+1 day')) ?>" required onchange="updateVaccineDateLimits()">
             </div>
             <div class="form-group">
                 <label>Oras ng stock entry *</label>
@@ -1365,11 +2240,23 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
     </div>
 </div>
 
+<div id="confirmDeleteModal" class="confirm-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmDeleteTitle" aria-describedby="confirmDeleteDescription">
+    <div class="confirm-delete-content">
+        <div class="confirm-delete-icon" aria-hidden="true"><i class="fa-solid fa-trash-can"></i></div>
+        <h2 id="confirmDeleteTitle">Delete this vaccine?</h2>
+        <p id="confirmDeleteDescription">This will permanently remove the vaccine and its recorded batch details. This action cannot be undone.</p>
+        <div class="confirm-delete-actions">
+            <button type="button" id="cancelDeleteButton">Cancel</button>
+            <button type="button" class="confirm-delete-button" id="confirmDeleteButton">Delete vaccine</button>
+        </div>
+    </div>
+</div>
+
 <!-- EDIT MODAL -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; text-transform: uppercase; font-size: 1rem;">Edit Vaccine Details</h3>
+            <h3 style="margin: 0; text-transform: uppercase; font-size: 1rem;">Edit Vaccine / Batch Details</h3>
             <span style="cursor: pointer; font-weight: bold;" onclick="document.getElementById('editModal').style.display='none'">&times;</span>
         </div>
         
@@ -1405,6 +2292,49 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
                 <input type="number" name="available_stock" id="edit_available_stock" min="0" required>
                 <small>Dagdag = IN; bawas = OUT.</small>
             </div>
+            <div class="form-group">
+                <label for="edit_batch_id">Batch to Edit</label>
+                <select name="batch_id" id="edit_batch_id" onchange="loadEditBatchDetails()">
+                    <option value="">-- No batch selected --</option>
+                    <?php foreach ($edit_batches as $edit_batch): ?>
+                        <option value="<?= (int) $edit_batch['id'] ?>"
+                                data-vaccine-id="<?= (int) $edit_batch['vaccine_id'] ?>"
+                                data-batch-number="<?= htmlspecialchars($edit_batch['batch_number'], ENT_QUOTES, 'UTF-8') ?>"
+                                data-manufactured-date="<?= htmlspecialchars($edit_batch['manufactured_date'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                data-expiration-date="<?= htmlspecialchars($edit_batch['expiration_date'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                data-stock-in-date="<?= htmlspecialchars(date('Y-m-d\TH:i', strtotime($edit_batch['stock_in_date'])), ENT_QUOTES, 'UTF-8') ?>"
+                                data-received-by="<?= htmlspecialchars($edit_batch['received_by'], ENT_QUOTES, 'UTF-8') ?>"
+                                data-provided-by="<?= htmlspecialchars($edit_batch['provided_by'], ENT_QUOTES, 'UTF-8') ?>">
+                            <?= htmlspecialchars($edit_batch['batch_number'] . ' | ' . date('M d, Y', strtotime($edit_batch['stock_in_date'])), ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <small>Select a recorded batch to edit its tracking details.</small>
+            </div>
+            <div class="form-group">
+                <label for="edit_batch_number">Batch Number</label>
+                <input type="text" name="batch_number" id="edit_batch_number" maxlength="100">
+            </div>
+            <div class="form-group">
+                <label for="edit_manufactured_date">Manufactured Date</label>
+                <input type="date" name="manufactured_date" id="edit_manufactured_date">
+            </div>
+            <div class="form-group">
+                <label for="edit_expiration_date">Expiration Date</label>
+                <input type="date" name="expiration_date" id="edit_expiration_date">
+            </div>
+            <div class="form-group">
+                <label for="edit_stock_in_datetime">Stock Entry Date and Time</label>
+                <input type="datetime-local" name="stock_in_datetime" id="edit_stock_in_datetime">
+            </div>
+            <div class="form-group">
+                <label for="edit_batch_provided_by">Provided By</label>
+                <input type="text" name="batch_provided_by" id="edit_batch_provided_by" maxlength="255">
+            </div>
+            <div class="form-group">
+                <label for="edit_batch_received_by">Received By</label>
+                <input type="text" name="batch_received_by" id="edit_batch_received_by" maxlength="255">
+            </div>
             <button type="submit" name="update_vaccine" class="btn-submit">I-save ang Detalye</button>
         </form>
     </div>
@@ -1423,7 +2353,129 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         tabButton.classList.add('active');
     }
 
+    (function initializeReturnBatchFields() {
+        const vaccineSelect = document.getElementById('return_vaccine_id');
+        const categorySelect = document.getElementById('return_category');
+        const batchSelect = document.getElementById('return_batch_id');
+        const batchCount = document.getElementById('return_batch_count');
+        if (!vaccineSelect || !categorySelect || !batchSelect || !batchCount) return;
+
+        const batchOptions = Array.from(batchSelect.querySelectorAll('option[data-vaccine-id]'))
+            .map(option => ({
+                value: option.value,
+                vaccineId: option.dataset.vaccineId,
+                category: option.dataset.category,
+                label: option.textContent.trim()
+            }));
+        const vaccineOptions = Array.from(vaccineSelect.querySelectorAll('option[data-category]'));
+
+        function resetSelect(select, placeholder) {
+            select.innerHTML = '';
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = placeholder;
+            select.appendChild(option);
+        }
+
+        categorySelect.addEventListener('change', function() {
+            vaccineSelect.value = '';
+            resetSelect(batchSelect, '-- Select batch number --');
+            vaccineSelect.disabled = !categorySelect.value;
+            batchSelect.disabled = true;
+            batchCount.textContent = 'Choose a vaccine name to view recorded batches.';
+
+            vaccineOptions.forEach(option => {
+                const matchesCategory = option.dataset.category === categorySelect.value;
+                option.hidden = !matchesCategory;
+                option.disabled = !matchesCategory;
+            });
+        });
+
+        vaccineSelect.addEventListener('change', function() {
+            resetSelect(batchSelect, '-- Select batch number --');
+            const matches = batchOptions.filter(batch =>
+                batch.vaccineId === vaccineSelect.value && batch.category === categorySelect.value
+            );
+            batchCount.textContent = matches.length === 1
+                ? '1 in-stock batch available.'
+                : matches.length + ' in-stock batches available.';
+
+            matches.forEach(batch => {
+                const option = document.createElement('option');
+                option.value = batch.value;
+                option.textContent = batch.label;
+                batchSelect.appendChild(option);
+            });
+            batchSelect.disabled = !categorySelect.value || matches.length === 0;
+        });
+
+        categorySelect.dispatchEvent(new Event('change'));
+    })();
+
+    function openStockBreakdown() {
+        document.getElementById('stockBreakdownModal').style.display = 'block';
+    }
+
+    function closeStockBreakdown() {
+        document.getElementById('stockBreakdownModal').style.display = 'none';
+    }
+
+    function openExpiredVaccineModal() {
+        document.getElementById('expiredVaccineModal').style.display = 'block';
+    }
+
+    function closeExpiredVaccineModal() {
+        document.getElementById('expiredVaccineModal').style.display = 'none';
+    }
+
+    function updateVaccineDateLimits() {
+        const stockDate = document.getElementById('stock_date');
+        const manufacturedDate = document.getElementById('manufactured_date');
+        const expirationDate = document.getElementById('expiration_date');
+        const latestManufactureDate = stockDate.value || stockDate.max;
+        manufacturedDate.max = latestManufactureDate;
+        if (manufacturedDate.value && manufacturedDate.value > latestManufactureDate) {
+            manufacturedDate.value = '';
+        }
+
+        const latestRelevantDate = manufacturedDate.value > stockDate.value
+            ? manufacturedDate.value
+            : stockDate.value;
+        if (latestRelevantDate) {
+            const nextDate = new Date(latestRelevantDate + 'T00:00:00Z');
+            nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+            expirationDate.min = nextDate.toISOString().slice(0, 10);
+        }
+
+        if (expirationDate.value && expirationDate.value < expirationDate.min) {
+            expirationDate.value = '';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        updateVaccineDateLimits();
+
+        const stockBreakdownModal = document.getElementById('stockBreakdownModal');
+        stockBreakdownModal.addEventListener('click', function(event) {
+            if (event.target === stockBreakdownModal) {
+                closeStockBreakdown();
+            }
+        });
+        const expiredVaccineModal = document.getElementById('expiredVaccineModal');
+        expiredVaccineModal.addEventListener('click', function(event) {
+            if (event.target === expiredVaccineModal) {
+                closeExpiredVaccineModal();
+            }
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && stockBreakdownModal.style.display === 'block') {
+                closeStockBreakdown();
+            }
+            if (event.key === 'Escape' && expiredVaccineModal.style.display === 'block') {
+                closeExpiredVaccineModal();
+            }
+        });
+
         const searchInput = document.getElementById('historySearch');
         const actionFilter = document.getElementById('historyActionFilter');
         const resultCount = document.getElementById('historyResultCount');
@@ -1461,25 +2513,72 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         document.getElementById('edit_vaccine_name').value = name;
         document.getElementById('edit_description').value = description;
         document.getElementById('edit_available_stock').value = availableStock;
+
+        const batchSelect = document.getElementById('edit_batch_id');
+        const batchOptions = Array.from(batchSelect.options).filter(option => option.dataset.vaccineId);
+        const matchingBatches = batchOptions.filter(option => option.dataset.vaccineId === String(id));
+        batchOptions.forEach(option => {
+            const matchesVaccine = option.dataset.vaccineId === String(id);
+            option.hidden = !matchesVaccine;
+            option.disabled = !matchesVaccine;
+        });
+        batchSelect.value = matchingBatches.length ? matchingBatches[0].value : '';
+        loadEditBatchDetails();
         
         document.getElementById('editModal').style.display = 'block';
+    }
+
+    function loadEditBatchDetails() {
+        const batchSelect = document.getElementById('edit_batch_id');
+        const selectedBatch = batchSelect.selectedOptions[0];
+        const hasBatch = Boolean(selectedBatch && selectedBatch.dataset.vaccineId);
+        const fields = {
+            batch_number: document.getElementById('edit_batch_number'),
+            manufactured_date: document.getElementById('edit_manufactured_date'),
+            expiration_date: document.getElementById('edit_expiration_date'),
+            stock_in_datetime: document.getElementById('edit_stock_in_datetime'),
+            provided_by: document.getElementById('edit_batch_provided_by'),
+            received_by: document.getElementById('edit_batch_received_by')
+        };
+        const datasetKeys = {
+            batch_number: 'batchNumber',
+            manufactured_date: 'manufacturedDate',
+            expiration_date: 'expirationDate',
+            stock_in_datetime: 'stockInDate',
+            provided_by: 'providedBy',
+            received_by: 'receivedBy'
+        };
+
+        Object.entries(fields).forEach(([fieldName, input]) => {
+            input.disabled = !hasBatch;
+            input.required = hasBatch && ['batch_number', 'stock_in_datetime', 'provided_by', 'received_by'].includes(fieldName);
+            input.value = hasBatch ? (selectedBatch.dataset[datasetKeys[fieldName]] || '') : '';
+        });
     }
 
     function updateStockPreview() {
         const vaccineSelect = document.getElementById('add_vaccine_name');
         const quantityInput = document.getElementById('quantity_received');
+        const currentStockInput = document.getElementById('current_stock');
         const stockAfterInput = document.getElementById('stock_after_receipt');
-        const calculationNote = document.getElementById('stock_calculation_note');
         const selectedOption = vaccineSelect.selectedOptions[0];
         const currentStock = selectedOption && selectedOption.dataset.category
             ? Number(selectedOption.dataset.currentStock || 0)
             : 0;
         const receivedQuantity = Math.max(0, Number.parseInt(quantityInput.value, 10) || 0);
 
+        currentStockInput.value = currentStock;
         stockAfterInput.value = currentStock + receivedQuantity;
-        calculationNote.textContent = currentStock > 0
-            ? currentStock + ' + ' + receivedQuantity + ' = ' + stockAfterInput.value
-            : 'Panimulang stock: ' + receivedQuantity;
+    }
+
+    function updateNextBatchNumber() {
+        const vaccineSelect = document.getElementById('add_vaccine_name');
+        const batchNumberInput = document.getElementById('batch_number');
+        const selectedOption = vaccineSelect.selectedOptions[0];
+
+        batchNumberInput.value = selectedOption && selectedOption.dataset.category
+            ? selectedOption.dataset.nextBatch
+            : '';
     }
 
     function filterVaccineOptions(categoryId, vaccineId) {
@@ -1500,6 +2599,7 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
 
         if (vaccineId === 'add_vaccine_name') {
             updateStockPreview();
+            updateNextBatchNumber();
         }
     }
 
@@ -1535,6 +2635,7 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
         document.querySelectorAll('.alert-message').forEach(function(alertMessage) {
             const dismissButton = alertMessage.querySelector('.alert-dismiss');
             const dismiss = function() {
+                if (alertMessage.classList.contains('is-dismissing')) return;
                 alertMessage.classList.add('is-dismissing');
                 window.setTimeout(function() {
                     alertMessage.remove();
@@ -1545,6 +2646,41 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             const autoDismissDelay = Number.parseInt(alertMessage.dataset.autodismiss, 10);
             if (autoDismissDelay > 0) {
                 window.setTimeout(dismiss, autoDismissDelay);
+            }
+        });
+
+        const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+        const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        let pendingDeleteUrl = '';
+        let lastDeleteTrigger = null;
+
+        function closeDeleteConfirmation() {
+            confirmDeleteModal.classList.remove('is-open');
+            pendingDeleteUrl = '';
+            if (lastDeleteTrigger) lastDeleteTrigger.focus();
+        }
+
+        document.querySelectorAll('[data-confirm-delete]').forEach(function(deleteLink) {
+            deleteLink.addEventListener('click', function(event) {
+                event.preventDefault();
+                pendingDeleteUrl = deleteLink.href;
+                lastDeleteTrigger = deleteLink;
+                confirmDeleteModal.classList.add('is-open');
+                confirmDeleteButton.focus();
+            });
+        });
+
+        cancelDeleteButton.addEventListener('click', closeDeleteConfirmation);
+        confirmDeleteModal.addEventListener('click', function(event) {
+            if (event.target === confirmDeleteModal) closeDeleteConfirmation();
+        });
+        confirmDeleteButton.addEventListener('click', function() {
+            if (pendingDeleteUrl) window.location.assign(pendingDeleteUrl);
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && confirmDeleteModal.classList.contains('is-open')) {
+                closeDeleteConfirmation();
             }
         });
 
