@@ -335,7 +335,7 @@ while ($row = $result_children->fetch_assoc()) {
                             <button class="btn details-btn" onclick='openModal(<?php echo json_encode($row); ?>)'>History</button>
                             
                             <?php if($row['status'] !== 'Approved'): ?>
-                                <a href="?delete_id=<?php echo $row['id']; ?>" class="btn remove-btn" onclick="return confirm('Remove this pending registration?')">Remove</a>
+                                <a href="?delete_id=<?php echo $row['id']; ?>" class="btn remove-btn" data-confirm-title="Remove pending registration?" data-confirm="Are you sure you want to remove this pending child registration?" data-confirm-label="Remove">Remove</a>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -424,7 +424,7 @@ while ($row = $result_children->fetch_assoc()) {
         
         const footerDelete = document.getElementById('modalFooterDelete');
         if(data.status !== 'Approved') {
-            footerDelete.innerHTML = `<a href="?delete_id=${data.id}" onclick="return confirm('Remove this pending registration?')" style="color: var(--danger-red); text-decoration: none; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">Delete Record</a>`;
+            footerDelete.innerHTML = `<a href="?delete_id=${data.id}" data-confirm-title="Remove pending registration?" data-confirm="Are you sure you want to remove this pending child registration?" data-confirm-label="Remove" style="color: var(--danger-red); text-decoration: none; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">Delete Record</a>`;
         } else {
             footerDelete.innerHTML = ``;
         }

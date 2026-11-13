@@ -302,7 +302,7 @@ if ($pregnancyStatusSchemaReady) {
     <!-- PROFILE CARD -->
     <div class="profile-card">
         <div class="profile-info">
-            <h3><?php echo htmlspecialchars($user_profile['full_name'] ?? 'Pangalan ng User'); ?></h3>
+            <h3><?php echo htmlspecialchars($user_profile['full_name'] ?? 'User Name'); ?></h3>
             <p>Contact: <?php echo htmlspecialchars($user_profile['contact_number'] ?? 'Not provided'); ?> | Address: <?php echo htmlspecialchars($user_profile['full_address'] ?? 'Not provided'); ?></p>
         </div>
         <div class="profile-stats">
@@ -464,7 +464,7 @@ if ($pregnancyStatusSchemaReady) {
                             `;
                         });
                     } else {
-                        checkupRows = `<tr><td colspan="6" style="border: 1px solid #e5eadc; padding: 15px; text-align:center; color:#888;">Wala pang naka-record na monthly check-up para sa pagbubuntis na ito.</td></tr>`;
+                        checkupRows = `<tr><td colspan="6" style="border: 1px solid #e5eadc; padding: 15px; text-align:center; color:#888;">No monthly check-ups have been recorded for this pregnancy yet.</td></tr>`;
                     }
 
                     body.innerHTML = `
@@ -504,7 +504,7 @@ if ($pregnancyStatusSchemaReady) {
                         </div>
                     `;
                 } else {
-                    body.innerHTML = "<p style='text-align:center; padding:20px; color:red;'>Hindi makuha ang detalye ng rekord.</p>";
+                    body.innerHTML = "<p style='text-align:center; padding:20px; color:red;'>Could not load the record details.</p>";
                 }
             })
             .catch(() => {
