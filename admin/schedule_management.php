@@ -375,50 +375,177 @@ $schedulePatientLinkReady = $patientLinkColumn && mysqli_num_rows($patientLinkCo
 
 // Handle Batch Add Schedule
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch'])) {
-    $category = mysqli_real_escape_string($conn, $_POST['category']); 
-    $schedule_date = mysqli_real_escape_string($conn, $_POST['schedule_date']);
-    $schedule_time = mysqli_real_escape_string($conn, $_POST['schedule_time']);
-    $service_type = mysqli_real_escape_string($conn, $_POST['service_type']); 
-    $notes = mysqli_real_escape_string($conn, $_POST['notes']);
+    $category = $_POST['category'] ?? '';
+    $schedule_date = trim((string) ($_POST['schedule_date'] ?? ''));
+    $schedule_time = trim((string) ($_POST['schedule_time'] ?? ''));
+    $schedule_end_time = trim((string) ($_POST['schedule_end_time'] ?? ''));
+    $service_type = trim((string) ($_POST['service_type'] ?? ''));
+    $notes = trim((string) ($_POST['notes'] ?? ''));
     $status = 'Pending';
-    $patient_ids = isset($_POST['patient_ids']) ? $_POST['patient_ids'] : [];
+    $patient_ids = $_POST['patient_ids'] ?? [];
+    $parsedDate = DateTime::createFromFormat('!Y-m-d', $schedule_date);
+    $dateErrors = DateTime::getLastErrors();
+    $parsedTime = DateTime::createFromFormat('!H:i', $schedule_time);
+    $timeErrors = DateTime::getLastErrors();
+    $parsedEndTime = DateTime::createFromFormat('!H:i', $schedule_end_time);
+    $endTimeErrors = DateTime::getLastErrors();
+    $validDate = $parsedDate && $parsedDate->format('Y-m-d') === $schedule_date
+        && ($dateErrors === false || ($dateErrors['warning_count'] === 0 && $dateErrors['error_count'] === 0));
+    $validTime = $parsedTime && $parsedTime->format('H:i') === $schedule_time
+        && ($timeErrors === false || ($timeErrors['warning_count'] === 0 && $timeErrors['error_count'] === 0));
+    $validEndTime = $parsedEndTime && $parsedEndTime->format('H:i') === $schedule_end_time
+        && ($endTimeErrors === false || ($endTimeErrors['warning_count'] === 0 && $endTimeErrors['error_count'] === 0));
+    $startMinute = $validTime ? ((int) $parsedTime->format('H')) * 60 + (int) $parsedTime->format('i') : 0;
+    $endMinute = $validEndTime ? ((int) $parsedEndTime->format('H')) * 60 + (int) $parsedEndTime->format('i') : 0;
 
-    if (empty($schedule_date) || empty($schedule_time) || empty($service_type) || empty($patient_ids)) {
-        $message = "Error: Please select a date, time, service type, and at least one patient!";
+    if (!in_array($category, ['Child', 'Maternal'], true) || !$validDate || !$validTime || !$validEndTime
+        || $endMinute <= $startMinute
+        || $service_type === '' || !is_array($patient_ids) || !$patient_ids) {
+        $message = "Error: Please select a valid category, date, start and end time (end must be later than start), service type, and at least one patient.";
     } elseif (!$schedulePatientLinkReady) {
         $message = "Run database_maternal_schedule_links.sql in phpMyAdmin before creating schedules.";
     } else {
-        $success_count = 0;
-        $sql = "INSERT INTO schedules (category, patient_id, patient_name, schedule_date, schedule_time, service_type, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        if ($stmt = $conn->prepare($sql)) {
-            foreach ($patient_ids as $pid) {
-                $patient_id = (int) $pid;
-                $patient_name = "";
-                if ($category === 'Child') {
-                    $p_query = "SELECT child_name AS full_name FROM children WHERE id = ? LIMIT 1";
-                } else {
-                    $p_query = "SELECT CONCAT(client_fname, ' ', client_lname) AS full_name FROM maternal_registration WHERE id = ? LIMIT 1";
-                }
+        $patient_ids = array_values(array_unique(array_filter(array_map(
+            static function ($patientId) {
+                return filter_var($patientId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            },
+            $patient_ids
+        ))));
 
-                if ($p_stmt = $conn->prepare($p_query)) {
-                    $p_stmt->bind_param("i", $patient_id);
-                    $p_stmt->execute();
-                    $p_res = $p_stmt->get_result();
-                    if ($p_row = $p_res->fetch_assoc()) {
-                        $patient_name = $p_row['full_name'];
-                        
-                        $stmt->bind_param("sissssss", $category, $patient_id, $patient_name, $schedule_date, $schedule_time, $service_type, $notes, $status);
-                        if ($stmt->execute()) {
-                            $success_count++;
-                            // ── Notify the patient's user ──
-                            $new_schedule_id = $conn->insert_id;
+        if (!$patient_ids) {
+            $message = "Error: Select at least one valid patient.";
+        } elseif (!$conn->begin_transaction()) {
+            error_log('Unable to begin batch schedule transaction: ' . $conn->error);
+            $message = "Unable to start schedule creation. Please try again.";
+        } else {
+            $busyStmt = $conn->prepare("SELECT TIME_TO_SEC(schedule_time) AS slot_seconds
+                FROM schedules
+                WHERE schedule_date = ?
+                  AND LOWER(TRIM(status)) IN ('pending', 'approved', 'rescheduled', 'reschedule requested')
+                FOR UPDATE");
+            $insertStmt = $conn->prepare("INSERT INTO schedules
+                (category, patient_id, patient_name, schedule_date, schedule_time, service_type, notes, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $patientQuery = $category === 'Child'
+                ? "SELECT child_name AS full_name FROM children WHERE id = ? LIMIT 1"
+                : "SELECT CONCAT(client_fname, ' ', client_lname) AS full_name FROM maternal_registration WHERE id = ? LIMIT 1";
+            $patientStmt = $conn->prepare($patientQuery);
+
+            if (!$busyStmt || !$insertStmt || !$patientStmt) {
+                $prepareError = $conn->error;
+                $conn->rollback();
+                if ($busyStmt) $busyStmt->close();
+                if ($insertStmt) $insertStmt->close();
+                if ($patientStmt) $patientStmt->close();
+                error_log('Unable to prepare batch schedule: ' . $prepareError);
+                $message = "Unable to prepare the schedules. Please try again.";
+            } else {
+                $busyStmt->bind_param('s', $schedule_date);
+                if (!$busyStmt->execute()) {
+                    $queryError = $busyStmt->error;
+                    $busyStmt->close();
+                    $insertStmt->close();
+                    $patientStmt->close();
+                    $conn->rollback();
+                    error_log('Unable to check existing appointment times: ' . $queryError);
+                    $message = "Unable to check existing appointments. No schedules were created.";
+                } else {
+                    $busyTimes = [];
+                    $busyResult = $busyStmt->get_result();
+                    while ($busyRow = $busyResult->fetch_assoc()) {
+                        $busyTimes[] = (int) floor(((int) $busyRow['slot_seconds']) / 60);
+                    }
+                    $busyStmt->close();
+
+                    $assignedTimes = [];
+                    $success = true;
+                    $failureMessage = '';
+
+                    foreach ($patient_ids as $patient_id) {
+                        $patientStmt->bind_param('i', $patient_id);
+                        if (!$patientStmt->execute()) {
+                            $failureMessage = 'Unable to load a selected patient. No schedules were created.';
+                            error_log('Unable to load patient for batch schedule: ' . $patientStmt->error);
+                            $success = false;
+                            break;
+                        }
+                        $patientRow = $patientStmt->get_result()->fetch_assoc();
+                        if (!$patientRow) {
+                            $failureMessage = 'A selected patient could not be found. No schedules were created.';
+                            $success = false;
+                            break;
+                        }
+
+                        $slotMinute = $startMinute;
+                        while ($slotMinute + 15 <= $endMinute && $slotMinute < 1440) {
+                            $hasConflict = false;
+                            foreach ($busyTimes as $busyMinute) {
+                                if (abs($slotMinute - $busyMinute) < 15) {
+                                    $hasConflict = true;
+                                    break;
+                                }
+                            }
+                            if (!$hasConflict) {
+                                break;
+                            }
+                            $slotMinute += 15;
+                        }
+
+                        if ($slotMinute + 15 > $endMinute || $slotMinute >= 1440) {
+                            $failureMessage = 'There is not enough time before the selected end time to assign every patient a 15-minute appointment slot. No schedules were created.';
+                            $success = false;
+                            break;
+                        }
+
+                        $slotTime = sprintf('%02d:%02d:00', intdiv($slotMinute, 60), $slotMinute % 60);
+                        $patient_name = $patientRow['full_name'];
+                        $insertStmt->bind_param(
+                            'sissssss',
+                            $category,
+                            $patient_id,
+                            $patient_name,
+                            $schedule_date,
+                            $slotTime,
+                            $service_type,
+                            $notes,
+                            $status
+                        );
+                        if (!$insertStmt->execute()) {
+                            $failureMessage = 'Unable to save all schedules. No schedules were created.';
+                            error_log('Unable to save batch schedule: ' . $insertStmt->error);
+                            $success = false;
+                            break;
+                        }
+
+                        $busyTimes[] = $slotMinute;
+                        $assignedTimes[] = [
+                            'id' => $conn->insert_id,
+                            'patient_name' => $patient_name,
+                            'time' => $slotTime
+                        ];
+                    }
+
+                    $patientStmt->close();
+                    $insertStmt->close();
+
+                    if (!$success) {
+                        $conn->rollback();
+                        $message = $failureMessage;
+                    } elseif (!$conn->commit()) {
+                        $conn->rollback();
+                        error_log('Unable to commit batch schedule transaction: ' . $conn->error);
+                        $message = "Unable to save the schedules. Please try again.";
+                    } else {
+                        foreach ($assignedTimes as $assigned) {
+                            $new_schedule_id = (int) $assigned['id'];
+                            $patient_name = $assigned['patient_name'];
+                            $slotTime = $assigned['time'];
                             logAdminAction(
                                 $conn,
-                                "Created {$category} schedule ID {$new_schedule_id} for {$patient_name} ({$service_type}) on {$schedule_date} at {$schedule_time}."
+                                "Created {$category} schedule ID {$new_schedule_id} for {$patient_name} ({$service_type}) on {$schedule_date} at {$slotTime}."
                             );
                             $date_fmt = date('F j, Y', strtotime($schedule_date));
-                            $time_fmt = date('g:i A', strtotime($schedule_time));
+                            $time_fmt = date('g:i A', strtotime($slotTime));
                             notify_user_by_schedule(
                                 $conn,
                                 $new_schedule_id,
@@ -428,14 +555,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_schedule_batch']))
                                 'new_schedule'
                             );
                         }
+                        $message = "Successfully created 15-minute appointment slots for " . count($assignedTimes) . " patient(s).";
                     }
-                    $p_stmt->close();
                 }
             }
-            $stmt->close();
-            $message = "Successfully created schedules for " . $success_count . " patient(s)!";
-        } else {
-            $message = "Error preparing statement: " . $conn->error;
         }
     }
 }
@@ -1644,7 +1767,7 @@ $maternalCheckupSchedules = array_values(array_filter($maternalSchedules, functi
                         <?php if ($result && $result->num_rows > 0): ?>
                             <?php while($row = $result->fetch_assoc()): ?>
                                 <tr>
-                                    <td><strong><?= htmlspecialchars($row['patient_name'] ?? '') ?></strong><br><small>Request #<?= (int) $row['request_id'] ?></small></td>
+                                    <td><strong><?= htmlspecialchars($row['patient_name'] ?? '') ?></strong></td>
                                     <td><?= htmlspecialchars($row['service_type'] ?? '') ?></td>
                                     <td><?= date('M d, Y', strtotime($row['schedule_date'])) ?><br><small><?= date('h:i A', strtotime($row['schedule_time'])) ?></small></td>
                                     <td><?= date('M d, Y', strtotime($row['requested_date'])) ?><br><small><?= date('h:i A', strtotime($row['requested_time'])) ?></small></td>
@@ -1825,6 +1948,11 @@ $maternalCheckupSchedules = array_values(array_filter($maternalSchedules, functi
             <div class="form-group">
                 <label>Schedule Time</label>
                 <input type="time" name="schedule_time" value="08:00" required>
+            </div>
+            <div class="form-group">
+                <label>End of Vaccination Schedule</label>
+                <input type="time" name="schedule_end_time" value="17:00" required>
+                <small></small>
             </div>
             <div class="form-group">
                 <label>Service / Vaccine Type</label>

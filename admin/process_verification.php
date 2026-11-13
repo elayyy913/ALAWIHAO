@@ -18,30 +18,74 @@ if (isset($_POST['approve_child_id'])) {
     $id = filter_var($_POST['approve_child_id'], FILTER_VALIDATE_INT);
     $weight = filter_var($_POST['weight_kg'] ?? null, FILTER_VALIDATE_FLOAT);
     $height = filter_var($_POST['height_cm'] ?? null, FILTER_VALIDATE_FLOAT);
+    $allowedVaccines = ['BCG', 'Hepa B', 'Pentavalent', 'OPV', 'IPV', 'PCV', 'MMR'];
+    $selectedVaccines = $_POST['vaccines'] ?? [];
+    $vaccineDates = $_POST['vaccine_dates'] ?? [];
+    $administeredByName = $_POST['administered_by_name'] ?? '';
+    $administeredAt = $_POST['administered_by'] ?? '';
     $redirectTarget = basename($_POST['redirect_to'] ?? 'super_admin_dashboard.php');
     if (!in_array($redirectTarget, ['admin_dashboard.php', 'super_admin_dashboard.php'], true)) {
         $redirectTarget = 'super_admin_dashboard.php';
     }
 
-    if ($id === false || $weight === false || $height === false || $weight < 0 || $weight > 100 || $height < 0 || $height > 250) {
+    if (!is_array($selectedVaccines) || !is_array($vaccineDates)
+        || !is_string($administeredByName) || !is_string($administeredAt)
+        || $id === false || $weight === false || $height === false
+        || $weight < 0 || $weight > 100 || $height < 0 || $height > 250) {
+        header("Location: {$redirectTarget}?msg=ChildApprovalError");
+        exit();
+    }
+    $administeredByName = trim($administeredByName);
+    $administeredAt = trim($administeredAt);
+    if (strlen($administeredByName) > 100 || strlen($administeredAt) > 100) {
         header("Location: {$redirectTarget}?msg=ChildApprovalError");
         exit();
     }
 
-    $stmt = $conn->prepare("UPDATE children SET weight_kg = ?, height_cm = ?, status = 'Approved' WHERE id = ?");
+    $recordedVaccines = [];
+    foreach ($selectedVaccines as $vaccine) {
+        if (!is_string($vaccine) || !in_array($vaccine, $allowedVaccines, true)) {
+            header("Location: {$redirectTarget}?msg=ChildApprovalError");
+            exit();
+        }
+
+        $vaccineDate = $vaccineDates[$vaccine] ?? '';
+        $parsedDate = is_string($vaccineDate) ? DateTime::createFromFormat('!Y-m-d', $vaccineDate) : false;
+        $dateErrors = DateTime::getLastErrors();
+        if (!$parsedDate || $parsedDate->format('Y-m-d') !== $vaccineDate
+            || ($dateErrors !== false && ($dateErrors['warning_count'] > 0 || $dateErrors['error_count'] > 0))) {
+            header("Location: {$redirectTarget}?msg=ChildApprovalError");
+            exit();
+        }
+
+        $recordedVaccines[] = $vaccine . ' (' . $vaccineDate . ')';
+    }
+    $vaccineTaken = $recordedVaccines ? implode(', ', $recordedVaccines) : 'None';
+    $providerDetails = [];
+    if ($administeredByName !== '') {
+        $providerDetails[] = 'Administered by: ' . $administeredByName;
+    }
+    if ($administeredAt !== '') {
+        $providerDetails[] = 'Facility: ' . $administeredAt;
+    }
+    $administeredBy = implode(' | ', $providerDetails);
+
+    $stmt = $conn->prepare("UPDATE children
+        SET weight_kg = ?, height_cm = ?, vaccine_taken = ?, administered_by = ?, status = 'Approved'
+        WHERE id = ? AND status = 'Pending'");
     if (!$stmt) {
         error_log("Unable to prepare child approval update: " . $conn->error);
         header("Location: {$redirectTarget}?msg=ChildApprovalError");
         exit();
     }
 
-    $stmt->bind_param("ddi", $weight, $height, $id);
+    $stmt->bind_param("ddssi", $weight, $height, $vaccineTaken, $administeredBy, $id);
     $updated = $stmt->execute();
     $affectedRows = $stmt->affected_rows;
     $stmt->close();
 
     if ($updated && $affectedRows > 0) {
-        logAdminAction($conn, "Approved child record ID: {$id} and updated birth measurements (weight: {$weight} kg, height: {$height} cm).");
+        logAdminAction($conn, "Approved child record ID: {$id} and recorded birth measurements and immunization verification.");
         header("Location: {$redirectTarget}?msg=ApprovedAndRecorded");
     } else {
         if (!$updated) {
