@@ -164,6 +164,7 @@ $query = "SELECT u.*,
          WHERE u.status = 'Approved'
          ORDER BY u.created_at DESC, u.id DESC";
 $result = mysqli_query($conn, $query);
+$patientLoadError = $result ? '' : mysqli_error($conn);
 
 $patients = [];
 $patientGroups = [];
@@ -226,7 +227,6 @@ if ($result) {
 
 $normalizedSearch = mb_strtolower($search, 'UTF-8');
 foreach ($patientGroups as $patient) {
-    $dob = (string) ($patient['dob'] ?? '');
     $searchable = mb_strtolower(implode(' ', $patient['search_fields']), 'UTF-8');
     $searchMatches = $normalizedSearch === '' || mb_strpos($searchable, $normalizedSearch) !== false;
     $groupMatchesTrimester = $trimester_filter === '';
@@ -355,6 +355,7 @@ foreach ($patients as $patient) {
             font-size: .74rem;
             font-weight: 600;
         }
+        .patient-name-wrap { flex-wrap: wrap; }
         .trimester-badge {
             display: inline-flex;
             padding: 5px 8px;
@@ -443,6 +444,12 @@ foreach ($patients as $patient) {
     <div id="main">
         <?php if(isset($_GET['msg'])): ?>
             <div class="alert">Operation successful. Record updated/deleted.</div>
+        <?php endif; ?>
+        <?php if ($patientLoadError !== ''): ?>
+            <div class="alert" role="alert" style="background:#fdeaea; color:#8c2f2a; border-color:#efc0bd;">
+                Maternal records could not be loaded. Please try again or contact the administrator.
+            </div>
+            <?php error_log('Unable to load maternal patient masterlist: ' . $patientLoadError); ?>
         <?php endif; ?>
 
         <div class="records-card">

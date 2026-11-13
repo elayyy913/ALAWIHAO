@@ -853,7 +853,7 @@ if (check_table_exists($conn, 'schedules')) {
                                 <td><?php echo htmlspecialchars($row['mother_name'] ?? ''); ?></td>
                                 <td>
                                     <button type="button" class="btn-approve" onclick='openNewbornModal(<?php echo json_encode($row); ?>)'>REVIEW</button>
-                                    <a href="process_verification.php?remove_id=<?php echo $row['id']; ?>&redirect=admin_dashboard.php" class="btn-reject" onclick="return confirm('Reject this?')">REJECT</a>
+                                    <a href="process_verification.php?remove_id=<?php echo $row['id']; ?>&redirect=admin_dashboard.php" class="btn-reject" data-confirm-title="Reject registration?" data-confirm="Are you sure you want to reject this child registration?" data-confirm-label="Reject">REJECT</a>
                                 </td>
                             </tr>
                             <?php endwhile; ?>
@@ -879,7 +879,7 @@ if (check_table_exists($conn, 'schedules')) {
                                 <td><?php echo htmlspecialchars($row['display_name'] !== '' ? $row['display_name'] : ($row['full_name'] ?? $row['mother_name'] ?? '')); ?></td>
                                 <td>
                                     <button type="button" class="btn-approve" onclick='openVerifyModal(<?php echo json_encode($row); ?>)'>VERIFY & ENROLL</button>
-                                    <a href="process_verification.php?remove_preg_id=<?php echo $row['id']; ?>&redirect=admin_dashboard.php" class="btn-reject" onclick="return confirm('Reject this registration?')">REJECT</a>
+                                    <a href="process_verification.php?remove_preg_id=<?php echo $row['id']; ?>&redirect=admin_dashboard.php" class="btn-reject" data-confirm-title="Reject registration?" data-confirm="Are you sure you want to reject this maternal registration?" data-confirm-label="Reject">REJECT</a>
                                 </td>
                             </tr>
                             <?php endwhile; ?>
