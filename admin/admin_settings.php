@@ -892,7 +892,10 @@ label {
                 Once you delete this admin account, system administration access from this profile will be permanently revoked.
             </p>
 
-            <form method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this admin account? This action cannot be undone.');">
+            <form method="POST"
+                data-confirm-title="Delete admin account?"
+                data-confirm="Are you sure you want to permanently delete this admin account? This action cannot be undone."
+                data-confirm-label="Delete account">
 
                 <div class="form-group">
                     <label for="delete_password" style="color: #E53E3E;">

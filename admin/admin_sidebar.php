@@ -39,6 +39,8 @@ $is_settings_active = in_array($current_page, ['admin_settings.php', 'super_admi
 $is_community_active = ($current_page === 'community.php');
 ?>
 
+<script src="<?php echo htmlspecialchars($project_base_url . 'modern_confirm.js', ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+
 <script>
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {
