@@ -16,7 +16,86 @@ if ($conn->connect_error) {
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 1. Kunin ang user_id galing sa session
-    $user_id = $_SESSION['user_id'];
+    $user_id = (int) $_SESSION['user_id'];
+
+    $pregnancyStatusColumn = $conn->query("SHOW COLUMNS FROM maternal_registration LIKE 'pregnancy_status'");
+    if (!$pregnancyStatusColumn || $pregnancyStatusColumn->num_rows === 0) {
+        error_log('Maternal registration blocked: pregnancy_status schema is not installed.');
+        header("Location: ../user_maternal_reg.php?status=setup_required");
+        exit();
+    }
+
+    if (!$conn->begin_transaction()) {
+        error_log('Unable to begin maternal registration transaction: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+
+    $lockUser = $conn->prepare("SELECT id FROM users WHERE id = ? FOR UPDATE");
+    if (!$lockUser) {
+        $conn->rollback();
+        error_log('Unable to prepare maternal registration lock: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+    $lockUser->bind_param('i', $user_id);
+    if (!$lockUser->execute() || !$lockUser->get_result()->fetch_assoc()) {
+        $lockUser->close();
+        $conn->rollback();
+        error_log('Unable to lock the user for maternal registration: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+    $lockUser->close();
+
+    $activePregnancyStmt = $conn->prepare(
+        "SELECT id FROM maternal_registration
+         WHERE user_id = ? AND pregnancy_status = 'Active' AND COALESCE(status, '') <> 'Rejected'
+         LIMIT 1"
+    );
+    if (!$activePregnancyStmt) {
+        $conn->rollback();
+        error_log('Unable to prepare active maternal pregnancy lookup: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+    $activePregnancyStmt->bind_param('i', $user_id);
+    if (!$activePregnancyStmt->execute()) {
+        $activePregnancyStmt->close();
+        $conn->rollback();
+        error_log('Unable to check active maternal pregnancy: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+    $hasActivePregnancy = (bool) $activePregnancyStmt->get_result()->fetch_assoc();
+    $activePregnancyStmt->close();
+    if ($hasActivePregnancy) {
+        $conn->rollback();
+        header("Location: ../user_maternal_reg.php?status=active_pregnancy");
+        exit();
+    }
+
+    $orderStmt = $conn->prepare(
+        "SELECT COALESCE(MAX(pregnancy_order), 0) + 1 AS next_order
+         FROM maternal_registration
+         WHERE user_id = ? AND COALESCE(status, '') <> 'Rejected'"
+    );
+    if (!$orderStmt) {
+        $conn->rollback();
+        error_log('Unable to prepare maternal pregnancy order lookup: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+    $orderStmt->bind_param('i', $user_id);
+    if (!$orderStmt->execute()) {
+        $orderStmt->close();
+        $conn->rollback();
+        error_log('Unable to determine maternal pregnancy order: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
+    }
+    $pregnancyOrder = (int) ($orderStmt->get_result()->fetch_assoc()['next_order'] ?? 1);
+    $orderStmt->close();
 
     // 2. Kunin ang Data mula sa Form (Itakda ang status sa 'Pending' para dumaan sa admin approval)
     $status          = 'Pending'; 
@@ -63,7 +142,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmt = $conn->prepare($sql_main);
     
     if (!$stmt) {
-        die("Prepare failed (Main): " . $conn->error);
+        $conn->rollback();
+        error_log('Unable to prepare maternal registration insert: ' . $conn->error);
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
     }
 
     // Bind 30 parameters na ngayon (idinagdag ang 's' para sa status)
@@ -77,6 +159,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt->execute()) {
         $patient_id = $conn->insert_id; 
         $stmt->close(); // Isara ang main statement bago mag-loop sa history
+        $orderUpdate = $conn->prepare("UPDATE maternal_registration SET pregnancy_order = ? WHERE id = ?");
+        if (!$orderUpdate) {
+            $conn->rollback();
+            error_log('Unable to prepare maternal pregnancy order update: ' . $conn->error);
+            header("Location: ../user_maternal_reg.php?status=registration_error");
+            exit();
+        }
+        $orderUpdate->bind_param('ii', $pregnancyOrder, $patient_id);
+        if (!$orderUpdate->execute()) {
+            $orderUpdate->close();
+            $conn->rollback();
+            error_log('Unable to save maternal pregnancy order: ' . $conn->error);
+            header("Location: ../user_maternal_reg.php?status=registration_error");
+            exit();
+        }
+        $orderUpdate->close();
+        if (!$conn->commit()) {
+            error_log('Unable to commit maternal registration: ' . $conn->error);
+            header("Location: ../user_maternal_reg.php?status=registration_error");
+            exit();
+        }
         logAdminAction($conn, "Registered maternal record (Patient ID: {$patient_id}).");
 
         // 4. I-save ang Pregnancy History
@@ -198,8 +301,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </html>";
         exit();
     } else {
-        echo "Error sa pag-save: " . $stmt->error;
+        $conn->rollback();
+        error_log('Unable to save maternal registration: ' . $stmt->error);
         $stmt->close();
+        header("Location: ../user_maternal_reg.php?status=registration_error");
+        exit();
     }
 
     $conn->close();

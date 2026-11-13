@@ -8,18 +8,131 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // 1. DYNAMIC SIDEBAR LOGIC
-$u_id = $_SESSION['user_id'];
+$u_id = (int) $_SESSION['user_id'];
 $get_user = mysqli_query($conn, "SELECT role FROM users WHERE id = '$u_id'");
 $user_info = mysqli_fetch_assoc($get_user);
 $current_role = strtolower(trim($user_info['role'] ?? ''));
 
 $sidebar_file = (in_array($current_role, ['super admin', 'superadmin'])) ? 'super_admin_sidebar.php' : 'admin_sidebar.php';
+$pregnancyStatusColumn = $conn->query("SHOW COLUMNS FROM maternal_registration LIKE 'pregnancy_status'");
+$pregnancyStatusSchemaReady = $pregnancyStatusColumn && $pregnancyStatusColumn->num_rows > 0;
+if (!$pregnancyStatusSchemaReady) {
+    error_log('Maternal health history cannot load pregnancy status: ' . $conn->error);
+}
+if (empty($_SESSION['maternal_pregnancy_csrf'])) {
+    $_SESSION['maternal_pregnancy_csrf'] = bin2hex(random_bytes(32));
+}
+$maternalPregnancyCsrf = $_SESSION['maternal_pregnancy_csrf'];
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'mark_pregnancy_completed') {
+    if (!in_array($current_role, ['admin', 'super admin', 'superadmin'], true)) {
+        http_response_code(403);
+        exit('You are not authorized to update maternal pregnancy status.');
+    }
+
+    $requestToken = $_POST['csrf_token'] ?? '';
+    $motherId = filter_var($_POST['mother_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!is_string($requestToken) || !hash_equals($maternalPregnancyCsrf, $requestToken) || $motherId === false || $motherId < 1) {
+        http_response_code(400);
+        exit('Invalid pregnancy status update request.');
+    }
+
+    if (!$pregnancyStatusSchemaReady) {
+        $_SESSION['maternal_record_notice'] = [
+            'type' => 'error',
+            'message' => 'Run database_maternal_pregnancy_status.sql before updating pregnancy status.',
+        ];
+    } else {
+        if (!$conn->begin_transaction()) {
+            error_log('Unable to begin maternal pregnancy completion transaction: ' . $conn->error);
+            $_SESSION['maternal_record_notice'] = [
+                'type' => 'error',
+                'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+            ];
+            header('Location: admin_maternal_hr.php');
+            exit();
+        }
+        $patientStmt = $conn->prepare(
+            "SELECT user_id FROM maternal_registration
+             WHERE id = ? AND status = 'Approved' AND pregnancy_status = 'Active'
+             FOR UPDATE"
+        );
+        if (!$patientStmt) {
+            $conn->rollback();
+            error_log('Unable to prepare maternal pregnancy completion lookup: ' . $conn->error);
+            $_SESSION['maternal_record_notice'] = [
+                'type' => 'error',
+                'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+            ];
+        } else {
+            $patientStmt->bind_param('i', $motherId);
+            if (!$patientStmt->execute()) {
+                $patientStmt->close();
+                $conn->rollback();
+                error_log('Unable to load maternal pregnancy for completion: ' . $conn->error);
+                $_SESSION['maternal_record_notice'] = [
+                    'type' => 'error',
+                    'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                ];
+            } else {
+                $patient = $patientStmt->get_result()->fetch_assoc();
+                $patientStmt->close();
+                if (!$patient) {
+                    $conn->rollback();
+                    $_SESSION['maternal_record_notice'] = [
+                        'type' => 'error',
+                        'message' => 'Hindi na-update ang record. Tiyaking approved at Active pa ito.',
+                    ];
+                } else {
+                    $userId = (int) ($patient['user_id'] ?? 0);
+                    $completeStmt = $userId > 0
+                        ? $conn->prepare(
+                            "UPDATE maternal_registration SET pregnancy_status = 'Completed'
+                             WHERE user_id = ? AND pregnancy_status = 'Active' AND COALESCE(status, '') <> 'Rejected'"
+                        )
+                        : $conn->prepare(
+                            "UPDATE maternal_registration SET pregnancy_status = 'Completed'
+                             WHERE id = ? AND pregnancy_status = 'Active'"
+                        );
+                    if (!$completeStmt) {
+                        $conn->rollback();
+                        error_log('Unable to prepare maternal pregnancy completion update: ' . $conn->error);
+                        $_SESSION['maternal_record_notice'] = [
+                            'type' => 'error',
+                            'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                        ];
+                    } else {
+                        $completeStmt->bind_param('i', $userId);
+                        if ($completeStmt->execute() && $conn->commit()) {
+                            $_SESSION['maternal_record_notice'] = [
+                                'type' => 'success',
+                                'message' => 'Na-confirm ang panganganak. Completed na ang pregnancy record.',
+                            ];
+                        } else {
+                            $conn->rollback();
+                            error_log('Unable to complete maternal pregnancy: ' . $completeStmt->error);
+                            $_SESSION['maternal_record_notice'] = [
+                                'type' => 'error',
+                                'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                            ];
+                        }
+                        $completeStmt->close();
+                    }
+                }
+            }
+        }
+    }
+
+    header('Location: admin_maternal_hr.php');
+    exit();
+}
 
 // 2. FETCH MATERNAL PATIENTS GALING SA REGISTRATION AT RECORDS
 $sql = "SELECT r.id as mother_id, r.client_fname as first_name, r.client_lname as last_name, 
         CONCAT(r.client_fname, ' ', r.client_lname) as full_name,
         r.client_mi, r.age, r.dob, r.contact, r.blood_type, r.street, r.barangay,
         r.municipality, r.spouse_fname, r.spouse_lname, r.lmp,
+        " . ($pregnancyStatusSchemaReady ? "r.pregnancy_status" : "'Unavailable' AS pregnancy_status") . ",
         (SELECT COUNT(*) FROM maternal_records m2 WHERE m2.mother_id = r.id) as checkup_count,
         (SELECT MAX(checkup_date) FROM maternal_records m2 WHERE m2.mother_id = r.id) as last_visit,
         (SELECT MAX(gestational_age_weeks) FROM maternal_records m2 WHERE m2.mother_id = r.id) as current_aog
@@ -353,6 +466,12 @@ if (!$recordNotice && isset($_GET['success'])) {
             </div>
         <?php endif; ?>
 
+        <?php if (!$pregnancyStatusSchemaReady): ?>
+            <div class="record-notice error" role="alert">
+                Run <code>database_maternal_pregnancy_status.sql</code> in phpMyAdmin to enable pregnancy status tracking.
+            </div>
+        <?php endif; ?>
+
         <?php if ($scheduleLinkSchemaReady && $scheduleLoadError !== null): ?>
             <div class="record-notice error" role="alert">
                 Could not load scheduled maternal patients: <?php echo htmlspecialchars($scheduleLoadError, ENT_QUOTES, 'UTF-8'); ?>
@@ -367,6 +486,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                         <th>Mother Name</th>
                         <th>Current Gestational Age</th>
                         <th>Last Visit</th>
+                        <th>Pregnancy Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -385,6 +505,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                                 <td style="color: #4A5568;">
                                     <?php echo ($row['last_visit']) ? date("M d, Y", strtotime($row['last_visit'])) : '<span style="color:#CBD5E0">No records</span>'; ?>
                                 </td>
+                                <td><?php echo htmlspecialchars($row['pregnancy_status'] ?? 'Active', ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td>
                                     <div class="btn-group">
                                         <button type="button" class="btn-history maternal-view-history"
@@ -395,12 +516,20 @@ if (!$recordNotice && isset($_GET['success'])) {
                                             View History
                                         </button>
                                         <button type="button" class="btn-update" onclick='openUpdateModal(<?php echo $patientId; ?>, <?php echo json_encode($row['full_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Add Record</button>
+                                        <?php if ($pregnancyStatusSchemaReady && ($row['pregnancy_status'] ?? '') === 'Active'): ?>
+                                            <form method="post" style="display:inline;" onsubmit="return confirm('Kumpirmahin na nanganak na ang pasyente at gawing Completed ang pregnancy record?');">
+                                                <input type="hidden" name="action" value="mark_pregnancy_completed">
+                                                <input type="hidden" name="mother_id" value="<?php echo $patientId; ?>">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($maternalPregnancyCsrf, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <button type="submit" class="btn-history">Mark as Delivered</button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr><td colspan="4" style="text-align: center; color: #A0AEC0; padding: 30px;">No verified maternal records found.</td></tr>
+                        <tr><td colspan="5" style="text-align: center; color: #A0AEC0; padding: 30px;">No verified maternal records found.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
