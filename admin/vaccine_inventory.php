@@ -2193,7 +2193,7 @@ $has_chart_activity = array_sum($chart_in_array) + array_sum($chart_out_array) >
             </div>
             <div class="form-group">
                 <label>Batch Number *</label>
-                <input type="text" name="batch_number" id="batch_number" maxlength="100" required placeholder="Auto-filled for selected vaccine; editable">
+                <input type="text" name="batch_number" id="batch_number" maxlength="100" required placeholder="">
             </div>
             <div class="form-group">
                 <label>Description / Notes</label>

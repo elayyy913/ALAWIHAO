@@ -17,6 +17,24 @@ if ($conn->connect_error) {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 1. Kunin ang user_id galing sa session
     $user_id = (int) $_SESSION['user_id'];
+    $dobInput = $_POST['dob'] ?? '';
+    $dob = null;
+    if ($dobInput !== '') {
+        $parsedDob = is_string($dobInput) ? DateTime::createFromFormat('!Y-m-d', $dobInput) : false;
+        $dobErrors = DateTime::getLastErrors();
+        $validDob = $parsedDob
+            && $parsedDob->format('Y-m-d') === $dobInput
+            && ($dobErrors === false || ($dobErrors['warning_count'] === 0 && $dobErrors['error_count'] === 0));
+        if (!$validDob) {
+            header("Location: ../user_maternal_reg.php?status=invalid_dob");
+            exit();
+        }
+        if ((int) $parsedDob->format('Y') >= (int) date('Y')) {
+            header("Location: ../user_maternal_reg.php?status=current_year_dob");
+            exit();
+        }
+        $dob = $dobInput;
+    }
 
     $pregnancyStatusColumn = $conn->query("SHOW COLUMNS FROM maternal_registration LIKE 'pregnancy_status'");
     if (!$pregnancyStatusColumn || $pregnancyStatusColumn->num_rows === 0) {
@@ -104,7 +122,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $fname           = $_POST['client_fname'] ?? '';
     $mi              = $_POST['client_mi'] ?? '';
     $ext             = $_POST['client_ext'] ?? '';
-    $dob             = !empty($_POST['dob']) ? $_POST['dob'] : NULL;
     $age             = !empty($_POST['age']) ? $_POST['age'] : 0;
     $blood           = $_POST['blood_type'] ?? '';
     $lmp             = !empty($_POST['lmp']) ? $_POST['lmp'] : NULL;
