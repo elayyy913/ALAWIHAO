@@ -395,7 +395,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
             <div class="settings-section-title danger-title"><i class="fa fa-triangle-exclamation"></i> Danger Zone</div>
             <p class="danger-text">Once you delete your account, there is no going back. All your saved profile records and history in the portal will be permanently removed.</p>
             
-            <form action="delete_account.php" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete your account? This action cannot be undone.');">
+            <form action="delete_account.php" method="POST"
+                data-confirm-title="Delete your account?"
+                data-confirm="Are you sure you want to permanently delete your account? This action cannot be undone."
+                data-confirm-label="Delete account">
                 <div class="form-group">
                     <label for="delete_password" style="color: #E53E3E;">Enter Password to Confirm Deletion</label>
                     <input type="password" id="delete_password" name="delete_password" class="settings-input" placeholder="Type your password here" required style="border-color: #FEB2B2;">

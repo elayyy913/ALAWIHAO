@@ -14,6 +14,8 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'])) {
 }
 ?>
 
+<script src="<?php echo htmlspecialchars($project_base_url . 'modern_confirm.js', ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+
 <!-- HAMBURGER BUTTON -->
 <button id="hamburgerBtn" class="hamburger-btn" onclick="toggleSidebar()">
     &#9776;
