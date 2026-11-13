@@ -30,24 +30,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $father = mysqli_real_escape_string($conn, $_POST['father_name']); 
     $contact = mysqli_real_escape_string($conn, $_POST['contact'] ?? '');
     
-    // Nakuha ang administered_by mula sa input field
-    $administered_by = mysqli_real_escape_string($conn, $_POST['administered_by']);
-    
     $status = "Pending";
-    
-    // Kinukuha ang mga bakunang naka-check kasama ang date na ibinigay
-    $vaccines_arr = [];
-    if (isset($_POST['vaccines']) && is_array($_POST['vaccines'])) {
-        foreach ($_POST['vaccines'] as $vax_name) {
-            $vax_date = isset($_POST['vax_date'][$vax_name]) ? $_POST['vax_date'][$vax_name] : '';
-            if (!empty($vax_date)) {
-                $vaccines_arr[] = $vax_name . " (" . $vax_date . ")";
-            } else {
-                $vaccines_arr[] = $vax_name;
-            }
-        }
-    }
-    $vaccines = !empty($vaccines_arr) ? implode(", ", $vaccines_arr) : "None";
+    $vaccines = "None";
+    $administered_by = "";
 
     $sql = "INSERT INTO children (user_id, child_name, gender, blood_type, birth_date, weight_kg, height_cm, place_of_birth, family_no, address, barangay, health_center, mother_name, father_name, contact, status, vaccine_taken, administered_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
@@ -177,54 +162,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             border-color: var(--sage-green); 
         }
 
-        /* Vaccine checklist styling na may dynamic date input */
-        .vaccine-checklist {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            padding: 15px;
-            background: #fafaf9;
-            border: 1px solid var(--border-color);
-            border-radius: 2px;
-        }
-
-        .vax-container {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            background: #ffffff;
-            padding: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 2px;
-        }
-
-        .vax-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: #374151;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .vax-item input[type="checkbox"] {
-            width: 15px;
-            height: 15px;
-            cursor: pointer;
-            accent-color: var(--sage-green);
-        }
-
-        .vax-date-group {
-            display: none; /* Naka-hide default hanggang ma-check */
-            margin-top: 5px;
-        }
-
-        .vax-date-group input {
-            font-size: 0.8rem;
-            padding: 5px;
-        }
-
         .enroll-btn {
             background-color: var(--sage-green); 
             color: white; 
@@ -331,7 +268,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         @media (max-width: 992px) {
             .form-grid { grid-template-columns: repeat(2, 1fr); }
-            .vaccine-checklist { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 768px) {
@@ -508,117 +444,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
-            <div class="form-section-title">Immunization Records</div>
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label>Select Vaccines Taken & Date Administered</label>
-                <div class="vaccine-checklist">
-                    
-                    <!-- BCG -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="BCG" onchange="toggleVaxDate(this, 'date_bcg')"> BCG
-                        </label>
-                        <div class="vax-date-group" id="date_bcg">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[BCG]">
-                        </div>
-                    </div>
-
-                    <!-- Hepa B -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="Hepa B" onchange="toggleVaxDate(this, 'date_hepab')"> Hepa B
-                        </label>
-                        <div class="vax-date-group" id="date_hepab">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[Hepa B]">
-                        </div>
-                    </div>
-
-                    <!-- Pentavalent -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="Pentavalent" onchange="toggleVaxDate(this, 'date_penta')"> Pentavalent
-                        </label>
-                        <div class="vax-date-group" id="date_penta">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[Pentavalent]">
-                        </div>
-                    </div>
-
-                    <!-- OPV -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="OPV" onchange="toggleVaxDate(this, 'date_opv')"> OPV
-                        </label>
-                        <div class="vax-date-group" id="date_opv">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[OPV]">
-                        </div>
-                    </div>
-
-                    <!-- IPV -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="IPV" onchange="toggleVaxDate(this, 'date_ipv')"> IPV
-                        </label>
-                        <div class="vax-date-group" id="date_ipv">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[IPV]">
-                        </div>
-                    </div>
-
-                    <!-- PCV -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="PCV" onchange="toggleVaxDate(this, 'date_pcv')"> PCV
-                        </label>
-                        <div class="vax-date-group" id="date_pcv">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[PCV]">
-                        </div>
-                    </div>
-
-                    <!-- MMR -->
-                    <div class="vax-container">
-                        <label class="vax-item">
-                            <input type="checkbox" name="vaccines[]" value="MMR" onchange="toggleVaxDate(this, 'date_mmr')"> MMR
-                        </label>
-                        <div class="vax-date-group" id="date_mmr">
-                            <label style="font-size: 0.7rem; color: #555;">Date Given:</label>
-                            <input type="date" name="vax_date[MMR]">
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 10px; grid-column: span 2;">
-                        <label style="font-size: 0.75rem; color: #666; font-weight: bold;">NAGTROK / HEALTH FACILITY (Kung saan binakunahan):</label>
-                        <input type="text" name="administered_by" class="form-control" placeholder="Hal. Alawihao Health Center o Hospisyo" style="padding: 8px; width: 100%; border: 1px solid #ddd; border-radius: 6px; margin-top: 4px;">
-                    </div>
-
-                </div>
-            </div>
-
             <button type="submit" class="enroll-btn">Confirm Registration</button>
         </form>
     </div>
 </div>
 
 <script>
-    // JavaScript para ipakita o itago ang date picker kapag na-check ang box
-    function toggleVaxDate(checkbox, dateId) {
-        const dateContainer = document.getElementById(dateId);
-        const dateInput = dateContainer.querySelector('input');
-        
-        if (checkbox.checked) {
-            dateContainer.style.display = 'block';
-            dateInput.required = true; // Optional: Pwedeng tanggalin kung hindi required fill-in ang date
-        } else {
-            dateContainer.style.display = 'none';
-            dateInput.required = false;
-            dateInput.value = ''; // I-clear ang value kapag na-uncheck
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
         const sidebar = document.getElementById('mainSidebar') || document.querySelector('.sidebar') || document.querySelector('.sidebar-container') || document.getElementById('mySidenav');
         const mainContent = document.getElementById('main');

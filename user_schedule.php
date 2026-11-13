@@ -11,6 +11,130 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $message = "";
 
+// Handle cancellation of the signed-in user's pending reschedule request.
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['cancel_reschedule'])) {
+    if (!ensureRescheduleRequestsTable($conn)) {
+        die("Unable to prepare reschedule requests: " . mysqli_error($conn));
+    }
+
+    $request_id = filter_var($_POST['reschedule_request_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$request_id) {
+        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi valid ang reschedule request.</div>";
+    } elseif (!$conn->begin_transaction()) {
+        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi masimulan ang pagkansela: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8') . "</div>";
+    } else {
+        $request_stmt = $conn->prepare("SELECT r.schedule_id
+            FROM schedule_reschedule_requests r
+            JOIN schedules s ON s.id = r.schedule_id
+            WHERE r.id = ? AND r.requester_id = ? AND LOWER(r.status) = 'pending'
+              AND (
+                  (s.category = 'Maternal' AND EXISTS (
+                      SELECT 1 FROM maternal_registration m
+                      WHERE m.user_id = ?
+                        AND LOWER(TRIM(CONCAT(m.client_fname, ' ', m.client_lname))) = LOWER(TRIM(s.patient_name))
+                  ))
+                  OR (s.category = 'Child' AND EXISTS (
+                      SELECT 1 FROM children c
+                      WHERE c.user_id = ?
+                        AND LOWER(TRIM(c.child_name)) = LOWER(TRIM(s.patient_name))
+                  ))
+              )
+            FOR UPDATE");
+        if (!$request_stmt) {
+            $request_error = $conn->error;
+            $conn->rollback();
+            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi ma-load ang request: " . htmlspecialchars($request_error, ENT_QUOTES, 'UTF-8') . "</div>";
+        } else {
+            $request_stmt->bind_param("iiii", $request_id, $user_id, $user_id, $user_id);
+            if (!$request_stmt->execute()) {
+                $request_error = $request_stmt->error;
+                $request_stmt->close();
+                $conn->rollback();
+                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi ma-verify ang request: " . htmlspecialchars($request_error, ENT_QUOTES, 'UTF-8') . "</div>";
+            } else {
+                $request = $request_stmt->get_result()->fetch_assoc();
+                $request_stmt->close();
+                if (!$request) {
+                    $conn->rollback();
+                    $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi na maaaring kanselahin ang request na ito. Maaaring naproseso na ito.</div>";
+                } else {
+                    $cancel_stmt = $conn->prepare("UPDATE schedule_reschedule_requests
+                        SET status = 'Cancelled'
+                        WHERE id = ? AND requester_id = ? AND LOWER(status) = 'pending'");
+                    if (!$cancel_stmt) {
+                        $cancel_error = $conn->error;
+                        $conn->rollback();
+                        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi maihanda ang pagkansela: " . htmlspecialchars($cancel_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                    } else {
+                        $cancel_stmt->bind_param("ii", $request_id, $user_id);
+                        $cancelled = $cancel_stmt->execute() && $cancel_stmt->affected_rows === 1;
+                        $cancel_error = $cancel_stmt->error;
+                        $cancel_stmt->close();
+
+                        if (!$cancelled) {
+                            $conn->rollback();
+                            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi nakansela ang request: " . htmlspecialchars($cancel_error ?: 'Maaaring naproseso na ito.', ENT_QUOTES, 'UTF-8') . "</div>";
+                        } else {
+                            $schedule_id = (int) $request['schedule_id'];
+                            $remaining_stmt = $conn->prepare("SELECT COUNT(*) AS pending_count
+                                FROM schedule_reschedule_requests
+                                WHERE schedule_id = ? AND LOWER(status) = 'pending'");
+                            if (!$remaining_stmt) {
+                                $remaining_error = $conn->error;
+                                $conn->rollback();
+                                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi makumpirma ang natitirang requests: " . htmlspecialchars($remaining_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                            } else {
+                                $remaining_stmt->bind_param("i", $schedule_id);
+                                if (!$remaining_stmt->execute()) {
+                                    $remaining_error = $remaining_stmt->error;
+                                    $remaining_stmt->close();
+                                    $conn->rollback();
+                                    $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi makumpirma ang natitirang requests: " . htmlspecialchars($remaining_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                                } else {
+                                    $pending_count = (int) $remaining_stmt->get_result()->fetch_assoc()['pending_count'];
+                                    $remaining_stmt->close();
+                                    if ($pending_count === 0) {
+                                        $status_stmt = $conn->prepare("UPDATE schedules SET status = 'Pending'
+                                            WHERE id = ? AND status = 'Reschedule Requested'");
+                                        if (!$status_stmt) {
+                                            $status_error = $conn->error;
+                                            $conn->rollback();
+                                            $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi ma-update ang appointment: " . htmlspecialchars($status_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                                        } else {
+                                            $status_stmt->bind_param("i", $schedule_id);
+                                            if (!$status_stmt->execute()) {
+                                                $status_error = $status_stmt->error;
+                                                $status_stmt->close();
+                                                $conn->rollback();
+                                                $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi ma-update ang appointment: " . htmlspecialchars($status_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                                            } else {
+                                                $status_stmt->close();
+                                                if ($conn->commit()) {
+                                                    $message = "<div class='alert success'><i class='fa fa-circle-check'></i> Nakansela na ang iyong reschedule request.</div>";
+                                                } else {
+                                                    $commit_error = $conn->error;
+                                                    $conn->rollback();
+                                                    $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi makumpleto ang pagkansela: " . htmlspecialchars($commit_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                                                }
+                                            }
+                                        }
+                                    } elseif ($conn->commit()) {
+                                        $message = "<div class='alert success'><i class='fa fa-circle-check'></i> Nakansela na ang iyong reschedule request.</div>";
+                                    } else {
+                                        $commit_error = $conn->error;
+                                        $conn->rollback();
+                                        $message = "<div class='alert error'><i class='fa fa-triangle-exclamation'></i> Hindi makumpleto ang pagkansela: " . htmlspecialchars($commit_error, ENT_QUOTES, 'UTF-8') . "</div>";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // Handle Reschedule Request Form Submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_reschedule'])) {
     if (!ensureRescheduleRequestsTable($conn)) {
@@ -204,6 +328,7 @@ if (count($patient_names) > 0) {
         $latest_request_select = $has_reschedule_requests
             ? ", latest_request.status AS latest_reschedule_status,
                 COALESCE(request_summary.has_pending_reschedule, 0) AS has_pending_reschedule,
+                latest_pending_request.id AS latest_pending_reschedule_id,
                 latest_pending_request.requested_date AS latest_pending_reschedule_date,
                 latest_pending_request.requested_time AS latest_pending_reschedule_time,
                 EXISTS (
@@ -215,6 +340,7 @@ if (count($patient_names) > 0) {
                       AND approved_request.requested_time = s.schedule_time
                 ) AS has_approved_current_reschedule"
             : ", NULL AS latest_reschedule_status, 0 AS has_pending_reschedule,
+                NULL AS latest_pending_reschedule_id,
                 NULL AS latest_pending_reschedule_date, NULL AS latest_pending_reschedule_time,
                 0 AS has_approved_current_reschedule";
     $sched_query = "SELECT s.*{$latest_request_select}
@@ -241,6 +367,9 @@ if (count($patient_names) > 0) {
             $has_pending_reschedule = (int) ($row['has_pending_reschedule'] ?? 0) === 1
                 && !$pending_matches_approved_schedule;
             $row['has_pending_reschedule'] = $has_pending_reschedule ? 1 : 0;
+            $row['latest_pending_reschedule_id'] = $has_pending_reschedule
+                ? (int) ($row['latest_pending_reschedule_id'] ?? 0)
+                : 0;
             $notes = (string) ($row['notes'] ?? '');
             $has_reschedule_marker = preg_match('/Request:/i', $notes)
                 || preg_match('/Rescheduled \(Orig:/i', $notes);
@@ -268,7 +397,7 @@ if (count($patient_names) > 0) {
                 || preg_match('/Rescheduled \(Orig:/i', $notes)
                 || preg_match('/Reschedule Rejected/i', $notes)
                 || in_array($status, ['reschedule requested', 'rescheduled'], true)
-                || in_array($latest_reschedule_status, ['pending', 'approved', 'rejected'], true)) {
+                || in_array($latest_reschedule_status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
                 preg_match_all('/Request:\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?/i', $notes, $requested_matches, PREG_SET_ORDER);
                 preg_match_all('/Rescheduled \(Orig:\s*(\d{4}-\d{2}-\d{2})\)/i', $notes, $original_matches, PREG_SET_ORDER);
 
@@ -280,6 +409,8 @@ if (count($patient_names) > 0) {
                     $row['reschedule_state'] = 'Reschedule Approved';
                 } elseif ($latest_reschedule_status === 'rejected') {
                     $row['reschedule_state'] = 'Reschedule Rejected';
+                } elseif ($latest_reschedule_status === 'cancelled') {
+                    $row['reschedule_state'] = 'Reschedule Cancelled';
                 } elseif (preg_match('/Reschedule Rejected/i', $notes)) {
                     $row['reschedule_state'] = 'Reschedule Rejected';
                 } elseif ($is_approved_reschedule) {
@@ -524,6 +655,7 @@ foreach ($schedule_categories as $category => $label) {
         .approved, .request-approved, .reschedule-approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .completed { background: #f0f4e8; color: var(--green); border: 1px solid var(--light); }
         .reschedule-requested { background: #fef2f2; color: #b91c1c; border: 1px solid #f87171; }
+        .reschedule-cancelled { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
 
         .btn-resched {
             background: #f1f5f9; color: var(--green); border: 1px solid var(--sage);
@@ -531,6 +663,17 @@ foreach ($schedule_categories as $category => $label) {
         }
         .btn-resched:hover { background: var(--sage); color: white; }
         .btn-resched:disabled { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; cursor: not-allowed; }
+        .btn-cancel-resched {
+            background: #fff;
+            color: #a52a26;
+            border: 1px solid #efb7b4;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .btn-cancel-resched:hover { background: #fff1f0; border-color: #d98b86; }
 
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal-content { background: var(--white); padding: 30px; border-radius: 15px; width: 100%; max-width: 450px; border-top: 6px solid var(--green); position: relative; }
@@ -618,6 +761,14 @@ foreach ($schedule_categories as $category => $label) {
                                 <i class="fa fa-calendar-days"></i>
                                 <?= $request_pending ? 'Awaiting review' : ($reschedule_approved ? 'Request Another Resched' : 'Request Resched') ?>
                             </button>
+                            <?php if ($request_pending && (int) ($row['latest_pending_reschedule_id'] ?? 0) > 0): ?>
+                                <form method="POST" class="cancel-reschedule-form" onsubmit="return confirm('Sigurado ka bang gusto mong kanselahin ang reschedule request na ito?');">
+                                    <input type="hidden" name="reschedule_request_id" value="<?= (int) $row['latest_pending_reschedule_id'] ?>">
+                                    <button type="submit" name="cancel_reschedule" class="btn-cancel-resched">
+                                        <i class="fa fa-xmark"></i> Cancel Request
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </div>
                         </div>
                         <?php if (!empty($worker_note_text)): ?>
