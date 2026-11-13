@@ -207,6 +207,16 @@ $is_community_active = ($current_page === 'community.php');
         box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.15) !important;
     }
     .community-unread-dot[hidden] { display: none !important; }
+    .vaccine-expired-dot {
+        width: 9px !important;
+        height: 9px !important;
+        flex: 0 0 9px !important;
+        margin-left: auto !important;
+        margin-right: 4px !important;
+        border-radius: 50% !important;
+        background: #d93025 !important;
+        box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15) !important;
+    }
     .management-heading {
         cursor: default !important;
         margin-top: 2px !important;
@@ -325,7 +335,12 @@ $is_community_active = ($current_page === 'community.php');
         <?php if ($is_super_admin): ?>
         <span class="nav-label">(inventory)</span>
         <a href="<?php echo $base_url; ?>admin_health_workers.php" class="nav-link <?php echo $is_workers_active ? 'active' : ''; ?>" id="link-workers">Health Worker</a>
-        <a href="<?php echo $base_url; ?>vaccine_inventory.php" class="nav-link <?php echo $is_vaccines_active ? 'active' : ''; ?>" id="link-vaccines">Vaccines</a>
+        <a href="<?php echo $base_url; ?>vaccine_inventory.php" class="nav-link <?php echo $is_vaccines_active ? 'active' : ''; ?>" id="link-vaccines">
+            Vaccines
+            <?php if ($is_super_admin && !empty($expired_vaccine_batch_count)): ?>
+                <span class="vaccine-expired-dot" aria-label="<?php echo (int) $expired_vaccine_batch_count; ?> expired vaccine batches" title="<?php echo (int) $expired_vaccine_batch_count; ?> expired vaccine batch(es)"></span>
+            <?php endif; ?>
+        </a>
         <a href="<?php echo $base_url; ?>admin_maternal_rec.php" class="nav-link <?php echo $is_mat_rec_active ? 'active' : ''; ?>" id="link-maternal-rec">Maternal Records</a>
         <a href="<?php echo $base_url; ?>admin_child_rec.php" class="nav-link <?php echo $is_child_rec_active ? 'active' : ''; ?>" id="link-child-rec">Child/Infant Records</a>
         <?php endif; ?>
