@@ -77,28 +77,33 @@ $chatbotProfileInitial = function_exists('mb_substr')
         <p>Community member</p>
     </dialog>
     <?php endif; ?>
-    <button class="user-chatbot-launcher" id="userChatbotLauncher" type="button" aria-label="Buksan ang health assistant" aria-expanded="false">
+    <button class="user-chatbot-launcher" id="userChatbotLauncher" type="button" aria-label="Buksan ang Health Guide" aria-expanded="false">
         <i class="fa-solid fa-message" aria-hidden="true"></i>
-        <span>Health Help</span>
+                <span>AI Guide</span>
     </button>
-    <section class="user-chatbot-panel" id="userChatbotPanel" aria-label="Health assistant" data-profile-name="<?= htmlspecialchars($chatbotProfileLabel, ENT_QUOTES, 'UTF-8') ?>" data-profile-picture="<?= htmlspecialchars($chatbotProfile['picture'], ENT_QUOTES, 'UTF-8') ?>" data-profile-initial="<?= htmlspecialchars($chatbotProfileInitial, ENT_QUOTES, 'UTF-8') ?>" hidden>
+    <section class="user-chatbot-panel" id="userChatbotPanel" aria-label="Health and Portal Guide" data-profile-name="<?= htmlspecialchars($chatbotProfileLabel, ENT_QUOTES, 'UTF-8') ?>" data-profile-picture="<?= htmlspecialchars($chatbotProfile['picture'], ENT_QUOTES, 'UTF-8') ?>" data-profile-initial="<?= htmlspecialchars($chatbotProfileInitial, ENT_QUOTES, 'UTF-8') ?>" hidden>
         <header class="user-chatbot-header">
             <img class="user-chatbot-logo" src="images/logo.jpg" alt="Alawihao Health Center logo">
             <div>
-                <strong>Alawihao Health Assistant</strong>
-                <span>Gabay sa health topics at registration forms</span>
+                <strong>Alawihao Health &amp; Portal Guide</strong>
+                <span>Ask about registration, schedules, records, and portal features</span>
             </div>
             <button type="button" id="userChatbotClose" aria-label="Isara ang chat">&times;</button>
         </header>
         <div class="user-chatbot-notice">Pangkalahatang impormasyon lang ito. Huwag magpadala ng pangalan, contact details, o personal na health information.</div>
         <div class="user-chatbot-messages" id="userChatbotMessages" aria-live="polite">
             <div class="user-chatbot-message-row assistant">
-                <img class="user-chatbot-avatar assistant-avatar" src="images/logo.jpg" alt="Alawihao Health Assistant">
-                <div class="user-chatbot-message assistant">Kumusta! Makakatulong ako sa health topics, registration form fields, at pag-navigate sa portal. Ano ang gusto mong malaman?</div>
+                <img class="user-chatbot-avatar assistant-avatar" src="images/logo.jpg" alt="Alawihao Health and Portal Guide">
+                <div class="user-chatbot-message assistant">Kumusta! Itanong kung saan makikita ang registration, schedule, records, account settings, o health articles at gagabayan kita sa portal.</div>
             </div>
         </div>
         <div class="user-chatbot-prompts" id="userChatbotPrompts">
+            <button type="button" data-question="Saan ako mag-register ng maternal o child?">Registration</button>
+            <button type="button" data-question="Paano mag-register ng panibagong pregnancy gamit ang saved personal details?">Another case</button>
             <button type="button" data-question="Paano ako magche-check ng schedule?">Schedule</button>
+            <button type="button" data-question="Paano ko kakanselahin ang pending reschedule request?">Cancel reschedule</button>
+            <button type="button" data-question="Saan ko makikita ang maternal at child records?">My Records</button>
+            <button type="button" data-question="Saan ko babaguhin ang account settings?">Settings</button>
             <button type="button" data-question="Saan ako makakabasa tungkol sa bakuna?">Bakuna</button>
             <button type="button" data-question="Saan ko makikita ang health articles?">Health articles</button>
             <button type="button" data-question="Ano ang PHIC CAT sa registration form?">PHIC CAT</button>
@@ -484,4 +489,3 @@ $chatbotProfileInitial = function_exists('mb_substr')
     });
 })();
 </script>
-

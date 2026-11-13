@@ -143,6 +143,95 @@ foreach ($queryTokens as $token) {
 }
 $searchTokens = array_values(array_unique($searchTokens));
 
+$navigationHelp = [
+    [
+        'keywords' => ['registration', 'register', 'magparehistro', 'magrehistro', 'magregister', 'enrollment', 'enroll'],
+        'answer' => 'Para mag-register, buksan ang Registration sa sidebar at piliin ang Maternal Form o Child Form. Punan at suriin ang mga kailangang detalye bago isumite. Kung nakapag-register ka na dati, tingnan ang saved personal information sa itaas ng form; maaari mo itong i-edit bago magpatuloy sa bagong case.',
+        'links' => [
+            ['label' => 'Maternal Form', 'url' => 'user_maternal_reg.php'],
+            ['label' => 'Child Form', 'url' => 'user_infant_reg.php'],
+        ],
+        'requires_any' => ['registration', 'register', 'magparehistro', 'magrehistro', 'magregister', 'enrollment', 'enroll'],
+        'min_score' => 1,
+    ],
+    [
+        'keywords' => ['maternal', 'buntis', 'pregnancy', 'pregnant', 'nanay', 'mother', 'form', 'register', 'registration', 'magregister', 'magparehistro', 'magrehistro', 'enroll', 'enrollment'],
+        'answer' => 'Para sa maternal registration, piliin ang Registration > Maternal Form sa sidebar. Ang saved personal information ay maaaring i-review at i-edit sa itaas; punan ang mga detalye para sa kasalukuyang pregnancy at isumite ang form.',
+        'links' => [['label' => 'Buksan ang Maternal Form', 'url' => 'user_maternal_reg.php']],
+        'requires_any' => ['maternal', 'buntis', 'pregnancy', 'pregnant', 'nanay', 'mother'],
+        'min_score' => 2,
+    ],
+    [
+        'keywords' => ['child', 'infant', 'baby', 'sanggol', 'bata', 'form', 'register', 'registration', 'magregister', 'magparehistro', 'magrehistro', 'enroll', 'enrollment'],
+        'answer' => 'Para sa child o infant registration, piliin ang Registration > Child Form sa sidebar. Tingnan at i-edit ang saved personal o family information sa itaas ng form, pagkatapos punan ang mga detalye para sa bata at isumite.',
+        'links' => [['label' => 'Buksan ang Child Form', 'url' => 'user_infant_reg.php']],
+        'requires_any' => ['child', 'infant', 'baby', 'sanggol', 'bata'],
+        'min_score' => 2,
+    ],
+    [
+        'keywords' => ['another', 'again', 'case', 'pregnancy', 'child', 'personal', 'information', 'details', 'saved', 'save', 'fetch', 'reuse', 'edit', 'registration', 'register', 'form'],
+        'answer' => 'Kapag magre-register ng panibagong pregnancy o bata, buksan muli ang kaukulang Maternal Form o Child Form. Ipinapakita sa itaas ang na-save na personal/family information; gamitin ang Edit kung may kailangang baguhin. Punan ang natitirang detalye para sa bagong case bago isumite.',
+        'links' => [
+            ['label' => 'Maternal Form', 'url' => 'user_maternal_reg.php'],
+            ['label' => 'Child Form', 'url' => 'user_infant_reg.php'],
+        ],
+        'requires_any' => ['another', 'again', 'case', 'saved', 'fetch', 'reuse', 'personal', 'details'],
+        'min_score' => 2,
+    ],
+    [
+        'keywords' => ['schedule', 'appointment', 'iskedyul', 'reschedule', 'resched', 'cancel', 'cancelled', 'kansela', 'request'],
+        'answer' => 'Piliin ang Schedule sa sidebar para makita ang Upcoming at History. Para magpalit ng oras o petsa, piliin ang Request Resched. Habang pending pa ang request, maaari mong piliin ang Cancel Request sa appointment card. Kapag na-review o naproseso na ito, hindi na ito makakansela rito; makipag-ugnayan sa health center.',
+        'links' => [['label' => 'Buksan ang Schedule', 'url' => 'user_schedule.php']],
+        'requires_any' => ['schedule', 'appointment', 'iskedyul', 'reschedule', 'resched', 'cancel', 'kansela', 'request'],
+        'min_score' => 1,
+    ],
+    [
+        'keywords' => ['record', 'records', 'history', 'maternal', 'child', 'health'],
+        'answer' => 'Piliin ang My Records sa sidebar para makita ang maternal o child health records na naka-link sa account mo. Piliin ang tamang record type; hindi nakakakita o nakakabago ng record ang guide.',
+        'links' => [
+            ['label' => 'Maternal Health', 'url' => 'user_maternal_records.php'],
+            ['label' => 'Child Health', 'url' => 'user_child_records.php'],
+        ],
+        'requires_any' => ['record', 'records', 'history'],
+        'min_score' => 1,
+    ],
+    [
+        'keywords' => ['account', 'settings', 'profile', 'password', 'email', 'change', 'update'],
+        'answer' => 'Piliin ang Settings sa sidebar para pamahalaan ang mga setting ng iyong account at profile.',
+        'links' => [['label' => 'Buksan ang Settings', 'url' => 'user_settings.php']],
+        'requires_any' => ['account', 'settings', 'profile', 'password', 'email'],
+        'min_score' => 1,
+    ],
+    [
+        'keywords' => ['article', 'articles', 'topic', 'health', 'hub', 'home', 'read', 'basahin'],
+        'answer' => 'Pumunta sa Home page para makita at hanapin ang health articles ayon sa topic.',
+        'links' => [['label' => 'Buksan ang Health Hub', 'url' => 'user_dashboard.php']],
+        'requires_any' => ['article', 'articles', 'topic', 'hub', 'home'],
+        'min_score' => 1,
+    ],
+];
+$matchedNavigationHelp = null;
+foreach ($navigationHelp as $help) {
+    if (!array_intersect($help['requires_any'], $searchTokens)) {
+        continue;
+    }
+
+    $score = count(array_intersect($searchTokens, $help['keywords']));
+    if ($score >= $help['min_score']
+        && ($matchedNavigationHelp === null || $score > $matchedNavigationHelp['score'])) {
+        $matchedNavigationHelp = ['score' => $score, 'guide' => $help];
+    }
+}
+$matchedNavigationHelp = $matchedNavigationHelp['guide'] ?? null;
+$registrationTerms = ['registration', 'register', 'magparehistro', 'magrehistro', 'magregister', 'enrollment', 'enroll'];
+$maternalTerms = ['maternal', 'buntis', 'pregnancy', 'pregnant', 'nanay', 'mother'];
+$childTerms = ['child', 'infant', 'baby', 'sanggol', 'bata'];
+if (array_intersect($registrationTerms, $searchTokens)
+    && array_intersect($maternalTerms, $searchTokens)
+    && array_intersect($childTerms, $searchTokens)) {
+    $matchedNavigationHelp = $navigationHelp[0];
+}
+
 $articles = require __DIR__ . '/health_articles_data.php';
 $articleMatches = [];
 foreach ($articles as $slug => $article) {
@@ -223,6 +312,12 @@ if ($isUrgent) {
     $links = $matchedFormGuide['links'];
     $context = '';
     $notice = 'Sagot mula sa gabay sa registration form.';
+} elseif ($matchedNavigationHelp !== null) {
+    $allowGemini = false;
+    $answer = $matchedNavigationHelp['answer'];
+    $links = $matchedNavigationHelp['links'];
+    $context = '';
+    $notice = 'Gabay sa paggamit ng user portal.';
 } elseif ($matchedArticle !== null && $matchedArticle['score'] >= $articleThreshold) {
     $article = $matchedArticle['article'];
     $sourceTitle = (string) ($article['title'] ?? 'Health article');
@@ -241,62 +336,13 @@ if ($isUrgent) {
         . "\n\nHuwag magbigay ng diagnosis, paggamot, dosis, o personalized medical advice. Sabihin sa user na kumonsulta sa health worker para sa personal na payo.";
     $notice = 'Sagot mula sa health article na ito: ' . $sourceName . '. Hindi ito diagnosis o kapalit ng health worker.';
 } else {
-    $navigationHelp = [
-        [
-            'keywords' => ['schedule', 'appointment', 'iskedyul', 'reschedule', 'resched'],
-            'answer' => 'Makikita ang iyong schedule sa Schedule page. Doon ka rin makakapagpadala ng reschedule request kung available ang option. Para sa pagbabago o kumpirmasyon, makipag-ugnayan sa health center.',
-            'context' => 'Portal help: gamitin ang Schedule page para makita ang appointments at mag-request ng reschedule. Walang access ang assistant sa appointment details.',
-            'links' => [['label' => 'Buksan ang Schedule', 'url' => 'user_schedule.php']],
-        ],
-        [
-            'keywords' => ['record', 'records', 'history', 'maternal', 'child'],
-            'answer' => 'Piliin ang My Records sa sidebar para makita ang maternal o child health records na naka-link sa account mo. Hindi nakakakita o nakakabago ng record ang chatbot.',
-            'context' => 'Portal help: gamitin ang My Records links para buksan ang maternal o child health records. Walang record access ang assistant.',
-            'links' => [
-                ['label' => 'Maternal records', 'url' => 'user_maternal_records.php'],
-                ['label' => 'Child records', 'url' => 'user_child_records.php'],
-            ],
-        ],
-        [
-            'keywords' => ['register', 'registration', 'magparehistro', 'form'],
-            'answer' => 'Piliin ang Registration sa sidebar, pagkatapos piliin ang Maternal Form o Child Form ayon sa kailangan.',
-            'context' => 'Portal help: registration forms ay makikita sa sidebar sa ilalim ng Registration: Maternal Form at Child Form.',
-            'links' => [
-                ['label' => 'Maternal form', 'url' => 'user_maternal_reg.php'],
-                ['label' => 'Child form', 'url' => 'user_infant_reg.php'],
-            ],
-        ],
-        [
-            'keywords' => ['article', 'articles', 'topic', 'health'],
-            'answer' => 'Pumunta sa Home page para makita at hanapin ang health articles ayon sa topic.',
-            'context' => 'Portal help: ang Home page ang Health Hub at may search para sa health article topics.',
-            'links' => [['label' => 'Buksan ang Health Hub', 'url' => 'user_dashboard.php']],
-        ],
-    ];
-    $matchedHelp = null;
-    $helpScore = 0;
-    foreach ($navigationHelp as $help) {
-        $score = count(array_intersect(chatbotTokens($question), $help['keywords']));
-        if ($score > $helpScore) {
-            $helpScore = $score;
-            $matchedHelp = $help;
-        }
-    }
-
-    if ($matchedHelp === null) {
-        chatbotRespond(200, [
-            'success' => true,
-            'answer' => 'Wala akong mahanap na kaugnay na impormasyon sa health articles. Subukan ang ibang tanong o makipag-ugnayan sa health center para sa tulong.',
-            'links' => [['label' => 'Buksan ang Health Hub', 'url' => 'user_dashboard.php']],
-            'ai_used' => false,
-            'notice' => 'Hindi ipinapadala ang tanong mo sa AI dahil walang tumugmang aprubadong source.',
-        ]);
-    }
-    $answer = $matchedHelp['answer'];
-    $links = $matchedHelp['links'];
-    $context = $matchedHelp['context'];
-    $aiUsed = false;
-    $notice = 'Sagot mula sa portal help.';
+    chatbotRespond(200, [
+        'success' => true,
+        'answer' => 'Hindi ko makita ang sagot sa kasalukuyang gabay. Subukang magtanong tungkol sa registration, schedule, records, account settings, o health articles.',
+        'links' => [['label' => 'Buksan ang Home', 'url' => 'user_dashboard.php']],
+        'ai_used' => false,
+        'notice' => 'Hindi ipinapadala ang tanong mo sa AI dahil walang tumugmang aprubadong source.',
+    ]);
 }
 
 $fallbackNotice = 'Hindi pa naka-configure ang Gemini; ipinapakita ang impormasyon mula sa approved source.';
