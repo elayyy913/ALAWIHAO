@@ -8,9 +8,18 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id']; 
+$pregnancyStatusColumn = $conn->query("SHOW COLUMNS FROM maternal_registration LIKE 'pregnancy_status'");
+$pregnancyStatusSchemaReady = $pregnancyStatusColumn && $pregnancyStatusColumn->num_rows > 0;
+if (!$pregnancyStatusSchemaReady) {
+    error_log('Maternal records cannot show pregnancy status: ' . $conn->error);
+}
 
 if (isset($_GET['ajax_id'])) {
     header('Content-Type: application/json');
+    if (!$pregnancyStatusSchemaReady) {
+        echo json_encode(['success' => false, 'message' => 'Pregnancy status setup is not complete.']);
+        exit();
+    }
     $reg_id = intval($_GET['ajax_id']);
 
     $sql_reg = "SELECT *, CONCAT(client_fname, ' ', COALESCE(CONCAT(client_mi, '. '), ''), client_lname) AS full_name,
@@ -80,12 +89,34 @@ $query = "SELECT reg.*,
                  reg.id AS reg_id
           FROM maternal_registration reg
           WHERE reg.user_id = ? 
+            AND reg.id = (
+                SELECT pregnancy_reg.id
+                FROM maternal_registration pregnancy_reg
+                WHERE pregnancy_reg.user_id = reg.user_id
+                  AND COALESCE(pregnancy_reg.pregnancy_order, 1) = COALESCE(reg.pregnancy_order, 1)
+                ORDER BY (pregnancy_reg.pregnancy_status = 'Active') DESC,
+                         (pregnancy_reg.status <> 'Rejected') DESC,
+                         (pregnancy_reg.lmp IS NOT NULL) DESC,
+                         (pregnancy_reg.status = 'Approved') DESC,
+                         pregnancy_reg.id DESC
+                LIMIT 1
+            )
           ORDER BY reg.id ASC";
 
-$stmt = $conn->prepare($query);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$my_records = $stmt->get_result();
+$my_records = false;
+if ($pregnancyStatusSchemaReady) {
+    $stmt = $conn->prepare($query);
+    if ($stmt) {
+        $stmt->bind_param("i", $user_id);
+        if ($stmt->execute()) {
+            $my_records = $stmt->get_result();
+        } else {
+            error_log('Unable to load maternal records: ' . $stmt->error);
+        }
+    } else {
+        error_log('Unable to prepare maternal records query: ' . $conn->error);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -199,6 +230,8 @@ $my_records = $stmt->get_result();
         }
         .status-verified { background: #f0f4e8; color: var(--primary-green); border: 1px solid var(--primary-green); }
         .status-pending { background: #fffcf0; color: #d4a017; border: 1px solid #d4a017; }
+        .status-active { background: #eef8ef; color: #2f7137; border: 1px solid #79b580; }
+        .status-completed { background: #f1f3f5; color: #58616a; border: 1px solid #c5cbd1; }
 
         .order-badge {
             background: #e8ede3;
@@ -278,8 +311,13 @@ $my_records = $stmt->get_result();
                 <span><?php echo htmlspecialchars($user_profile['living_children'] ?? '0'); ?></span>
             </div>
             <div class="stat-box">
-                <small>Current Status</small>
-                <span><?php echo isset($user_profile['pregnancy_order']) ? $user_profile['pregnancy_order'] . getOrdinalSuffix($user_profile['pregnancy_order']) . ' Pregnancy' : 'Active'; ?></span>
+                <small>Current Pregnancy</small>
+                <span><?php
+                    $profilePregnancyStatus = ($user_profile['status'] ?? '') === 'Rejected'
+                        ? 'Rejected'
+                        : ($user_profile['pregnancy_status'] ?? 'No record');
+                    echo htmlspecialchars($profilePregnancyStatus, ENT_QUOTES, 'UTF-8');
+                ?></span>
             </div>
         </div>
     </div>
@@ -289,6 +327,11 @@ $my_records = $stmt->get_result();
             <h2 style="color: var(--primary-green); margin: 0; letter-spacing: 1px;">MATERNAL HEALTH RECORDS</h2>
             <p style="color: #777; font-size: 0.8rem; margin-top: 5px;">View your pregnancy tracking history sorted by chronological sequence.</p>
         </div>
+        <?php if (!$pregnancyStatusSchemaReady): ?>
+            <p role="alert" style="padding: 12px; color: #7a2c25; background: #fff3f1; border: 1px solid #e7b5ae; border-radius: 6px;">
+                Pregnancy status setup is incomplete. Ask the administrator to run <code>database_maternal_pregnancy_status.sql</code>.
+            </p>
+        <?php endif; ?>
 
         <table>
             <thead>
@@ -312,10 +355,16 @@ $my_records = $stmt->get_result();
                     return 'th';
                 }
 
-                if ($my_records->num_rows > 0): 
+                if ($my_records && $my_records->num_rows > 0):
                     while($row = $my_records->fetch_assoc()): 
                         $p_order = $row['pregnancy_order'] ? $row['pregnancy_order'] : 1;
                         $order_label = $p_order . getOrdinalSuffix($p_order) . ' Child / Preg';
+                        $pregnancyStatus = $row['status'] === 'Rejected'
+                            ? 'Rejected'
+                            : ($row['pregnancy_status'] ?? 'Active');
+                        $statusClass = $pregnancyStatus === 'Completed'
+                            ? 'status-completed'
+                            : ($pregnancyStatus === 'Active' ? 'status-active' : 'status-pending');
                 ?>
                     <tr>
                         <td>
@@ -323,8 +372,8 @@ $my_records = $stmt->get_result();
                         </td>
                         <td><?php echo $row['edc'] ? date('M d, Y', strtotime($row['edc'])) : '<span style="color:#ccc">--</span>'; ?></td>
                         <td>
-                            <span class="status-badge <?php echo (isset($row['status']) && $row['status'] == 'Approved') ? 'status-verified' : 'status-pending'; ?>">
-                                <?php echo isset($row['status']) ? $row['status'] : 'Pending'; ?>
+                            <span class="status-badge <?php echo htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($pregnancyStatus, ENT_QUOTES, 'UTF-8'); ?>
                             </span>
                         </td>
                         <td class="action-btns">
@@ -335,7 +384,7 @@ $my_records = $stmt->get_result();
                     endwhile; 
                 else: 
                 ?>
-                    <tr><td colspan="4" style="text-align:center; padding: 50px; color: #aaa;">Walang nahanap na maternal registration records para sa account na ito.</td></tr>
+                    <tr><td colspan="4" style="text-align:center; padding: 50px; color: #aaa;"><?php echo $pregnancyStatusSchemaReady ? 'Walang nahanap na maternal registration records para sa account na ito.' : 'Records unavailable until pregnancy status is configured.'; ?></td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

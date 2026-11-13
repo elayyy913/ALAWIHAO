@@ -60,9 +60,47 @@ $spouseFullName = trim(implode(' ', array_filter([
     return trim((string) $value) !== '';
 })));
 
-$success_message = ($_GET['status'] ?? '') === 'success'
-    ? 'Registration submitted successfully. Your maternal record is now pending review.'
-    : '';
+$pregnancyStatusColumn = $conn->query("SHOW COLUMNS FROM maternal_registration LIKE 'pregnancy_status'");
+$pregnancyStatusSchemaReady = $pregnancyStatusColumn && $pregnancyStatusColumn->num_rows > 0;
+$pregnancyStatusLookupError = !$pregnancyStatusColumn;
+$activePregnancy = null;
+if ($pregnancyStatusSchemaReady) {
+    $activePregnancyStmt = $conn->prepare(
+        "SELECT id, pregnancy_order, status FROM maternal_registration
+         WHERE user_id = ? AND pregnancy_status = 'Active' AND COALESCE(status, '') <> 'Rejected'
+         ORDER BY id DESC LIMIT 1"
+    );
+    if (!$activePregnancyStmt) {
+        error_log('Unable to prepare active maternal pregnancy lookup: ' . $conn->error);
+        $pregnancyStatusSchemaReady = false;
+        $pregnancyStatusLookupError = true;
+    } else {
+        $activePregnancyStmt->bind_param('i', $userId);
+        if ($activePregnancyStmt->execute()) {
+            $activePregnancy = $activePregnancyStmt->get_result()->fetch_assoc() ?: null;
+        } else {
+            error_log('Unable to load active maternal pregnancy: ' . $activePregnancyStmt->error);
+            $pregnancyStatusSchemaReady = false;
+            $pregnancyStatusLookupError = true;
+        }
+        $activePregnancyStmt->close();
+    }
+} else {
+    error_log('Maternal pregnancy status schema is not installed.');
+}
+
+$statusMessage = '';
+$statusIsError = false;
+switch ($_GET['status'] ?? '') {
+    case 'success':
+        $statusMessage = 'Registration submitted successfully. Your maternal record is now pending review.';
+        break;
+    case 'registration_error':
+        $statusMessage = 'Hindi na-save ang registration dahil may system error. Pakisubukan ulit o makipag-ugnayan sa health center.';
+        $statusIsError = true;
+        break;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -289,6 +327,14 @@ $success_message = ($_GET['status'] ?? '') === 'success'
             font-size: 1rem;
             margin-top: 2px;
         }
+        .form-notification.error {
+            color: #7a2c25;
+            background: #fff3f1;
+            border-color: #e7b5ae;
+            border-left-color: #bd493b;
+        }
+        .form-notification.error i { color: #bd493b; }
+        .reg-btn:disabled { opacity: .55; cursor: not-allowed; }
 
         .saved-profile {
             margin: 20px 0;
@@ -383,10 +429,25 @@ $success_message = ($_GET['status'] ?? '') === 'success'
     <div class="form-card">
         <h2>MATERNAL REGISTRATION</h2>
 
-        <?php if ($success_message): ?>
-            <div class="form-notification" role="status">
-                <i class="fa fa-circle-check" aria-hidden="true"></i>
-                <span><?php echo htmlspecialchars($success_message); ?></span>
+        <?php if ($statusMessage !== ''): ?>
+            <div class="form-notification<?php echo $statusIsError ? ' error' : ''; ?>" role="<?php echo $statusIsError ? 'alert' : 'status'; ?>">
+                <i class="fa <?php echo $statusIsError ? 'fa-circle-exclamation' : 'fa-circle-check'; ?>" aria-hidden="true"></i>
+                <span><?php echo htmlspecialchars($statusMessage, ENT_QUOTES, 'UTF-8'); ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if (!$pregnancyStatusSchemaReady): ?>
+            <div class="form-notification error" role="alert">
+                <span>
+                    <?php if ($pregnancyStatusLookupError): ?>
+                        May system error sa pag-check ng pregnancy status. Pakisubukan ulit mamaya o makipag-ugnayan sa administrator.
+                    <?php else: ?>
+                        Hindi pa handa ang pregnancy tracking. Ipa-run muna sa administrator ang <code>database_maternal_pregnancy_status.sql</code>.
+                    <?php endif; ?>
+                </span>
+            </div>
+        <?php elseif ($activePregnancy): ?>
+            <div class="form-notification error" role="status">
+                <span>May isa ka pang pregnancy record na <?php echo $activePregnancy['status'] === 'Pending' ? 'naghihintay ng review' : 'Active'; ?>. Hindi muna maaaring mag-register ng isa pang pregnancy. Pagkatapos ma-confirm ng admin/health worker ang panganganak, magiging Completed ito at maaari ka nang mag-register muli.</span>
             </div>
         <?php endif; ?>
         <?php if ($prefillError !== ''): ?>
@@ -648,7 +709,7 @@ $success_message = ($_GET['status'] ?? '') === 'success'
                 </table>
             </div>
 
-            <button type="submit" class="reg-btn">Confirm Registration</button>
+            <button type="submit" class="reg-btn" <?php echo (!$pregnancyStatusSchemaReady || $activePregnancy) ? 'disabled' : ''; ?>>Confirm Registration</button>
         </form>
     </div>
 
