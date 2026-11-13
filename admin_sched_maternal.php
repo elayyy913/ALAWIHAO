@@ -181,7 +181,7 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
                         <span><?= htmlspecialchars($row['full_name']) ?></span>
                         <div class="action-links">
                             <span class="btn-edit-small" onclick="openEditModal('<?= $row['id'] ?>', '<?= addslashes($row['full_name']) ?>', '<?= $row['appointment_type'] ?>', '<?= $row['appointment_date'] ?>', '<?= $row['appointment_time'] ?>')">Edit</span>
-                            <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" onclick="return confirm('Remove?')">Remove</a>
+                            <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" data-confirm-title="Remove appointment?" data-confirm="Are you sure you want to remove this appointment?" data-confirm-label="Remove">Remove</a>
                         </div>
                     </div>
                 <?php endwhile; ?>
@@ -194,7 +194,7 @@ $completed_res = $conn->query("SELECT s.*, m.full_name FROM maternal_schedules s
                         <span><?= htmlspecialchars($row['full_name']) ?></span>
                         <div class="action-links">
                             <span class="btn-edit-small" onclick="openEditModal('<?= $row['id'] ?>', '<?= addslashes($row['full_name']) ?>', '<?= $row['appointment_type'] ?>', '<?= $row['appointment_date'] ?>', '<?= $row['appointment_time'] ?>')">Edit</span>
-                            <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" onclick="return confirm('Remove?')">Remove</a>
+                            <a href="admin_sched_maternal.php?delete_id=<?= $row['id'] ?>&view_date=<?= $view_date ?>" class="btn-del-small" data-confirm-title="Remove appointment?" data-confirm="Are you sure you want to remove this appointment?" data-confirm-label="Remove">Remove</a>
                         </div>
                     </div>
                 <?php endwhile; ?>
