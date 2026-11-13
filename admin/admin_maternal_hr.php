@@ -47,7 +47,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
             error_log('Unable to begin maternal pregnancy completion transaction: ' . $conn->error);
             $_SESSION['maternal_record_notice'] = [
                 'type' => 'error',
-                'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                'message' => 'The pregnancy status could not be updated because of a system error.',
             ];
             header('Location: admin_maternal_hr.php');
             exit();
@@ -62,7 +62,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
             error_log('Unable to prepare maternal pregnancy completion lookup: ' . $conn->error);
             $_SESSION['maternal_record_notice'] = [
                 'type' => 'error',
-                'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                'message' => 'The pregnancy status could not be updated because of a system error.',
             ];
         } else {
             $patientStmt->bind_param('i', $motherId);
@@ -72,7 +72,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                 error_log('Unable to load maternal pregnancy for completion: ' . $conn->error);
                 $_SESSION['maternal_record_notice'] = [
                     'type' => 'error',
-                    'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                    'message' => 'The pregnancy status could not be updated because of a system error.',
                 ];
             } else {
                 $patient = $patientStmt->get_result()->fetch_assoc();
@@ -81,7 +81,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                     $conn->rollback();
                     $_SESSION['maternal_record_notice'] = [
                         'type' => 'error',
-                        'message' => 'Hindi na-update ang record. Tiyaking approved at Active pa ito.',
+                        'message' => 'The record was not updated. Make sure it is approved and still Active.',
                     ];
                 } else {
                     $userId = (int) ($patient['user_id'] ?? 0);
@@ -99,21 +99,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
                         error_log('Unable to prepare maternal pregnancy completion update: ' . $conn->error);
                         $_SESSION['maternal_record_notice'] = [
                             'type' => 'error',
-                            'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                            'message' => 'The pregnancy status could not be updated because of a system error.',
                         ];
                     } else {
                         $completeStmt->bind_param('i', $userId);
                         if ($completeStmt->execute() && $conn->commit()) {
                             $_SESSION['maternal_record_notice'] = [
                                 'type' => 'success',
-                                'message' => 'Na-confirm ang panganganak. Completed na ang pregnancy record.',
+                                'message' => 'Delivery confirmed. The pregnancy record is now Completed.',
                             ];
                         } else {
                             $conn->rollback();
                             error_log('Unable to complete maternal pregnancy: ' . $completeStmt->error);
                             $_SESSION['maternal_record_notice'] = [
                                 'type' => 'error',
-                                'message' => 'Hindi na-update ang pregnancy status dahil may system error.',
+                                'message' => 'The pregnancy status could not be updated because of a system error.',
                             ];
                         }
                         $completeStmt->close();
@@ -517,7 +517,10 @@ if (!$recordNotice && isset($_GET['success'])) {
                                         </button>
                                         <button type="button" class="btn-update" onclick='openUpdateModal(<?php echo $patientId; ?>, <?php echo json_encode($row['full_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Add Record</button>
                                         <?php if ($pregnancyStatusSchemaReady && ($row['pregnancy_status'] ?? '') === 'Active'): ?>
-                                            <form method="post" style="display:inline;" onsubmit="return confirm('Kumpirmahin na nanganak na ang pasyente at gawing Completed ang pregnancy record?');">
+                                            <form method="post" style="display:inline;"
+                                                data-confirm-title="Mark pregnancy as completed?"
+                                                data-confirm="Confirm that the patient has delivered and mark this pregnancy record as Completed?"
+                                                data-confirm-label="Mark as delivered">
                                                 <input type="hidden" name="action" value="mark_pregnancy_completed">
                                                 <input type="hidden" name="mother_id" value="<?php echo $patientId; ?>">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($maternalPregnancyCsrf, ENT_QUOTES, 'UTF-8'); ?>">
@@ -672,7 +675,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                 </div>
 
                 <label>Pagsusuri ng kalagayan ng buntis:</label>
-                <textarea name="pagsusuri_kalagayan" placeholder="Ilagay ang mga natuklasan sa pagsusuri..."></textarea>
+                <textarea name="pagsusuri_kalagayan" placeholder="Enter examination findings..."></textarea>
 
                 <label>Mga payong binigay:</label>
                 <textarea name="mga_payo" placeholder="Mga payong ibinigay sa pasyente..."></textarea>
@@ -684,7 +687,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                 <textarea name="pagsusuri_ngipin" placeholder="Resulta o detalye ng pagsusuri ng ngipin..."></textarea>
 
                 <label>Laboratory test done:</label>
-                <input type="text" name="lab_test_done" placeholder="Uri ng laboratory test">
+                <input type="text" name="lab_test_done" placeholder="Type of laboratory test">
 
                 <label>Bakunang ibinigay (kung mayroon):</label>
                 <select name="vaccine_id" id="maternalVaccineSelect" onchange="updateMaternalVaccineFields()">
@@ -794,28 +797,28 @@ if (!$recordNotice && isset($_GET['success'])) {
                     <input type="text" name="cbc_tri2" placeholder="Resulta ng CBC">
 
                     <div class="section-box">
-                        <label style="margin-bottom: 8px;">Etiological tests para sa STIs (kung kinakailangan):</label>
+                        <label style="margin-bottom: 8px;">Etiological tests for STIs (if needed):</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label"><input type="checkbox" name="etiological_stis" value="1"> Etiological test done</label>
                         </div>
                     </div>
 
                     <div class="section-box">
-                        <label style="margin-bottom: 8px;">Pap smear (kung kinakailangan):</label>
+                        <label style="margin-bottom: 8px;">Pap smear (if needed):</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label"><input type="checkbox" name="pap_smear" value="1"> Pap Smear Done</label>
                         </div>
                     </div>
 
                     <div class="section-box">
-                        <label style="margin-bottom: 8px;">Gestational diabetes (oral glucose challenge test), (kung kinakailangan):</label>
+                        <label style="margin-bottom: 8px;">Gestational diabetes (oral glucose challenge test, if needed):</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label"><input type="checkbox" name="gestational_diabetes" value="1"> Oral Glucose Challenge Test Done</label>
                         </div>
                     </div>
 
                     <div class="section-box">
-                        <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
+                        <label style="margin-bottom: 8px;">Bacteriuria (if needed):</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label"><input type="checkbox" name="bacteriuria_tri2" value="1"> Bacteriuria Test Done</label>
                         </div>
@@ -834,7 +837,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                     <div class="section-box">
                         <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay (2nd Tri):</label>
                         <div class="checkbox-group">
-                            <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion_tri2" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion_tri2" value="1"> Review of previous discussion</label>
                         </div>
                     </div>
                 </div>
@@ -852,14 +855,14 @@ if (!$recordNotice && isset($_GET['success'])) {
                     <input type="text" name="cbc_tri3" placeholder="Resulta ng CBC">
 
                     <div class="section-box">
-                        <label style="margin-bottom: 8px;">Bacteriuria (kung kinakailangan):</label>
+                        <label style="margin-bottom: 8px;">Bacteriuria (if needed):</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label"><input type="checkbox" name="bacteriuria_tri3" value="1"> Bacteriuria Test Done</label>
                         </div>
                     </div>
 
                     <div class="section-box">
-                        <label style="margin-bottom: 8px;">Blood/RH group (kung kinakailangan):</label>
+                        <label style="margin-bottom: 8px;">Blood/RH group (if needed):</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label"><input type="checkbox" name="blood_rh_group" value="1"> Blood/RH group determined</label>
                         </div>
@@ -877,7 +880,7 @@ if (!$recordNotice && isset($_GET['success'])) {
                     <div class="section-box">
                         <label style="margin-bottom: 8px;">Pinag-usapan / Serbisyong binigay (3rd Tri):</label>
                         <div class="checkbox-group">
-                            <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion_tri3" value="1"> Pagpapaalala ng nakaraang tinalakay</label>
+                            <label class="checkbox-label"><input type="checkbox" name="srv_previous_discussion_tri3" value="1"> Review of previous discussion</label>
                             <label class="checkbox-label"><input type="checkbox" name="srv_postpartum" value="1"> Pagpapayo sa postpartum at postnatal care</label>
                             <label class="checkbox-label"><input type="checkbox" name="srv_spacing" value="1"> Pagpapayo sa pag agwat ng anak</label>
                             <label class="checkbox-label"><input type="checkbox" name="srv_tetanus_followup" value="1"> Pag follow up ng tetanus-containing vaccine</label>
@@ -892,12 +895,12 @@ if (!$recordNotice && isset($_GET['success'])) {
                 </div>
 
                 <div>
-                    <label>Pangalan ng health service provider:</label>
-                    <input type="text" name="provider_name" placeholder="Pangalan ng Midwife / Doctor">
+                    <label>Health service provider name:</label>
+                    <input type="text" name="provider_name" placeholder="Midwife / doctor name">
                 </div>
 
                 <label>Referral sa ospital:</label>
-                <input type="text" name="hospital_referral" placeholder="Pangalan ng ospital o dahilan ng referral">
+                <input type="text" name="hospital_referral" placeholder="Hospital name or reason for referral">
 
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
                     <button type="button" onclick="closeModal()" style="background:none; border:none; color:#A0AEC0; cursor:pointer; font-weight:600;">Cancel</button>

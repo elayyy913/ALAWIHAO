@@ -147,56 +147,108 @@ $trimester_filter = isset($_GET['trimester_filter']) ? trim((string) $_GET['trim
 if (!in_array($trimester_filter, ['1', '2', '3'], true)) {
     $trimester_filter = '';
 }
-$search_pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
-
-$query = "SELECT u.*, 
+$pregnancyStatusColumn = mysqli_query($conn, "SHOW COLUMNS FROM maternal_registration LIKE 'pregnancy_status'");
+$hasPregnancyStatus = $pregnancyStatusColumn && mysqli_num_rows($pregnancyStatusColumn) > 0;
+$query = "SELECT u.*,
+         account.role AS account_role,
          CONCAT(u.client_fname, ' ', COALESCE(u.client_mi,''), ' ', u.client_lname) AS full_name,
-         r.weight_kg, r.bp, r.temperature, r.fetal_heart_rate, r.remarks, r.checkup_date, r.gestational_age_weeks
+         r.weight_kg, r.bp, r.temperature, r.fetal_heart_rate, r.remarks, r.checkup_date, r.gestational_age_weeks,
+         " . ($hasPregnancyStatus ? "u.pregnancy_status" : "'Active' AS pregnancy_status") . "
          FROM maternal_registration u
+         LEFT JOIN users account ON account.id = u.user_id
          LEFT JOIN (
              SELECT mother_id, weight_kg, bp, temperature, fetal_heart_rate, remarks, checkup_date, gestational_age_weeks 
              FROM maternal_records 
              WHERE id IN (SELECT MAX(id) FROM maternal_records GROUP BY mother_id)
          ) r ON u.id = r.mother_id
-         WHERE u.status = 'Approved' 
-         AND (u.client_fname LIKE ? OR u.client_lname LIKE ?)";
-
-if ($trimester_filter === '1') {
-    $query .= " AND r.gestational_age_weeks BETWEEN 1 AND 13";
-} elseif ($trimester_filter === '2') {
-    $query .= " AND r.gestational_age_weeks BETWEEN 14 AND 27";
-} elseif ($trimester_filter === '3') {
-    $query .= " AND r.gestational_age_weeks >= 28";
-}
-
-$stmt = mysqli_prepare($conn, $query . " ORDER BY u.created_at DESC");
-if ($stmt) {
-    mysqli_stmt_bind_param($stmt, 'ss', $search_pattern, $search_pattern);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-} else {
-    $result = false;
-}
+         WHERE u.status = 'Approved'
+         ORDER BY u.created_at DESC, u.id DESC";
+$result = mysqli_query($conn, $query);
 
 $patients = [];
+$patientGroups = [];
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
         $ga = intval($row['gestational_age_weeks'] ?? 0);
+        $row['gestational_age_weeks'] = $ga;
+        $row['trimester_match'] = $trimester_filter === ''
+            || ($trimester_filter === '1' && $ga >= 1 && $ga <= 13)
+            || ($trimester_filter === '2' && $ga >= 14 && $ga <= 27)
+            || ($trimester_filter === '3' && $ga >= 28);
+        $isPortalUser = ($row['account_role'] ?? '') === 'User' && (int) ($row['user_id'] ?? 0) > 0;
+        $groupKey = $isPortalUser ? 'user:' . (int) $row['user_id'] : 'registration:' . (int) $row['id'];
+        $row['patient_code'] = $isPortalUser
+            ? 'MAT-' . str_pad((string) $row['user_id'], 6, '0', STR_PAD_LEFT)
+            : 'MAT-' . str_pad((string) $row['id'], 6, '0', STR_PAD_LEFT);
+        $rowSearchFields = [
+            $row['full_name'] ?? '',
+            $row['dob'] ?? '',
+            !empty($row['dob']) ? date('m/d/Y', strtotime($row['dob'])) : '',
+            $row['barangay'] ?? '',
+            $row['municipality'] ?? '',
+            $row['street'] ?? '',
+            $row['patient_code'],
+        ];
+        $pregnancy = [
+            'id' => (int) $row['id'],
+            'order' => (int) ($row['pregnancy_order'] ?? 1),
+            'lmp' => $row['lmp'] ?? '',
+            'status' => ($row['status'] ?? '') === 'Pending'
+                ? 'Pending Review'
+                : (($row['status'] ?? '') === 'Rejected' ? 'Rejected' : ($row['pregnancy_status'] ?? 'Active')),
+            'aog' => $ga > 0 ? $ga . ' weeks' : 'N/A',
+            'checkup_date' => $row['checkup_date'] ?? '',
+            'ga' => $ga,
+            'trimester_match' => $row['trimester_match'],
+        ];
 
-        $row['current_aog'] = ($ga > 0) ? $ga . ' weeks' : 'N/A';
-        $remaining = ($ga > 0) ? max(0, 40 - $ga) : -1;
-        $row['computed_remaining'] = ($remaining >= 0) ? $remaining . ' weeks left' : 'N/A';
-        $row['trimester_label'] = 'No data';
-        if ($ga >= 1 && $ga <= 13) {
-            $row['trimester_label'] = '1st Trimester';
-        } elseif ($ga >= 14 && $ga <= 27) {
-            $row['trimester_label'] = '2nd Trimester';
-        } elseif ($ga >= 28) {
-            $row['trimester_label'] = '3rd Trimester';
+        if (!isset($patientGroups[$groupKey])) {
+            $row['pregnancies'] = [];
+            $row['search_fields'] = [];
+            $patientGroups[$groupKey] = $row;
         }
-
-        $patients[] = $row;
+        $patientGroups[$groupKey]['search_fields'] = array_merge($patientGroups[$groupKey]['search_fields'], $rowSearchFields);
+        $existingPregnancies = $patientGroups[$groupKey]['pregnancies'];
+        $existingPregnancies[] = $pregnancy;
+        $currentIsActive = ($patientGroups[$groupKey]['pregnancy_status'] ?? '') === 'Active'
+            && ($patientGroups[$groupKey]['status'] ?? '') === 'Approved';
+        $rowIsActive = ($row['pregnancy_status'] ?? '') === 'Active' && ($row['status'] ?? '') === 'Approved';
+        $currentMatchesFilter = (bool) ($patientGroups[$groupKey]['trimester_match'] ?? false);
+        $replacePrimary = ($row['trimester_match'] && !$currentMatchesFilter)
+            || ($row['trimester_match'] === $currentMatchesFilter && $rowIsActive && !$currentIsActive)
+            || ($row['trimester_match'] === $currentMatchesFilter && $rowIsActive === $currentIsActive && (int) $row['id'] > (int) $patientGroups[$groupKey]['id']);
+        if ($replacePrimary) {
+            $patientGroups[$groupKey] = $row;
+        }
+        $patientGroups[$groupKey]['pregnancies'] = $existingPregnancies;
     }
+}
+
+$normalizedSearch = mb_strtolower($search, 'UTF-8');
+foreach ($patientGroups as $patient) {
+    $dob = (string) ($patient['dob'] ?? '');
+    $searchable = mb_strtolower(implode(' ', $patient['search_fields']), 'UTF-8');
+    $searchMatches = $normalizedSearch === '' || mb_strpos($searchable, $normalizedSearch) !== false;
+    $groupMatchesTrimester = $trimester_filter === '';
+    foreach ($patient['pregnancies'] as $pregnancy) {
+        if ($pregnancy['trimester_match']) {
+            $groupMatchesTrimester = true;
+            break;
+        }
+    }
+    if (!$searchMatches || !$groupMatchesTrimester) {
+        continue;
+    }
+
+    $ga = (int) ($patient['gestational_age_weeks'] ?? 0);
+    $patient['current_aog'] = ($ga > 0) ? $ga . ' weeks' : 'N/A';
+    $remaining = ($ga > 0) ? max(0, 40 - $ga) : -1;
+    $patient['computed_remaining'] = ($remaining >= 0) ? $remaining . ' weeks left' : 'N/A';
+    usort($patient['pregnancies'], static function ($left, $right) {
+        return $left['order'] <=> $right['order'];
+    });
+    $patient['pregnancy_count'] = count($patient['pregnancies']);
+    $patients[] = $patient;
 }
 
 $summary = [
@@ -262,7 +314,7 @@ foreach ($patients as $patient) {
 
         .filter-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .search-box, .filter-select { padding: 10px 12px; border: 1px solid #dfe5d9; border-radius: 10px; font-size: 0.9rem; outline: none; background: #fff; color: var(--text-dark); }
-        .search-box { width: 220px; }
+        .search-box { width: 270px; }
         .filter-select { min-width: 180px; }
         .search-box:focus, .filter-select:focus { border-color: var(--sage-green); box-shadow: 0 0 0 3px rgba(107, 142, 85, 0.12); }
 
@@ -282,6 +334,27 @@ foreach ($patients as $patient) {
 
         .patient-name-wrap { display: flex; align-items: center; gap: 10px; }
         .patient-name { font-weight: 700; color: var(--text-dark); }
+        .patient-code {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 5px;
+            padding: 3px 7px;
+            border: 1px solid #dfead2;
+            border-radius: 6px;
+            color: var(--sage-green-dark);
+            background: #f3f7ef;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .03em;
+        }
+        .pregnancy-count {
+            display: inline-flex;
+            margin-top: 5px;
+            margin-left: 4px;
+            color: var(--text-muted);
+            font-size: .74rem;
+            font-weight: 600;
+        }
         .trimester-badge {
             display: inline-flex;
             padding: 5px 8px;
@@ -333,6 +406,10 @@ foreach ($patients as $patient) {
         .tab-content.active { display: block; }
 
         .info-card { background: linear-gradient(135deg, #fbfdf9 0%, #f4f8f0 100%); border: 1px dashed var(--sage-green); padding: 15px; border-radius: 14px; margin-bottom: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .pregnancy-picker { display: grid; grid-template-columns: auto minmax(220px, 1fr); align-items: center; gap: 12px; margin: 0 0 18px; padding: 13px 15px; border: 1px solid var(--panel-border); border-radius: 12px; background: #fff; }
+        .pregnancy-picker label { color: var(--sage-green-dark); font-size: .82rem; font-weight: 700; }
+        .pregnancy-picker select { min-width: 0; padding: 10px 12px; border: 1px solid #dfe5d9; border-radius: 9px; background: #fff; color: var(--text-dark); font: inherit; }
+        .pregnancy-picker select:focus { outline: 3px solid rgba(107, 142, 85, .15); border-color: var(--sage-green); }
         .info-item label { display: block; font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
         .info-item span { font-weight: 700; color: var(--text-dark); font-size: 0.9rem; }
 
@@ -347,6 +424,7 @@ foreach ($patients as $patient) {
             #main { margin-left: 0; padding: 20px 16px; }
             .summary-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
             .info-card { grid-template-columns: 1fr 1fr; }
+            .pregnancy-picker { grid-template-columns: 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
             .modal-content { width: 92%; padding: 20px; }
         }
@@ -378,7 +456,7 @@ foreach ($patients as $patient) {
                             <option value="2" <?= ($trimester_filter == '2') ? 'selected' : '' ?>>2nd Trimester (14 - 27 wks)</option>
                             <option value="3" <?= ($trimester_filter == '3') ? 'selected' : '' ?>>3rd Trimester (28+ wks)</option>
                         </select>
-                        <input type="text" name="search" class="search-box" placeholder="Search patient name..." value="<?= htmlspecialchars($search) ?>" aria-label="Search patient name">
+                        <input type="text" name="search" class="search-box" placeholder="Search name, Patient ID, birthday, or barangay..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" aria-label="Search by name, Patient ID, birthday, or barangay">
                         <button type="submit" class="btn-search">Search</button>
                         <?php if ($search !== '' || $trimester_filter !== ''): ?>
                             <a href="admin_maternal_rec.php" class="btn-clear">Clear</a>
@@ -412,6 +490,10 @@ foreach ($patients as $patient) {
                     <thead>
                         <tr>
                             <th>Patient Name</th>
+                            <th>Patient ID</th>
+                            <th>Birthday</th>
+                            <th>Barangay</th>
+                            <th>Pregnancies</th>
                             <th>Last Visit</th>
                             <th>Current AOG</th>
                             <th>Remaining to Full-Term</th>
@@ -425,6 +507,7 @@ foreach ($patients as $patient) {
                                 <td>
                                     <div class="patient-name-wrap">
                                         <span class="patient-name"><?= htmlspecialchars($row['full_name']) ?></span>
+                                        <span class="pregnancy-count"><?= (int) $row['pregnancy_count'] ?> <?= (int) $row['pregnancy_count'] === 1 ? 'pregnancy' : 'pregnancies' ?></span>
                                         <?php
                                             $badgeClass = 'trimester-none';
                                             $badgeText = 'No data';
@@ -442,6 +525,10 @@ foreach ($patients as $patient) {
                                         <span class="trimester-badge <?= $badgeClass ?>"><?= $badgeText ?> Trimester</span>
                                     </div>
                                 </td>
+                                <td><span class="patient-code"><?= htmlspecialchars($row['patient_code'], ENT_QUOTES, 'UTF-8') ?></span></td>
+                                <td><?= !empty($row['dob']) ? date('M d, Y', strtotime($row['dob'])) : 'Not provided' ?></td>
+                                <td><?= htmlspecialchars($row['barangay'] ?? 'Not provided', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td><?= (int) $row['pregnancy_count'] ?></td>
                                 <td><?= $row['checkup_date'] ? date('M d, Y', strtotime($row['checkup_date'])) : 'No records' ?></td>
                                 <td>
                                     <span style="color: #333; font-weight: 700;"><?= htmlspecialchars($row['current_aog']) ?></span>
@@ -455,12 +542,12 @@ foreach ($patients as $patient) {
                                         <span style="color: #999; font-style: italic;">N/A</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><button class="view-btn" onclick='openModal(<?= json_encode($row) ?>)'>View Details</button></td>
+                                <td><button class="view-btn" onclick='openModal(<?= json_encode($row, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>)'>View Details</button></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="5" style="text-align: center; color: #7a7d79; padding: 26px; font-weight: 600;">No patient records found for the selected filter.</td>
+                                <td colspan="9" style="text-align: center; color: #7a7d79; padding: 26px; font-weight: 600;">No patient records found for the selected filter.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -478,10 +565,17 @@ foreach ($patients as $patient) {
             </div>
             
             <div class="info-card">
+                <div class="info-item"><label>Patient ID</label><span id="m_patient_code">--</span></div>
+                <div class="info-item"><label>Date of Birth</label><span id="m_dob">--</span></div>
+                <div class="info-item"><label>Barangay</label><span id="m_barangay">--</span></div>
                 <div class="info-item"><label>Age</label><span id="m_age">--</span></div>
                 <div class="info-item"><label>Contact</label><span id="m_contact">--</span></div>
                 <div class="info-item"><label>Blood Type</label><span id="m_blood">--</span></div>
                 <div class="info-item"><label>LMP</label><span id="m_lmp">--</span></div>
+            </div>
+            <div class="pregnancy-picker">
+                <label for="m_pregnancy_select">Pregnancy records</label>
+                <select id="m_pregnancy_select" aria-label="Select a pregnancy record"></select>
             </div>
 
             <!-- TABS -->
@@ -573,7 +667,7 @@ foreach ($patients as $patient) {
             </div>
 
             <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items:center;">
-                <button type="button" class="btn-delete" onclick="confirmDelete()">Delete Patient</button>
+                <button type="button" class="btn-delete" onclick="confirmDelete()">Delete Pregnancy Record</button>
                 <button onclick="closeModal()" style="background:#eee; border:none; padding:8px 18px; border-radius:8px; cursor:pointer;">Close</button>
             </div>
         </div>
@@ -611,10 +705,45 @@ foreach ($patients as $patient) {
 
             let fullName = `${data.client_fname || ''} ${data.client_mi ? data.client_mi + ' ' : ''}${data.client_lname || ''}`;
             document.getElementById('m_name').innerText = fullName;
-            document.getElementById('m_age').innerText = (data.age || "--") + " yrs old";
-            document.getElementById('m_contact').innerText = data.contact || "N/A";
-            document.getElementById('m_blood').innerText = data.blood_type || "N/A";
-            document.getElementById('m_lmp').innerText = data.lmp || "Not set";
+            document.getElementById('m_patient_code').innerText = data.patient_code || 'N/A';
+            document.getElementById('m_dob').innerText = data.dob || 'Not provided';
+            document.getElementById('m_barangay').innerText = data.barangay || 'Not provided';
+
+            const pregnancySelect = document.getElementById('m_pregnancy_select');
+            pregnancySelect.replaceChildren();
+            (data.pregnancies || []).forEach(function(pregnancy) {
+                const option = document.createElement('option');
+                const pregnancyNumber = pregnancy.order > 0 ? pregnancy.order : 1;
+                option.value = pregnancy.id;
+                option.textContent = `Pregnancy ${pregnancyNumber} — ${pregnancy.status} — LMP: ${pregnancy.lmp || 'Not provided'}`;
+                option.selected = Number(pregnancy.id) === Number(data.id);
+                pregnancySelect.appendChild(option);
+            });
+            pregnancySelect.onchange = function() {
+                const selectedPregnancy = (data.pregnancies || []).find(function(pregnancy) {
+                    return Number(pregnancy.id) === Number(pregnancySelect.value);
+                });
+                if (selectedPregnancy) {
+                    loadPregnancyDetails(selectedPregnancy.id, selectedPregnancy);
+                }
+            };
+            const selectedPregnancy = (data.pregnancies || []).find(function(pregnancy) {
+                return Number(pregnancy.id) === Number(data.id);
+            }) || (data.pregnancies || [])[0];
+            if (selectedPregnancy) {
+                loadPregnancyDetails(selectedPregnancy.id, selectedPregnancy);
+            }
+
+            document.getElementById('maternalModal').style.display = "block";
+        }
+
+        function loadPregnancyDetails(motherId, pregnancy) {
+            currentMotherId = Number(motherId);
+            document.getElementById('delete_id').value = currentMotherId;
+            document.getElementById('m_lmp').innerText = pregnancy.lmp || "Not set";
+            document.getElementById('m_age').innerText = "--";
+            document.getElementById('m_contact').innerText = "N/A";
+            document.getElementById('m_blood').innerText = "N/A";
 
             // AJAX call to fetch all records
             fetch('admin_maternal_rec.php', {
@@ -622,11 +751,16 @@ foreach ($patients as $patient) {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
                 },
-                body: new URLSearchParams({ fetch_patient_details: data.id })
+                body: new URLSearchParams({ fetch_patient_details: String(motherId) })
             })
                 .then(res => res.json())
                 .then(resData => {
                     const reg = resData.registration_info || {};
+                    document.getElementById('m_age').innerText = reg.age ? reg.age + " yrs old" : "--";
+                    document.getElementById('m_contact').innerText = reg.contact || "N/A";
+                    document.getElementById('m_blood').innerText = reg.blood_type || "N/A";
+                    document.getElementById('m_dob').innerText = reg.dob || "Not provided";
+                    document.getElementById('m_barangay').innerText = reg.barangay || "Not provided";
                     document.getElementById('m_address').innerText = reg.full_address || "N/A";
                     document.getElementById('m_spouse').innerText = ((reg.spouse_fname || '') + ' ' + (reg.spouse_lname || '')).trim() || "N/A";
                     document.getElementById('m_educ').innerText = reg.highest_educ || "N/A";
@@ -741,7 +875,6 @@ foreach ($patients as $patient) {
                 })
                 .catch(err => console.error("Error fetching patient details:", err));
 
-            document.getElementById('maternalModal').style.display = "block";
         }
 
         function closeModal() { document.getElementById('maternalModal').style.display = "none"; }
