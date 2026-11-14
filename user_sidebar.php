@@ -325,9 +325,6 @@ if (in_array($current_page, $chatbot_pages, true)) {
 
 
 
-
-
-
 </style>
 
 <script>
